@@ -51,7 +51,7 @@ The objective of Pulse Portal is to develop an intelligent healthcare support sy
 ### Landing Page
 
 <p align="center">
-  <img src="./assets/Landing-page.png" width="800" alt="PulsePortal Landing Page">
+  <img src="./assets/Landing-Page.png" width="800" alt="PulsePortal Landing Page">
 </p>
 
 ### Patient Dashboard
