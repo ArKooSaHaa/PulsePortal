@@ -7,7 +7,10 @@
 //   3. Auth Form (right side interaction)
 // ─────────────────────────────────────────────────────────────
 
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { ROLES } from "../config/roles";
+
 // AnimatedBackground
 function AnimatedBackground({ role, cfg }) {
     return (
@@ -21,7 +24,7 @@ function AnimatedBackground({ role, cfg }) {
                 className="absolute inset-0 -z-10"
                 style={{
                     background:
-                        "linear-gradient(135deg, #0080ffff 0%, #F1F5F9 100%)",
+                        "linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%)",
                 }}
             >
                 <motion.div
@@ -75,11 +78,91 @@ function AnimatedBackground({ role, cfg }) {
     );
 }
 
-export default function AuthPage() {
-    return(
-        <div>
-            <AnimatedBackground role={role} cfg={cfg}/>
-        </div>
+// Left Panel (Heart Pulse & Headings)
+function HeartbeatPulse({ color }) {
+    const [offset, setOffset] = useState(0);
 
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setOffset((prev) => (prev + 4) % 800);
+        }, 100);
+        return () => clearInterval(interval);
+    }, []);
+
+    const heartbeatPath = `
+    M 0,60
+    L 150,60
+    L 165,60
+    L 175,30
+    L 185,90
+    L 195,40
+    L 205,60
+    L 400,60
+  `;
+    return (
+        <div className="w-full h-32 relative overflow-hidden bg-white/40 backdrop-blur-sm rounded-2xl border border-slate-200">
+            <div
+                className="absolute inset-0 opacity-[0.15]"
+                style={{
+                    backgroundImage: `
+            linear-gradient(${color}40 2px, transparent 2px),
+            linear-gradient(90deg, ${color}40 2px, transparent 2px)
+          `,
+                    backgroundSize: "20px 20px",
+                }}
+            />
+            <svg
+                className="absolute inset-0 w-full h-full"
+                preserveAspectRatio="none"
+                viewBox="0 0 800 120"
+            >
+                {[0, 1, 2, 3].map((i) => (
+                    <motion.path
+                        key={i}
+                        d={heartbeatPath}
+                        fill="none"
+                        stroke={color}
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        initial={{ x: i * 400 - offset }}
+                        animate={{ x: i * 400 - offset }}
+                        transition={{ duration: 0 }}
+                    />
+                ))}
+            </svg>
+        </div>
+    );
+}
+function LeftPanel({ role, cfg }) {
+    return (
+        <div className="flex-1 flex flex-col justify-center gap-6 py-10">
+            <AnimatePresence mode="wait">
+                <h2>HealthCare at hoem</h2>
+            </AnimatePresence>
+            <AnimatePresence mode="wait">
+                <motion.div
+                    key={role}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 1.05 }}
+                    transition={{ duration: 0.4 }}
+                >
+                    <HeartbeatPulse color={cfg.pulseColor} />
+                </motion.div>
+            </AnimatePresence>
+        </div>
+    );
+}
+
+export default function AuthPage() {
+    const [role, setRole] = useState("doctor");
+    const cfg = ROLES[role];
+
+    return (
+        <div className="min-h-screen w-full flex overflow-hidden relative font-sans">
+            <AnimatedBackground role={role} cfg={cfg} />
+            <LeftPanel role={role} cfg={cfg} />
+        </div>
     );
 }
