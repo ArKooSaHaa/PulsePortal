@@ -10,6 +10,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ROLES } from "../config/roles";
+import AuthForm from "../components/AuthForm";
 
 // AnimatedBackground
 function AnimatedBackground({ role, cfg }) {
@@ -191,6 +192,9 @@ export default function AuthPage() {
         <div className="min-h-screen w-full flex overflow-hidden relative font-sans">
             <AnimatedBackground role={role} cfg={cfg} />
             <LeftPanel role={role} cfg={cfg} />
+            <div className="flex-1 flex items-center justify-center p-6 lg:p-10 relative z-10">
+                <AuthForm activeRole={role} onRoleChange={setRole} />
+            </div>
         </div>
     );
 }
