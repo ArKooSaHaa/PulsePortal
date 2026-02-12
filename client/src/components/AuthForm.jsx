@@ -17,7 +17,7 @@ function RoleTabs({ activeRole, onRoleChange }) {
     return (
         <div className="flex items-center bg-slate-100/80 border border-slate-200 rounded-2xl p-1 mb-7">
             {Object.entries(ROLES).map(([key, cfg]) => {
-                const isActive = (activeRole === key);
+                const isActive = activeRole === key;
 
                 return (
                     <motion.button
@@ -25,7 +25,7 @@ function RoleTabs({ activeRole, onRoleChange }) {
                         onClick={() => onRoleChange(key)}
                         whileHover={{ y: -1 }}
                         whileTap={{ scale: 0.97 }}
-                        className="relative flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-semibold transition-colors duration-200 cursor-pointer border-none bg-transparent"
+                        className="relative flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-semibold border-none bg-transparent outline-none focus:outline-none ring-0 focus:ring-0"
                         style={{
                             color: isActive
                                 ? cfg.accent
@@ -53,6 +53,50 @@ function RoleTabs({ activeRole, onRoleChange }) {
                     </motion.button>
                 );
             })}
+        </div>
+    );
+}
+
+// Input Fields
+function InputField({ label, placeholder, type = "text", accent, accentGlow }) {
+    const [focused, setFocused] = useState(false);
+
+    return (
+        <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest ml-1">
+                {label}
+            </label>
+
+            {/* Animated Wrapper */}
+            <motion.div
+                animate={{
+                    boxShadow: focused
+                        ? `0 0 0 2px ${accent}, 0 0 16px ${accentGlow}`
+                        : "0 0 0 1px #E2E8F0",
+                }}
+                className="rounded-xl overflow-hidden"
+            >
+                <input
+                    id={label}
+                    type={type}
+                    placeholder={placeholder}
+                    onFocus={() => setFocused(true)}
+                    onBlur={() => setFocused(false)}
+                    className="
+                                w-full
+                                bg-white/70
+                                hover:bg-white/90
+                                focus:bg-white
+                                text-slate-800 text-sm
+                                px-4 py-3
+                                rounded-xl
+                                border-none outline-none
+                                transition-colors duration-200
+                                font-sans
+                            "
+                    style={{ caretColor: accent }}
+                />
+            </motion.div>
         </div>
     );
 }
