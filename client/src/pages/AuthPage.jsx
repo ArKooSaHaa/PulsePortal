@@ -1,7 +1,4 @@
 // ─────────────────────────────────────────────────────────────
-// AuthPage.jsx
-//
-// This page combines:
 //   1. Animated Background (blobs)
 //   2. Left Panel (information & heart pulse)
 //   3. Auth Form (right side)
@@ -140,7 +137,7 @@ function LeftPanel({ role, cfg }) {
                 transition={{ delay: 0.2 }}
                 className="flex items-center gap-3"
             >
-                <span className="text-slate-800 font-bold text-xl font-display tracking-tight">
+                <span className="text-slate-800 font-bold text-3xl font-display tracking-tight">
                     PulsePortal
                 </span>
             </motion.div>
