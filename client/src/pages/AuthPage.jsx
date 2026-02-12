@@ -137,9 +137,29 @@ function HeartbeatPulse({ color }) {
 function LeftPanel({ role, cfg }) {
     return (
         <div className="flex-1 flex flex-col justify-center gap-6 py-10">
+            {/* Page content */}
             <AnimatePresence mode="wait">
-                <h2>HealthCare at hoem</h2>
+                <motion.div
+                    key={role}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 1.05 }}
+                    transition={{ duration: 0.4 }}
+                >
+                    <h2 className="font-display font-extrabold text-5xl text-slate-800 leading-tight mb-3">
+                        HealthCare at the
+                        <br />
+                        <span style={{ color: cfg.accent }}>
+                            speed of life.
+                        </span>
+                    </h2>
+                    <p className="text-slate-600 text-base leading-relaxed max-w-md">
+                        {cfg.tagline}
+                    </p>
+                </motion.div>
             </AnimatePresence>
+
+            {/* Heartbeat Pulse */}
             <AnimatePresence mode="wait">
                 <motion.div
                     key={role}
@@ -156,7 +176,7 @@ function LeftPanel({ role, cfg }) {
 }
 
 export default function AuthPage() {
-    const [role, setRole] = useState("doctor");
+    const [role, setRole] = useState("patient");
     const cfg = ROLES[role];
 
     return (
