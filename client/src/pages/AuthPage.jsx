@@ -3,8 +3,8 @@
 //
 // This page combines:
 //   1. Animated Background (blobs)
-//   2. Left Panel (information & visuals)
-//   3. Auth Form (right side interaction)
+//   2. Left Panel (information & heart pulse)
+//   3. Auth Form (right side)
 // ─────────────────────────────────────────────────────────────
 
 import { useState, useEffect } from "react";
@@ -80,15 +80,6 @@ function AnimatedBackground({ role, cfg }) {
 
 // Left Panel (Heart Pulse & Headings)
 function HeartbeatPulse({ color }) {
-    const [offset, setOffset] = useState(0);
-
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setOffset((prev) => (prev + 4) % 800);
-        }, 100);
-        return () => clearInterval(interval);
-    }, []);
-
     const heartbeatPath = `
     M 0,60
     L 150,60
@@ -99,6 +90,7 @@ function HeartbeatPulse({ color }) {
     L 205,60
     L 400,60
   `;
+
     return (
         <div className="w-full h-32 relative overflow-hidden bg-white/40 backdrop-blur-sm rounded-2xl border border-slate-200">
             <div
@@ -116,7 +108,7 @@ function HeartbeatPulse({ color }) {
                 preserveAspectRatio="none"
                 viewBox="0 0 800 120"
             >
-                {[0, 1, 2, 3].map((i) => (
+                {[0, 1, 2].map((i) => (
                     <motion.path
                         key={i}
                         d={heartbeatPath}
@@ -125,9 +117,13 @@ function HeartbeatPulse({ color }) {
                         strokeWidth="2.5"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        initial={{ x: i * 400 - offset }}
-                        animate={{ x: i * 400 - offset }}
-                        transition={{ duration: 0 }}
+                        initial={{ x: i * 400 }}
+                        animate={{ x: i * 400 - 400 }}
+                        transition={{
+                            duration: 2.5,
+                            repeat: Infinity,
+                            ease: "linear",
+                        }}
                     />
                 ))}
             </svg>
@@ -136,47 +132,59 @@ function HeartbeatPulse({ color }) {
 }
 function LeftPanel({ role, cfg }) {
     return (
-        <div className="flex-1 flex flex-col justify-center gap-6 py-10">
-            {/* Page content */}
-            <AnimatePresence mode="wait">
-                <motion.div
-                    key={role}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 1.05 }}
-                    transition={{ duration: 0.4 }}
-                >
-                    <h2 className="font-display font-extrabold text-5xl text-slate-800 leading-tight mb-3">
-                        HealthCare at the
-                        <br />
-                        <span style={{ color: cfg.accent }}>
-                            speed of life.
-                        </span>
-                    </h2>
-                    <p className="text-slate-600 text-base leading-relaxed max-w-md">
-                        {cfg.tagline}
-                    </p>
-                </motion.div>
-            </AnimatePresence>
+        <div className="hidden lg:flex flex-col justify-between p-12 flex-[0_0_52%] relative z-10">
+            <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 }}
+                className="flex items-center gap-3"
+            >
+                <span className="text-slate-800 font-bold text-xl font-display tracking-tight">
+                    PulsePortal
+                </span>
+            </motion.div>
+            <div className="flex-1 flex flex-col justify-center gap-6 py-10">
+                {/* Page content */}
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={role}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 1.05 }}
+                        transition={{ duration: 0.4 }}
+                    >
+                        <h2 className="font-display font-extrabold text-5xl text-slate-800 leading-tight mb-3">
+                            HealthCare at the
+                            <br />
+                            <span style={{ color: cfg.accent }}>
+                                speed of life.
+                            </span>
+                        </h2>
+                        <p className="text-slate-600 text-base leading-relaxed max-w-md">
+                            {cfg.tagline}
+                        </p>
+                    </motion.div>
+                </AnimatePresence>
 
-            {/* Heartbeat Pulse */}
-            <AnimatePresence mode="wait">
-                <motion.div
-                    key={role}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 1.05 }}
-                    transition={{ duration: 0.4 }}
-                >
-                    <HeartbeatPulse color={cfg.pulseColor} />
-                </motion.div>
-            </AnimatePresence>
+                {/* Heartbeat Pulse */}
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={role}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 1.05 }}
+                        transition={{ duration: 0.4 }}
+                    >
+                        <HeartbeatPulse color={cfg.pulseColor} />
+                    </motion.div>
+                </AnimatePresence>
+            </div>
         </div>
     );
 }
 
 export default function AuthPage() {
-    const [role, setRole] = useState("patient");
+    const [role, setRole] = useState("doctor");
     const cfg = ROLES[role];
 
     return (
