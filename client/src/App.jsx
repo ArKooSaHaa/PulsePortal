@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
 import AuthPage from "./pages/AuthPage";
 import Navbar from "./components/Navbar";
 import { roleRoutes } from "./config/roleRoutes";
+import HomePage from "./pages/HomePage";
 
 // Layout wraps navbar + child component
 function RoleLayout() {
@@ -9,6 +10,12 @@ function RoleLayout() {
         <>
             <Navbar />
             <Outlet />
+            <BrowserRouter>
+                <Routes>
+                    <Route path="/auth" element={<AuthPage />} />
+                    <Route path="/home" element={<HomePage />} />
+                </Routes>
+            </BrowserRouter>
         </>
     );
 }
