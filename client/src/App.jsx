@@ -10,12 +10,6 @@ function RoleLayout() {
         <>
             <Navbar />
             <Outlet />
-            <BrowserRouter>
-                <Routes>
-                    <Route path="/auth" element={<AuthPage />} />
-                    <Route path="/home" element={<HomePage />} />
-                </Routes>
-            </BrowserRouter>
         </>
     );
 }
@@ -24,6 +18,8 @@ function App() {
     return (
         <BrowserRouter>
             <Routes>
+                <Route path="/" element={<HomePage />} />
+
                 <Route path="/:role" element={<RoleLayout />}>
                     {Object.entries(roleRoutes).map(([role, routes]) =>
                         routes.map((route) => (
