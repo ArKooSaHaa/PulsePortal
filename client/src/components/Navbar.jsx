@@ -1,21 +1,20 @@
-import { useState } from "react";
+import React from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { HeartPulse } from "lucide-react";
-import { ROLES } from "../config/roles"; // Role-based Navigation Links
 
 const NAV_LINKS = {
     patient: [
-        { name: "My Appointments", path: "/appointments" },
-        { name: "History", path: "/history" },
-        { name: "Book Appointment", path: "/book-appointment" },
+        { name: "My Appointments", path: "appointments" },
+        { name: "History", path: "history" },
+        { name: "Book Appointment", path: "book-appointment" },
     ],
     doctor: [
-        { name: "Appointments", path: "/doc-appointments" },
-        { name: "Patients", path: "/doc-patients" },
+        { name: "Appointments", path: "doc-appointments" },
+        { name: "Patients", path: "doc-patients" },
     ],
     admin: [
-        // { name: "Manage Doctors", path: "/manage-doctors" },
+        // { name: "Manage Doctors", path: "manage-doctors" }
     ],
 };
 
@@ -23,7 +22,7 @@ function NavLink({ to, children, isActive }) {
     return (
         <motion.div
             whileHover={{ y: -2 }}
-            whileTap={{ scale: 0.89 }}
+            whileTap={{ scale: 0.92 }}
             transition={{ duration: 0.2 }}
         >
             <Link
@@ -58,16 +57,9 @@ function NavLink({ to, children, isActive }) {
 export default function Navbar() {
     const { role } = useParams();
     const location = useLocation();
-    const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-    // Validate role, fallback to 'patient' if invalid
-    const activeRole = ROLES[role] ? role : "patient";
-
-    // Check if the current role param matches the active one, otherwise we might be on a non-role page
-    const links = NAV_LINKS[activeRole] || [];
-    const roleConfig = ROLES[activeRole] || ROLES.patient;
-
-    const dashboardPath = `/${activeRole}`;
+    const links = NAV_LINKS[role] || [];
+    const dashboardPath = `/${role}`;
 
     return (
         <header className="sticky top-0 z-50 w-full">
@@ -87,18 +79,21 @@ export default function Navbar() {
                     <div className="flex items-center gap-6">
                         {/* Desktop Navigation */}
                         <div className="hidden md:flex items-center gap-4">
-                            {links.map((link) => (
+                            {links.map((link, index) => (
                                 <>
                                     <NavLink
                                         key={link.path}
                                         to={link.path}
                                         isActive={
-                                            location.pathname === link.path
+                                            location.pathname ===
+                                            `/${role}/${link.path}`
                                         }
                                     >
                                         {link.name}
                                     </NavLink>
-                                    <div className="h-1 w-1 bg-slate-400 rounded-full" />
+                                    {index < links.length - 1 && (
+                                        <div className="h-1 w-1 bg-slate-400 rounded-full" />
+                                    )}
                                 </>
                             ))}
 
@@ -113,8 +108,8 @@ export default function Navbar() {
                                             "linear-gradient(135deg, #0a5bbf, #127fec)",
                                     }}
                                 >
-                                    {activeRole.charAt(0).toUpperCase() +
-                                        activeRole.slice(1)}{" "}
+                                    {role.charAt(0).toUpperCase() +
+                                        role.slice(1)}{" "}
                                     Dashboard
                                 </motion.button>
                             </Link>
