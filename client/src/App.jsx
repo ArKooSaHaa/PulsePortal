@@ -3,7 +3,7 @@ import AuthPage from "./pages/AuthPage";
 import Navbar from "./components/Navbar";
 import { roleRoutes } from "./config/roleRoutes";
 
-// Layout component  wraps Navbar + page content
+// Layout wraps navbar + child component
 function RoleLayout() {
     return (
         <>

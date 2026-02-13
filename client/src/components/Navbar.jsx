@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { HeartPulse, LogOut, User } from "lucide-react";
+import { HeartPulse, LogOut, User, Menu, X } from "lucide-react";
 import demoImage from "../assets/demo.jpg";
 
 const NAV_LINKS = {
@@ -59,6 +59,7 @@ export default function Navbar() {
     const { role } = useParams();
     const location = useLocation();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const dropdownRef = useRef(null);
 
     const links = NAV_LINKS[role] || [];
@@ -99,7 +100,7 @@ export default function Navbar() {
                     {/* Right Side: Navigation & Profile */}
                     <div className="flex items-center gap-6">
                         {/* Desktop Navigation */}
-                        <div className="hidden md:flex items-center gap-3">
+                        <div className="hidden lg:flex items-center gap-3">
                             {links.map((link, index) => (
                                 <React.Fragment key={link.path}>
                                     <NavLink
@@ -133,12 +134,26 @@ export default function Navbar() {
                             </Link>
                         </div>
 
-                        <div className="h-6 w-px bg-slate-400" />
+                        <div className="hidden lg:block h-6 w-px bg-slate-400" />
 
                         {/* Profile Section */}
                         <div className="flex items-center gap-4">
+                            {/* Mobile Menu Button */}
+                            <motion.button
+                                className="lg:hidden p-2 text-slate-600 hover:text-[#127fec] transition-colors"
+                                onClick={() =>
+                                    setIsMobileMenuOpen(!isMobileMenuOpen)
+                                }
+                            >
+                                {isMobileMenuOpen ? (
+                                    <X size={24} />
+                                ) : (
+                                    <Menu size={24} />
+                                )}
+                            </motion.button>
+
                             {/* Profile Dropdown */}
-                            <div className="relative" ref={dropdownRef}>
+                            <div className="relative z-100" ref={dropdownRef}>
                                 <motion.button
                                     onClick={() =>
                                         setIsProfileOpen(!isProfileOpen)
@@ -214,6 +229,58 @@ export default function Navbar() {
                         </div>
                     </div>
                 </div>
+
+                {/* Mobile Menu Dropdown */}
+                <AnimatePresence>
+                    {isMobileMenuOpen && (
+                        <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="lg:hidden overflow-hidden bg-white/90 backdrop-blur-md rounded-2xl mt-2 border border-white/20 shadow-lg"
+                        >
+                            <div className="flex flex-col p-4 gap-2">
+                                {links.map((link) => (
+                                    <Link
+                                        key={link.path}
+                                        to={link.path}
+                                        onClick={() =>
+                                            setIsMobileMenuOpen(false)
+                                        }
+                                        className={`px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+                                            location.pathname ===
+                                            `/${role}/${link.path}`
+                                                ? "bg-[#127fec]/10 text-[#127fec]"
+                                                : "text-slate-600 hover:bg-slate-50 hover:text-[#127fec]"
+                                        }`}
+                                    >
+                                        {link.name}
+                                    </Link>
+                                ))}
+
+                                <div className="h-px bg-slate-200 my-2" />
+
+                                <Link
+                                    to={dashboardPath}
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                    className="w-full"
+                                >
+                                    <button
+                                        className="w-full px-4 py-3 rounded-xl text-sm font-bold text-white shadow-md transition-all active:scale-95"
+                                        style={{
+                                            background:
+                                                "linear-gradient(135deg, #0a5bbf, #127fec)",
+                                        }}
+                                    >
+                                        {role.charAt(0).toUpperCase() +
+                                            role.slice(1)}{" "}
+                                        Dashboard
+                                    </button>
+                                </Link>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </nav>
         </header>
     );
