@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { HeartPulse } from "lucide-react";
+import { HeartPulse, LogOut, User } from "lucide-react";
+import demoImage from "../assets/demo.jpg";
 
 const NAV_LINKS = {
     patient: [
@@ -57,9 +58,29 @@ function NavLink({ to, children, isActive }) {
 export default function Navbar() {
     const { role } = useParams();
     const location = useLocation();
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const dropdownRef = useRef(null);
 
     const links = NAV_LINKS[role] || [];
     const dashboardPath = `/${role}`;
+
+    // Close dropdown
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (
+                dropdownRef.current &&
+                !dropdownRef.current.contains(event.target)
+            ) {
+                setIsProfileOpen(false);
+            }
+        }
+        if (isProfileOpen) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isProfileOpen]);
 
     return (
         <header className="sticky top-0 z-50 w-full">
@@ -78,11 +99,10 @@ export default function Navbar() {
                     {/* Right Side: Navigation & Profile */}
                     <div className="flex items-center gap-6">
                         {/* Desktop Navigation */}
-                        <div className="hidden md:flex items-center gap-4">
+                        <div className="hidden md:flex items-center gap-3">
                             {links.map((link, index) => (
-                                <>
+                                <React.Fragment key={link.path}>
                                     <NavLink
-                                        key={link.path}
                                         to={link.path}
                                         isActive={
                                             location.pathname ===
@@ -91,10 +111,8 @@ export default function Navbar() {
                                     >
                                         {link.name}
                                     </NavLink>
-                                    {index < links.length - 1 && (
-                                        <div className="h-1 w-1 bg-slate-400 rounded-full" />
-                                    )}
-                                </>
+                                    <div className="h-1 w-1 bg-slate-400 rounded-full" />
+                                </React.Fragment>
                             ))}
 
                             {/* Dashboard Button */}
@@ -116,6 +134,84 @@ export default function Navbar() {
                         </div>
 
                         <div className="h-6 w-px bg-slate-400" />
+
+                        {/* Profile Section */}
+                        <div className="flex items-center gap-4">
+                            {/* Profile Dropdown */}
+                            <div className="relative" ref={dropdownRef}>
+                                <motion.button
+                                    onClick={() =>
+                                        setIsProfileOpen(!isProfileOpen)
+                                    }
+                                    whileHover={{ scale: 1.08 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    className="relative rounded-full focus:outline-none p-1"
+                                >
+                                    <div className="h-10 w-10 rounded-full overflow-hidden ring-2 ring-slate-200 hover:ring-[#127fec] transition-all duration-200">
+                                        <img
+                                            src={demoImage}
+                                            alt="Profile"
+                                            className="h-full w-full object-cover"
+                                        />
+                                    </div>
+                                </motion.button>
+
+                                <AnimatePresence className="p-0">
+                                    {isProfileOpen && (
+                                        <motion.div
+                                            initial={{
+                                                opacity: 0,
+                                                y: 10,
+                                                scale: 0.95,
+                                            }}
+                                            animate={{
+                                                opacity: 1,
+                                                y: 0,
+                                                scale: 1,
+                                            }}
+                                            exit={{
+                                                opacity: 0,
+                                                y: 10,
+                                                scale: 0.95,
+                                            }}
+                                            className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-slate-200 bg-white shadow-xl p-2 z-50"
+                                        >
+                                            <motion.button
+                                                whileHover={{
+                                                    x: 3,
+                                                    backgroundColor:
+                                                        "rgba(18, 127, 236, 0.05)",
+                                                    border: "1px solid #127fec",
+                                                }}
+                                                whileTap={{ scale: 0.97 }}
+                                                transition={{ duration: 0.2 }}
+                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:text-[#127fec] rounded-lg transition-colors font-medium"
+                                            >
+                                                <User size={18} />
+                                                Profile
+                                            </motion.button>
+
+                                            <div className="h-px mx-2 my-1 bg-slate-300" />
+
+                                            <motion.button
+                                                whileHover={{
+                                                    x: 3,
+                                                    backgroundColor:
+                                                        "rgba(239, 68, 68, 0.05)",
+                                                    border: "1px solid red",
+                                                }}
+                                                whileTap={{ scale: 0.97 }}
+                                                transition={{ duration: 0.2 }}
+                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:text-red-600 rounded-lg transition-colors font-medium"
+                                            >
+                                                <LogOut size={18} />
+                                                Sign Out
+                                            </motion.button>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </nav>
