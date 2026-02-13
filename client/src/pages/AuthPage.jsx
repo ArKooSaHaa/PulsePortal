@@ -134,7 +134,7 @@ function LeftPanel({ role, cfg }) {
             <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
+                transition={{ delay: 0.1, duration: 0.2 }}
                 className="flex items-center gap-3"
             >
                 <span className="text-slate-800 font-bold text-3xl font-display tracking-tight">
@@ -149,7 +149,7 @@ function LeftPanel({ role, cfg }) {
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 1.05 }}
-                        transition={{ duration: 0.4 }}
+                        transition={{ duration: 0.5 }}
                     >
                         <h2 className="font-display font-extrabold text-5xl text-slate-800 leading-tight mb-3">
                             HealthCare at the
@@ -171,7 +171,7 @@ function LeftPanel({ role, cfg }) {
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 1.05 }}
-                        transition={{ duration: 0.4 }}
+                        transition={{ duration: 0.5 }}
                     >
                         <HeartbeatPulse color={cfg.pulseColor} />
                     </motion.div>

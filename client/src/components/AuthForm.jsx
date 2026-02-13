@@ -138,7 +138,7 @@ export default function AuthForm({ activeRole, onRoleChange }) {
             style={{
                 background: "rgba(255,255,255,0.7)",
                 backdropFilter: "blur(24px)",
-                WebkitBackdropFilter: "blur(24px)",
+                WebkitBackdropFilter: "blur(50px)",
                 border: "1px solid rgba(226,232,240,0.8)",
             }}
         >
@@ -160,6 +160,7 @@ export default function AuthForm({ activeRole, onRoleChange }) {
                     key={mode + "title"}
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
                     className="text-3xl font-extrabold text-slate-800 tracking-tight font-display"
                 >
                     {mode === "login" ? "Welcome back" : "Create account"}
@@ -168,7 +169,7 @@ export default function AuthForm({ activeRole, onRoleChange }) {
                     key={mode + "sub"}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ delay: 0.1 }}
+                    transition={{ delay: 0.2 }}
                     className="text-slate-600 text-sm mt-1.5 font-sans"
                 >
                     {mode === "login"
@@ -191,10 +192,10 @@ export default function AuthForm({ activeRole, onRoleChange }) {
                     initial={{ opacity: 0, y: 14 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                    transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                     className="relative z-10 flex flex-col gap-4"
                 >
-                    <form className="flex flex-col gap-4">
+                    <form className="flex flex-col gap-4" >
                         {mode === "signup" && (
                             <InputField
                                 label="Full Name"
