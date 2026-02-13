@@ -23,12 +23,12 @@ function NavLink({ to, children, isActive }) {
     return (
         <motion.div
             whileHover={{ y: -2 }}
-            whileTap={{ scale: 0.9 }}
+            whileTap={{ scale: 0.89 }}
             transition={{ duration: 0.2 }}
         >
             <Link
                 to={to}
-                className={`relative px-3 py-2 text-sm transition-colors block ${
+                className={`relative px-0 mx-2 py-2 text-sm transition-colors block ${
                     isActive
                         ? "font-bold text-[#127fec] hover:text-[#127fec]"
                         : "font-medium text-slate-600 hover:text-[#127fec]"
@@ -72,12 +72,12 @@ export default function Navbar() {
     return (
         <header className="sticky top-0 z-50 w-full">
             <nav className="mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex h-16 items-center justify-between rounded-2xl border-b border-white/20 bg-white/80 px-4 shadow-sm backdrop-blur-md transition-all mt-4">
+                <div className="flex py-4 items-center justify-between rounded-2xl border-b border-white/20 bg-white/80 px-8 shadow-lg backdrop-blur-md transition-all mt-4">
                     {/* Logo Section */}
                     <div className="flex items-center gap-2">
                         <Link to="/" className="flex items-center gap-2">
                             <span className="flex text-xl font-bold tracking-tight text-slate-800 font-display">
-                                <HeartPulse className="mr-2" />
+                                <HeartPulse size={30} className="mr-2" />
                                 PulsePortal
                             </span>
                         </Link>
@@ -98,7 +98,7 @@ export default function Navbar() {
                                     >
                                         {link.name}
                                     </NavLink>
-                                    <div className="h-6 w-px bg-slate-400 rounded-full" />
+                                    <div className="h-1 w-1 bg-slate-400 rounded-full" />
                                 </>
                             ))}
 
