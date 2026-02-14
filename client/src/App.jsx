@@ -1,17 +1,40 @@
-import { useState } from "react";
-import "./App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
 import AuthPage from "./pages/AuthPage";
+import Navbar from "./components/Navbar";
+import { roleRoutes } from "./config/roleRoutes";
+import HomePage from "./pages/HomePage";
+
+// Layout wraps navbar + child component
+function RoleLayout() {
+    return (
+        <>
+            <Navbar />
+            <Outlet />
+        </>
+    );
+}
 
 function App() {
     return (
-        <>
-            <BrowserRouter>
-                <Routes>
-                    <Route path="/auth" element={<AuthPage />} />
-                </Routes>
-            </BrowserRouter>
-        </>
+        <BrowserRouter>
+            <Routes>
+                <Route path="/" element={<HomePage />} />
+
+                <Route path="/:role" element={<RoleLayout />}>
+                    {Object.entries(roleRoutes).map(([role, routes]) =>
+                        routes.map((route) => (
+                            <Route
+                                key={`${role}-${route.path}`}
+                                path={route.path}
+                                element={route.element}
+                            />
+                        )),
+                    )}
+                </Route>
+
+                <Route path="/auth" element={<AuthPage />} />
+            </Routes>
+        </BrowserRouter>
     );
 }
 
