@@ -86,7 +86,7 @@ export default function Navbar() {
     return (
         <header className="sticky top-0 z-50 w-full">
             <nav className="mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex py-4 items-center justify-between rounded-2xl border-b border-white/20 bg-white/80 px-8 shadow-lg backdrop-blur-md transition-all mt-4">
+                <div className="flex py-2.5 items-center justify-between rounded-2xl border-b border-white/20 bg-white/80 px-8 shadow-lg backdrop-blur-md transition-all mt-4">
                     {/* Logo Section */}
                     <div className="flex items-center gap-2">
                         <Link to="/" className="flex items-center gap-2">

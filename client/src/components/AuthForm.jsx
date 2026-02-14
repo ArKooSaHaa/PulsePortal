@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ROLES } from "../config/roles";
+import { useNavigate } from "react-router-dom";
 
 // Handling different role tabs
 function RoleTabs({ activeRole, onRoleChange, mode }) {
@@ -106,6 +107,7 @@ function InputField({ label, placeholder, type = "text", accent, accentGlow }) {
 
 export default function AuthForm({ activeRole, onRoleChange }) {
     const [internalRole, setInternalRole] = useState("patient");
+    const navigate = useNavigate();
 
     const role = activeRole || internalRole;
 
@@ -195,7 +197,13 @@ export default function AuthForm({ activeRole, onRoleChange }) {
                     transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                     className="relative z-10 flex flex-col gap-4"
                 >
-                    <form className="flex flex-col gap-4" >
+                    <form
+                        className="flex flex-col gap-4"
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            navigate(`/${role}`);
+                        }}
+                    >
                         {mode === "signup" && (
                             <InputField
                                 label="Full Name"
@@ -235,6 +243,7 @@ export default function AuthForm({ activeRole, onRoleChange }) {
                         )}
 
                         <motion.button
+                            type="submit"
                             whileHover={{
                                 scale: 1.02,
                                 boxShadow: `0 12px 44px ${cfg.accentGlow}`,
