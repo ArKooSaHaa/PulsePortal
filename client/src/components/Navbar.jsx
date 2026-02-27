@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { HeartPulse, LogOut, User, Menu, X, Bell } from "lucide-react";
 import demoImage from "../assets/demo.jpg";
@@ -7,12 +7,10 @@ import demoImage from "../assets/demo.jpg";
 const NAV_LINKS = {
     patient: [
         { name: "My Appointments", path: "appointments" },
-        { name: "History", path: "history" },
         { name: "Book Appointment", path: "book-appointment" },
     ],
     doctor: [
         { name: "Appointments", path: "doc-appointments" },
-        { name: "Patients", path: "doc-patients" },
     ],
     admin: [
         // { name: "Manage Doctors", path: "manage-doctors" }
@@ -56,8 +54,9 @@ function NavLink({ to, children, isActive }) {
 }
 
 export default function Navbar() {
-    const { role } = useParams();
     const location = useLocation();
+    // Derive role from the first URL segment: /patient/... → "patient"
+    const role = location.pathname.split("/")[1] || "";
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -79,7 +78,10 @@ export default function Navbar() {
             if (notifRef.current && !notifRef.current.contains(event.target)) {
                 setIsNotifOpen(false);
             }
-            if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target)) {
+            if (
+                mobileMenuRef.current &&
+                !mobileMenuRef.current.contains(event.target)
+            ) {
                 setIsMobileMenuOpen(false);
             }
         }
@@ -93,7 +95,6 @@ export default function Navbar() {
         <header className="sticky top-0 z-50 w-full">
             <nav className="mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex py-2.5 items-center justify-between rounded-2xl border-b border-white/20 bg-white/80 px-8 shadow-lg backdrop-blur-md transition-all mt-4">
-                    
                     {/* Logo + Dashboard Button Section */}
                     <div className="flex items-center gap-3">
                         <Link to="/" className="flex items-center gap-2">
@@ -124,7 +125,7 @@ export default function Navbar() {
                             {links.map((link, index) => (
                                 <React.Fragment key={link.path}>
                                     <NavLink
-                                        to={link.path}
+                                        to={`/${role}/${link.path}`}
                                         isActive={
                                             location.pathname ===
                                             `/${role}/${link.path}`
@@ -260,7 +261,9 @@ export default function Navbar() {
                             {/* Mobile Menu Button */}
                             <motion.button
                                 className="lg:hidden p-1 text-slate-600 hover:text-[#127fec] transition-colors"
-                                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                                onClick={() =>
+                                    setIsMobileMenuOpen(!isMobileMenuOpen)
+                                }
                                 ref={mobileMenuRef}
                             >
                                 {isMobileMenuOpen ? (
@@ -361,7 +364,7 @@ export default function Navbar() {
                                 {links.map((link) => (
                                     <Link
                                         key={link.path}
-                                        to={link.path}
+                                        to={`/${role}/${link.path}`}
                                         onClick={() =>
                                             setIsMobileMenuOpen(false)
                                         }
@@ -383,7 +386,10 @@ export default function Navbar() {
                                 >
                                     <button
                                         className="w-full px-4 py-2 rounded-xl text-sm font-bold text-white shadow-md transition-all active:scale-95"
-                                        style={{ background: "linear-gradient(135deg, #0a5bbf, #127fec)" }}
+                                        style={{
+                                            background:
+                                                "linear-gradient(135deg, #0a5bbf, #127fec)",
+                                        }}
                                     >
                                         {role.charAt(0).toUpperCase() +
                                             role.slice(1)}{" "}

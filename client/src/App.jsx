@@ -1,10 +1,13 @@
 import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
-import AuthPage from "./pages/AuthPage";
 import Navbar from "./components/Navbar";
-import { roleRoutes } from "./config/roleRoutes";
+import AuthPage from "./pages/AuthPage";
 import HomePage from "./pages/HomePage";
 
-// Layout wraps navbar + child component
+// Patient pages
+import PatientDashboard from "./pages/patient/PatientDashboard";
+import PatientAppointments from "./pages/patient/PatientAppointments";
+import BookAppointment from "./pages/patient/BookAppointment";
+
 function RoleLayout() {
     return (
         <>
@@ -19,20 +22,20 @@ function App() {
         <BrowserRouter>
             <Routes>
                 <Route path="/" element={<HomePage />} />
-
-                <Route path="/:role" element={<RoleLayout />}>
-                    {Object.entries(roleRoutes).map(([role, routes]) =>
-                        routes.map((route) => (
-                            <Route
-                                key={`${role}-${route.path}`}
-                                path={route.path}
-                                element={route.element}
-                            />
-                        )),
-                    )}
-                </Route>
-
                 <Route path="/auth" element={<AuthPage />} />
+
+                {/* Patient Pages */}
+                <Route path="/patient/*" element={<RoleLayout />}>
+                    <Route index element={<PatientDashboard />} />
+                    <Route
+                        path="appointments"
+                        element={<PatientAppointments />}
+                    />
+                    <Route
+                        path="book-appointment"
+                        element={<BookAppointment />}
+                    />
+                </Route>
             </Routes>
         </BrowserRouter>
     );
