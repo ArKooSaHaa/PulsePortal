@@ -42,7 +42,6 @@ function App() {
                 {/* Doctor Pages */}
                 <Route path="/doctor/*" element={<RoleLayout />}>
                     <Route index element={<DoctorDashboard />} />
-
                 </Route>
             </Routes>
         </BrowserRouter>
