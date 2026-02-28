@@ -3,6 +3,7 @@ import AuthPage from "./pages/AuthPage";
 import Navbar from "./components/Navbar";
 import { roleRoutes } from "./config/roleRoutes";
 import HomePage from "./pages/HomePage";
+import AdminDashboard from "./pages/AdminDashboard";
 
 // Layout wraps navbar + child component
 function RoleLayout() {
@@ -33,6 +34,7 @@ function App() {
                 </Route>
 
                 <Route path="/auth" element={<AuthPage />} />
+                <Route path="/admin-ui" element={<AdminDashboard />} />
             </Routes>
         </BrowserRouter>
     );

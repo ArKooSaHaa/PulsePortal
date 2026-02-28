@@ -7,6 +7,7 @@
 // import AdminDashboard from "../pages/admin/AdminDashboard";
 // Will import all the dashboards here
 import DoctorDashboard from "../pages/DoctorDashboard";
+import AdminDashboard from "../pages/AdminDashboard";
 
 export const roleRoutes = {
     patient: [
@@ -58,13 +59,16 @@ export const roleRoutes = {
         },
     ],
     admin: [
-        // {
-        //     path: "admin-dashboard",
-        //     element: (
-        //         <div className="p-8">
-        //             <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-        //         </div>
-        //     ),
-        // },
+
+        
+  
+         {
+            // path: " ",
+           // element: (
+             //  <div className="p-8">
+              //      <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+               // </div>
+           // ),
+         },
     ],
 };
