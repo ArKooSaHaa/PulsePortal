@@ -6,6 +6,7 @@
 // import DoctorPatients from "../pages/doctor/DoctorPatients";
 // import AdminDashboard from "../pages/admin/AdminDashboard";
 // Will import all the dashboards here
+import DoctorDashboard from "../pages/DoctorDashboard";
 
 export const roleRoutes = {
     patient: [
@@ -35,6 +36,10 @@ export const roleRoutes = {
         },
     ],
     doctor: [
+         {
+      path: "",
+      element: <DoctorDashboard />,
+         },
         {
             path: "doc-appointments",
             element: (
