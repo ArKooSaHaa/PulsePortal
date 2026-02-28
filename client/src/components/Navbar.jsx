@@ -13,7 +13,9 @@ const NAV_LINKS = {
         { name: "Appointments", path: "doc-appointments" },
     ],
     admin: [
-        // { name: "Manage Doctors", path: "manage-doctors" }
+        { name: "Add Doctor", path: "add-doctor" },
+        { name: "Add Admin", path: "add-admin" },
+        { name: "All Appointment", path: "all-appointment" }
     ],
 };
 
@@ -97,12 +99,12 @@ export default function Navbar() {
                 <div className="flex py-2.5 items-center justify-between rounded-2xl border-b border-white/20 bg-white/80 px-8 shadow-lg backdrop-blur-md transition-all mt-4">
                     {/* Logo + Dashboard Button Section */}
                     <div className="flex items-center gap-3">
-                        <Link to="/" className="flex items-center gap-2">
+                        {/* <Link to="/" className="flex items-center gap-2"> */}
                             <span className="flex text-xl font-bold tracking-tight text-slate-800 font-display">
                                 <HeartPulse size={30} className="mr-2" />
                                 PulsePortal
                             </span>
-                        </Link>
+                        {/* </Link> */}
 
                         <Link to={dashboardPath} className="hidden sm:block">
                             <button
