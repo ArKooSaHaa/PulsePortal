@@ -130,7 +130,7 @@ function HeartbeatPulse({ color }) {
 }
 function LeftPanel({ role, cfg }) {
     return (
-        <div className="hidden lg:flex flex-col justify-between p-12 flex-[0_0_52%] relative z-10">
+        <div className="hidden md:flex flex-col justify-between p-12 flex-[0_0_52%] relative z-10">
             <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -152,14 +152,14 @@ function LeftPanel({ role, cfg }) {
                         transition={{ duration: 0.5 }}
                     >
                         <h2 className="font-display font-extrabold text-5xl text-slate-800 leading-tight mb-3">
-                            HealthCare at the
+                            Your gateway to
                             <br />
                             <span style={{ color: cfg.accent }}>
-                                speed of life.
+                                smarter healthcare.
                             </span>
                         </h2>
                         <p className="text-slate-600 text-base leading-relaxed max-w-md">
-                            {cfg.tagline}
+                            Appointments, online consultations, and intelligent health support.
                         </p>
                     </motion.div>
                 </AnimatePresence>
@@ -182,7 +182,7 @@ function LeftPanel({ role, cfg }) {
 }
 
 export default function AuthPage() {
-    const [role, setRole] = useState("doctor");
+    const [role, setRole] = useState("patient");
     const cfg = ROLES[role];
 
     return (

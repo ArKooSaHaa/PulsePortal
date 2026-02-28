@@ -12,8 +12,6 @@ export const ROLES = {
         meshB: "#BFDBFE",
         meshC: "#93C5FD",
         pulseColor: "#3B82F6",
-
-        tagline: "Your health, our priority.",
     },
 
     // ── DOCTOR ───────────────────────────────────────────────
@@ -30,8 +28,6 @@ export const ROLES = {
         meshC: "#5EEAD4",
 
         pulseColor: "#14B8A6",
-
-        tagline: "Empowering healers worldwide.",
     },
 
     // ── ADMIN ─────────────────────────────────────────────────
@@ -48,7 +44,5 @@ export const ROLES = {
         meshC: "#A5B4FC",
 
         pulseColor: "#818CF8",
-
-        tagline: "Full control at your fingertips.",
     },
 };

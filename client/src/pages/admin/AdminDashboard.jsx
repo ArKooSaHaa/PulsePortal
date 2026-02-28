@@ -98,7 +98,7 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-[#eff6ff] px-4 sm:px-8 lg:px-12 py-8">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}

@@ -16,6 +16,7 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
 /* 
 a {
   font-weight: 500;
@@ -49,10 +50,56 @@ button {
   cursor: pointer;
   transition: border-color 0.25s;
 }
-/* button:hover {
-  border-color: #646cff;
-} */
-/* button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-} */
+
+/* animated gradient border */
+@property --angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes ai-border-rotate {
+  to {
+    --angle: 360deg;
+  }
+}
+
+@keyframes ai-glow-pulse {
+
+  0%,
+  100% {
+    box-shadow: 0 0 4px 1px #0a5bbf, 0 0 12px 1px #127fec;
+  }
+
+  50% {
+    box-shadow: 0 0 4px 1px #0a5bbf5b, 0 0 12px 1px #127fec6b;
+  }
+}
+
+.ai-border-glow {
+  --angle: 0deg;
+  border: 2px solid transparent;
+  border-radius: 1.5rem;
+  background:
+    linear-gradient(white, white) padding-box,
+    conic-gradient(from var(--angle), #f76855, #68f755, #6855f7, #f76855) border-box;
+  animation:
+    ai-border-rotate 3s linear infinite,
+    ai-glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes float-pulse {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.5), 0 8px 20px rgba(59, 130, 246, 0.35);
+  }
+
+  50% {
+    box-shadow: 0 0 0 10px rgba(139, 92, 246, 0), 0 8px 28px rgba(59, 130, 246, 0.5);
+  }
+}
+
+.ai-float-glow {
+  animation: float-pulse 2.4s ease-in-out infinite;
+}

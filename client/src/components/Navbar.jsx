@@ -1,21 +1,21 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { HeartPulse, LogOut, User, Menu, X } from "lucide-react";
+import { HeartPulse, LogOut, User, Menu, X, Bell } from "lucide-react";
 import demoImage from "../assets/demo.jpg";
 
 const NAV_LINKS = {
     patient: [
         { name: "My Appointments", path: "appointments" },
-        { name: "History", path: "history" },
         { name: "Book Appointment", path: "book-appointment" },
     ],
     doctor: [
         { name: "Appointments", path: "doc-appointments" },
-        { name: "Patients", path: "doc-patients" },
     ],
     admin: [
-        // { name: "Manage Doctors", path: "manage-doctors" }
+        { name: "Add Doctor", path: "add-doctor" },
+        { name: "Add Admin", path: "add-admin" },
+        { name: "Appointments", path: "all-appointments" }
     ],
 };
 
@@ -56,16 +56,19 @@ function NavLink({ to, children, isActive }) {
 }
 
 export default function Navbar() {
-    const { role } = useParams();
     const location = useLocation();
+    // Derive role from the first URL segment: /patient/... → "patient"
+    const role = location.pathname.split("/")[1] || "";
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isNotifOpen, setIsNotifOpen] = useState(false);
     const dropdownRef = useRef(null);
+    const notifRef = useRef(null);
+    const mobileMenuRef = useRef(null);
 
     const links = NAV_LINKS[role] || [];
     const dashboardPath = `/${role}`;
 
-    // Close dropdown
     useEffect(() => {
         function handleClickOutside(event) {
             if (
@@ -74,26 +77,46 @@ export default function Navbar() {
             ) {
                 setIsProfileOpen(false);
             }
+            if (notifRef.current && !notifRef.current.contains(event.target)) {
+                setIsNotifOpen(false);
+            }
+            if (
+                mobileMenuRef.current &&
+                !mobileMenuRef.current.contains(event.target)
+            ) {
+                setIsMobileMenuOpen(false);
+            }
         }
-        if (isProfileOpen) {
-            document.addEventListener("mousedown", handleClickOutside);
-        }
+        document.addEventListener("mousedown", handleClickOutside);
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
         };
-    }, [isProfileOpen]);
+    }, []);
 
     return (
         <header className="sticky top-0 z-50 w-full">
             <nav className="mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex py-4 items-center justify-between rounded-2xl border-b border-white/20 bg-white/80 px-8 shadow-lg backdrop-blur-md transition-all mt-4">
-                    {/* Logo Section */}
-                    <div className="flex items-center gap-2">
-                        <Link to="/" className="flex items-center gap-2">
+                <div className="flex py-2.5 items-center justify-between rounded-2xl border-b border-white/20 bg-white/80 px-8 shadow-lg backdrop-blur-md transition-all mt-4">
+                    {/* Logo + Dashboard Button Section */}
+                    <div className="flex items-center gap-3">
+                        {/* <Link to="/" className="flex items-center gap-2"> */}
                             <span className="flex text-xl font-bold tracking-tight text-slate-800 font-display">
                                 <HeartPulse size={30} className="mr-2" />
                                 PulsePortal
                             </span>
+                        {/* </Link> */}
+
+                        <Link to={dashboardPath} className="hidden sm:block">
+                            <button
+                                className="px-5 py-2 ms-5 rounded-full text-sm font-bold text-white shadow-md transition-all active:scale-95 whitespace-nowrap"
+                                style={{
+                                    background:
+                                        "linear-gradient(135deg, #0a5bbf, #127fec)",
+                                }}
+                            >
+                                {role.charAt(0).toUpperCase() + role.slice(1)}{" "}
+                                Dashboard
+                            </button>
                         </Link>
                     </div>
 
@@ -104,7 +127,7 @@ export default function Navbar() {
                             {links.map((link, index) => (
                                 <React.Fragment key={link.path}>
                                     <NavLink
-                                        to={link.path}
+                                        to={`/${role}/${link.path}`}
                                         isActive={
                                             location.pathname ===
                                             `/${role}/${link.path}`
@@ -116,34 +139,134 @@ export default function Navbar() {
                                 </React.Fragment>
                             ))}
 
-                            {/* Dashboard Button */}
-                            <Link to={dashboardPath}>
+                            {/* Notification Button */}
+                            <div className="relative" ref={notifRef}>
                                 <motion.button
-                                    whileHover={{ scale: 1.03 }}
-                                    whileTap={{ scale: 0.6 }}
-                                    className="px-4 py-2 rounded-full text-sm font-bold text-white shadow-md transition-all hover:shadow-lg focus:outline-none"
-                                    style={{
-                                        background:
-                                            "linear-gradient(135deg, #0a5bbf, #127fec)",
-                                    }}
+                                    onClick={() => setIsNotifOpen(!isNotifOpen)}
+                                    whileHover={{ scale: 1.08 }}
+                                    whileTap={{ scale: 0.92 }}
+                                    className="relative p-2 rounded-full text-slate-600 hover:text-[#127fec] hover:bg-[#127fec]/10 transition-colors focus:outline-none"
                                 >
-                                    {role.charAt(0).toUpperCase() +
-                                        role.slice(1)}{" "}
-                                    Dashboard
+                                    <Bell size={20} />
+                                    <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
                                 </motion.button>
-                            </Link>
+
+                                {/* Notification Dropdown */}
+                                <AnimatePresence>
+                                    {isNotifOpen && (
+                                        <motion.div
+                                            initial={{
+                                                opacity: 0,
+                                                y: 10,
+                                                scale: 0.95,
+                                            }}
+                                            animate={{
+                                                opacity: 1,
+                                                y: 0,
+                                                scale: 1,
+                                            }}
+                                            exit={{
+                                                opacity: 0,
+                                                y: 10,
+                                                scale: 0.95,
+                                            }}
+                                            className="absolute right-0 top-full mt-2 w-72 rounded-xl border border-slate-200 bg-white shadow-xl p-3 z-50"
+                                        >
+                                            <p className="text-md font-bold  tracking-wider px-2 mb-2">
+                                                Notifications
+                                            </p>
+                                            <div className="flex flex-col gap-1">
+                                                {[
+                                                    "Notificatoin 1.",
+                                                    "Notification 2.",
+                                                    "Notification 3.",
+                                                ].map((note, i) => (
+                                                    <motion.div
+                                                        key={i}
+                                                        whileHover={{
+                                                            backgroundColor:
+                                                                "rgba(18, 127, 236, 0.15)",
+                                                        }}
+                                                        className="px-3 py-2.5 rounded-lg text-sm text-slate-700 cursor-pointer transition-colors"
+                                                    >
+                                                        {note}
+                                                    </motion.div>
+                                                ))}
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
                         </div>
 
                         <div className="hidden lg:block h-6 w-px bg-slate-400" />
 
                         {/* Profile Section */}
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1">
+                            <div className="lg:hidden relative" ref={notifRef}>
+                                <motion.button
+                                    onClick={() => setIsNotifOpen(!isNotifOpen)}
+                                    whileHover={{ scale: 1.08 }}
+                                    whileTap={{ scale: 0.92 }}
+                                    className="relative p-2 rounded-full text-slate-600 hover:text-[#127fec] hover:bg-[#127fec]/10 transition-colors focus:outline-none"
+                                >
+                                    <Bell size={20} />
+                                    <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+                                </motion.button>
+
+                                <AnimatePresence>
+                                    {isNotifOpen && (
+                                        <motion.div
+                                            initial={{
+                                                opacity: 0,
+                                                y: 10,
+                                                scale: 0.95,
+                                            }}
+                                            animate={{
+                                                opacity: 1,
+                                                y: 0,
+                                                scale: 1,
+                                            }}
+                                            exit={{
+                                                opacity: 0,
+                                                y: 10,
+                                                scale: 0.95,
+                                            }}
+                                            className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-slate-200 bg-white shadow-xl p-3 z-50"
+                                        >
+                                            <p className="text-md font-bold  tracking-wider px-2 mb-2">
+                                                Notifications
+                                            </p>
+                                            <div className="flex flex-col gap-1">
+                                                {[
+                                                    "Notificatoin 1.",
+                                                    "Notification 2.",
+                                                    "Notification 3.",
+                                                ].map((note, i) => (
+                                                    <motion.div
+                                                        key={i}
+                                                        whileHover={{
+                                                            backgroundColor:
+                                                                "rgba(18, 127, 236, 0.15)",
+                                                        }}
+                                                        className="px-3 py-2.5 rounded-lg text-sm text-slate-700 cursor-pointer transition-colors"
+                                                    >
+                                                        {note}
+                                                    </motion.div>
+                                                ))}
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+
                             {/* Mobile Menu Button */}
                             <motion.button
-                                className="lg:hidden p-2 text-slate-600 hover:text-[#127fec] transition-colors"
+                                className="lg:hidden p-1 text-slate-600 hover:text-[#127fec] transition-colors"
                                 onClick={() =>
                                     setIsMobileMenuOpen(!isMobileMenuOpen)
                                 }
+                                ref={mobileMenuRef}
                             >
                                 {isMobileMenuOpen ? (
                                     <X size={24} />
@@ -243,7 +366,7 @@ export default function Navbar() {
                                 {links.map((link) => (
                                     <Link
                                         key={link.path}
-                                        to={link.path}
+                                        to={`/${role}/${link.path}`}
                                         onClick={() =>
                                             setIsMobileMenuOpen(false)
                                         }
@@ -257,16 +380,14 @@ export default function Navbar() {
                                         {link.name}
                                     </Link>
                                 ))}
-
-                                <div className="h-px bg-slate-200 my-2" />
-
+                                <div className="h-px bg-slate-200 mb-1" />
                                 <Link
                                     to={dashboardPath}
                                     onClick={() => setIsMobileMenuOpen(false)}
-                                    className="w-full"
+                                    className="sm:hidden w-full"
                                 >
                                     <button
-                                        className="w-full px-4 py-3 rounded-xl text-sm font-bold text-white shadow-md transition-all active:scale-95"
+                                        className="w-full px-4 py-2 rounded-xl text-sm font-bold text-white shadow-md transition-all active:scale-95"
                                         style={{
                                             background:
                                                 "linear-gradient(135deg, #0a5bbf, #127fec)",
