@@ -13,7 +13,9 @@ const NAV_LINKS = {
         { name: "Appointments", path: "doc-appointments" },
     ],
     admin: [
-        // { name: "Manage Doctors", path: "manage-doctors" }
+        { name: "Add Doctor", path: "add-doctor" },
+        { name: "Add Admin", path: "add-admin" },
+        { name: "All Appointment", path: "all-appointment" }
     ],
 };
 

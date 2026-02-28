@@ -1,3 +1,3 @@
-import DoctorDashboard from "../pages/doctor/DoctorDashboard";
+import DoctorDashboard from "../pages/DoctorDashboard";
 
 export const doctorRoutes = [{ index: true, element: <DoctorDashboard /> }];
