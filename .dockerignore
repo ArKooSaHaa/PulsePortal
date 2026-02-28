@@ -1,0 +1,26 @@
+# Git
+.git
+.gitignore
+
+# Node
+client/node_modules
+client/dist
+client/.vite
+
+# Laravel
+vendor
+storage/logs
+storage/framework
+bootstrap/cache
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
