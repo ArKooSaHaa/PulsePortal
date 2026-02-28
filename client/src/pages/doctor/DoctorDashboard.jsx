@@ -23,7 +23,7 @@ const cardVariant = {
 
 export default function DoctorDashboard() {
   return (
-    <div className="min-h-screen bg-slate-50 px-6 lg:px-10 py-8">
+    <div className="min-h-screen bg-[#eff6ff] px-4 sm:px-8 lg:px-12 py-8">
       
       {/* Header */}
       <motion.div
