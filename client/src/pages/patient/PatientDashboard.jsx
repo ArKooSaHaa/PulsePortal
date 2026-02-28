@@ -1,4 +1,5 @@
-import { motion } from "framer-motion";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
     CalendarPlus,
     CalendarCheck,
@@ -11,6 +12,7 @@ import {
     AlarmClock,
     Sparkles,
 } from "lucide-react";
+import AIChatPanel from "../../components/AIChatPanel";
 
 // Today's Date
 const TODAY = new Date().toLocaleDateString("en-US", {
@@ -71,10 +73,11 @@ const HISTORY = [
 function ActionCard({ icon: Icon, title, description, label, onClick, isAI }) {
     return (
         <motion.div
-            whileHover={{ y: -3, boxShadow: "0 8px 24px rgba(0,0,0,0.08)" }}
+            whileHover={{ y: -3 }}
             transition={{ duration: 0.2 }}
             onClick={onClick}
-            className={`flex flex-col gap-3 rounded-3xl p-6 shadow-sm border cursor-pointer select-none relative overflow-hidden bg-white/90 border-slate-100`}
+            className={`flex flex-col gap-3 p-6 cursor-pointer select-none relative overflow-hidden bg-white/90
+                        ${isAI ? "ai-border-glow" : "rounded-3xl shadow-sm border border-slate-100"}`}
         >
             {isAI && (
                 <span className="absolute top-3 right-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-[#127fec] text-[10px] font-bold uppercase tracking-wide">
@@ -96,7 +99,7 @@ function ActionCard({ icon: Icon, title, description, label, onClick, isAI }) {
                 </p>
             </div>
             <button
-                className={`mt-auto self-start flex items-center gap-1 py-1 px-3 text-xs font-semibold border rounded-full transition-colors text-blue-700 border-blue-500 hover:bg-blue-500 hover:text-white hover:border-transparent bg-transparent`}
+                className={`mt-auto self-start flex items-center gap-1 py-1 px-3 text-xs font-semibold border rounded-full transition-colors text-[#127fec] border-[#127fec] hover:bg-[#127fec] hover:text-white hover:border-transparent bg-transparent`}
             >
                 {label} <ChevronRight size={13} />
             </button>
@@ -181,6 +184,8 @@ function AppointmentCard({ appt }) {
 }
 
 export default function PatientDashboard() {
+    const [isChatOpen, setIsChatOpen] = useState(false);
+
     return (
         <div className="min-h-screen bg-[#eff6ff] px-4 sm:px-8 lg:px-12 py-8">
             <div className="max-w-5xl mx-auto flex flex-col gap-8">
@@ -229,6 +234,7 @@ export default function PatientDashboard() {
                         description="Describe symptoms and get guidance before booking."
                         label="Open Chat"
                         isAI
+                        onClick={() => setIsChatOpen(true)}
                     />
                 </motion.div>
 
@@ -294,7 +300,38 @@ export default function PatientDashboard() {
                         ))}
                     </div>
                 </motion.section>
+
+                <AnimatePresence>
+                    {isChatOpen && (
+                        <>
+                            <motion.div
+                                key="backdrop"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                onClick={() => setIsChatOpen(false)}
+                                className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
+                            />
+                            <AIChatPanel
+                                key="chat"
+                                onClose={() => setIsChatOpen(false)}
+                            />
+                        </>
+                    )}
+                </AnimatePresence>
             </div>
+
+            {/* Floating  Chat Button */}
+            <motion.button
+                whileHover={{ scale: 1.12 }}
+                whileTap={{ scale: 0.93 }}
+                onClick={() => setIsChatOpen(true)}
+                className="ai-float-glow fixed bottom-6 right-6 z-30 w-14 h-14 rounded-full flex items-center justify-center text-white focus:outline-none"
+                style={{ background: "linear-gradient(135deg, #a855f7, #3b82f6, #06b6d4)" }}
+                title="Open AI Health Assistant"
+            >
+                <Bot size={24} />
+            </motion.button>
         </div>
     );
 }
