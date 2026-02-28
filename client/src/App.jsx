@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import AuthPage from "./pages/AuthPage";
 import HomePage from "./pages/HomePage";
-import AdminDashboard from "./pages/AdminDashboard";
 
 // Patient pages
 import PatientDashboard from "./pages/patient/PatientDashboard";
@@ -11,6 +10,9 @@ import BookAppointment from "./pages/patient/BookAppointment";
 
 // Doctor Pages
 import DoctorDashboard from "./pages/doctor/DoctorDashboard";
+
+//Admin Pages
+import AdminDashboard from "./pages/admin/AdminDashboard";
 
 function RoleLayout() {
     return (
@@ -47,6 +49,9 @@ function App() {
                 </Route>
 
                 {/* Admin Pages */}
+                <Route path="/admin/*" element={<RoleLayout />}>
+                    <Route index element={<AdminDashboard />} />
+                </Route>
             </Routes>
         </BrowserRouter>
     );
