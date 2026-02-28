@@ -8,7 +8,8 @@ import PatientDashboard from "./pages/patient/PatientDashboard";
 import PatientAppointments from "./pages/patient/PatientAppointments";
 import BookAppointment from "./pages/patient/BookAppointment";
 
-import DoctorDashboard from "./pages/DoctorDashboard";
+// Doctor Pages
+import DoctorDashboard from "./pages/doctor/DoctorDashboard";
 
 function RoleLayout() {
     return (
@@ -43,6 +44,8 @@ function App() {
                 <Route path="/doctor/*" element={<RoleLayout />}>
                     <Route index element={<DoctorDashboard />} />
                 </Route>
+
+                {/* Admin Pages */}
             </Routes>
         </BrowserRouter>
     );
