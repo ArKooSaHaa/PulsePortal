@@ -1,11 +1,11 @@
 :root {
-  --primary-color: #14B8A6;
-  --primary-hover: #0F766E;
+  --primary-color: #0a5bbf;
+  --primary-hover:#0b4791 ;
 }
 
 /* Navbar logo */
 .nav-logo {
-  color: #0F766E;
+  color:var(--primary-color);
   font-size: 1.8rem; 
   font-weight: bold;
 }
