@@ -29,7 +29,7 @@ services:
     container_name: pulseportal_mysql
     restart: always
     environment:
-      MYSQL_DATABASE: pulseportal
+      MYSQL_DATABASE: pulse_portal
       MYSQL_ROOT_PASSWORD: root
     ports:
       - "3307:3306"

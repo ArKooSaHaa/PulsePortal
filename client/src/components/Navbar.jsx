@@ -1,21 +1,20 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { HeartPulse, LogOut, User, Menu, X, Bell } from "lucide-react";
 import demoImage from "../assets/demo.jpg";
+import authService from "../api/authService";
 
 const NAV_LINKS = {
     patient: [
         { name: "My Appointments", path: "appointments" },
         { name: "Book Appointment", path: "book-appointment" },
     ],
-    doctor: [
-        { name: "Appointments", path: "doc-appointments" },
-    ],
+    doctor: [{ name: "Appointments", path: "doc-appointments" }],
     admin: [
         { name: "Add Doctor", path: "add-doctor" },
         { name: "Add Admin", path: "add-admin" },
-        { name: "Appointments", path: "all-appointments" }
+        { name: "Appointments", path: "all-appointments" },
     ],
 };
 
@@ -57,6 +56,8 @@ function NavLink({ to, children, isActive }) {
 
 export default function Navbar() {
     const location = useLocation();
+    const navigate = useNavigate();
+
     // Derive role from the first URL segment: /patient/... → "patient"
     const role = location.pathname.split("/")[1] || "";
     const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -68,6 +69,11 @@ export default function Navbar() {
 
     const links = NAV_LINKS[role] || [];
     const dashboardPath = `/${role}`;
+
+    const handleLogout = async () => {
+        await authService.logout();
+        navigate("/auth");
+    };
 
     useEffect(() => {
         function handleClickOutside(event) {
@@ -100,10 +106,10 @@ export default function Navbar() {
                     {/* Logo + Dashboard Button Section */}
                     <div className="flex items-center gap-3">
                         {/* <Link to="/" className="flex items-center gap-2"> */}
-                            <span className="flex text-xl font-bold tracking-tight text-slate-800 font-display">
-                                <HeartPulse size={30} className="mr-2" />
-                                PulsePortal
-                            </span>
+                        <span className="flex text-xl font-bold tracking-tight text-slate-800 font-display">
+                            <HeartPulse size={30} className="mr-2" />
+                            PulsePortal
+                        </span>
                         {/* </Link> */}
 
                         <Link to={dashboardPath} className="hidden sm:block">
@@ -172,7 +178,7 @@ export default function Navbar() {
                                             }}
                                             className="absolute right-0 top-full mt-2 w-72 rounded-xl border border-slate-200 bg-white shadow-xl p-3 z-50"
                                         >
-                                            <p className="text-md font-bold  tracking-wider px-2 mb-2">
+                                            <p className="text-md font-bold tracking-wider px-2 mb-2">
                                                 Notifications
                                             </p>
                                             <div className="flex flex-col gap-1">
@@ -234,7 +240,7 @@ export default function Navbar() {
                                             }}
                                             className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-slate-200 bg-white shadow-xl p-3 z-50"
                                         >
-                                            <p className="text-md font-bold  tracking-wider px-2 mb-2">
+                                            <p className="text-md font-bold tracking-wider px-2 mb-2">
                                                 Notifications
                                             </p>
                                             <div className="flex flex-col gap-1">
@@ -332,6 +338,7 @@ export default function Navbar() {
                                             <div className="h-px mx-2 my-1 bg-slate-300" />
 
                                             <motion.button
+                                                onClick={handleLogout}
                                                 whileHover={{
                                                     x: 3,
                                                     backgroundColor:
