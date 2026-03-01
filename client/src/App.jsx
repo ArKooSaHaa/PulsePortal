@@ -1,17 +1,21 @@
-import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
+import {
+    BrowserRouter,
+    Routes,
+    Route,
+    Outlet,
+    Navigate,
+} from "react-router-dom";
 import Navbar from "./components/Navbar";
 import AuthPage from "./pages/AuthPage";
 import HomePage from "./pages/HomePage";
-
+import authService from "./api/authService";
 // Patient pages
 import PatientDashboard from "./pages/patient/PatientDashboard";
 import PatientAppointments from "./pages/patient/PatientAppointments";
 import BookAppointment from "./pages/patient/BookAppointment";
-
-// Doctor Pages
+// Doctor pages
 import DoctorDashboard from "./pages/doctor/DoctorDashboard";
-
-//Admin Pages
+// Admin pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
 
 function RoleLayout() {
@@ -23,6 +27,14 @@ function RoleLayout() {
     );
 }
 
+function ProtectedRoute({ expectedRole }) {
+    const user = authService.getCurrentUser();
+    if (!user) return <Navigate to="/auth" replace />;
+    if (user.role !== expectedRole)
+        return <Navigate to={`/${user.role}`} replace />;
+    return <Outlet />;
+}
+
 function App() {
     return (
         <BrowserRouter>
@@ -30,27 +42,42 @@ function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/auth" element={<AuthPage />} />
 
-                {/* Patient Pages */}
-                <Route path="/patient/*" element={<RoleLayout />}>
-                    <Route index element={<PatientDashboard />} />
-                    <Route
-                        path="appointments"
-                        element={<PatientAppointments />}
-                    />
-                    <Route
-                        path="book-appointment"
-                        element={<BookAppointment />}
-                    />
+                {/* Patient */}
+                <Route
+                    path="/patient"
+                    element={<ProtectedRoute expectedRole="patient" />}
+                >
+                    <Route element={<RoleLayout />}>
+                        <Route index element={<PatientDashboard />} />
+                        <Route
+                            path="appointments"
+                            element={<PatientAppointments />}
+                        />
+                        <Route
+                            path="book-appointment"
+                            element={<BookAppointment />}
+                        />
+                    </Route>
                 </Route>
 
-                {/* Doctor Pages */}
-                <Route path="/doctor/*" element={<RoleLayout />}>
-                    <Route index element={<DoctorDashboard />} />
+                {/* Doctor */}
+                <Route
+                    path="/doctor"
+                    element={<ProtectedRoute expectedRole="doctor" />}
+                >
+                    <Route element={<RoleLayout />}>
+                        <Route index element={<DoctorDashboard />} />
+                    </Route>
                 </Route>
 
-                {/* Admin Pages */}
-                <Route path="/admin/*" element={<RoleLayout />}>
-                    <Route index element={<AdminDashboard />} />
+                {/* Admin */}
+                <Route
+                    path="/admin"
+                    element={<ProtectedRoute expectedRole="admin" />}
+                >
+                    <Route element={<RoleLayout />}>
+                        <Route index element={<AdminDashboard />} />
+                    </Route>
                 </Route>
             </Routes>
         </BrowserRouter>

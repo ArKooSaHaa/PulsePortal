@@ -1,14 +1,15 @@
 // ─────────────────────────────────────────────────────────────
-//   • The role tabs (Patient / Doctor / Admin)
-//   • Login and Sign Up forms
-//   • Submit button + OAuth buttons
-//   • Toggle between Login and Sign Up modes
+//   • The role tabs (Patient / Doctor / Admin)
+//   • Login and Sign Up forms
+//   • Submit button + OAuth buttons
+//   • Toggle between Login and Sign Up modes
 // ─────────────────────────────────────────────────────────────
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ROLES } from "../config/roles";
 import { useNavigate } from "react-router-dom";
+import authService from "../api/authService";
 
 // Handling different role tabs
 function RoleTabs({ activeRole, onRoleChange, mode }) {
@@ -61,8 +62,17 @@ function RoleTabs({ activeRole, onRoleChange, mode }) {
         </div>
     );
 }
+
 // Input Fields Style
-function InputField({ label, placeholder, type = "text", accent, accentGlow }) {
+function InputField({
+    label,
+    placeholder,
+    type = "text",
+    accent,
+    accentGlow,
+    value,
+    onChange,
+}) {
     const [focused, setFocused] = useState(false);
 
     return (
@@ -84,6 +94,8 @@ function InputField({ label, placeholder, type = "text", accent, accentGlow }) {
                     id={label}
                     type={type}
                     placeholder={placeholder}
+                    value={value}
+                    onChange={onChange}
                     onFocus={() => setFocused(true)}
                     onBlur={() => setFocused(false)}
                     className="
@@ -123,13 +135,104 @@ export default function AuthForm({ activeRole, onRoleChange }) {
     const [mode, setMode] = useState("login");
     const cfg = ROLES[role];
 
+    // Form state
+    const [name, setName] = useState("");
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
+
     const toggleMode = () => {
         const newMode = mode === "login" ? "signup" : "login";
         setMode(newMode);
+        setError("");
 
         // Force switch to patient role while signup
         if (newMode === "signup" && role !== "patient") {
             handleRoleChange("patient");
+        }
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError("");
+
+        // ── Frontend validation ───────────────────────────────────
+        if (mode === "signup") {
+            if (!name.trim()) {
+                setError("Full name is required.");
+                return;
+            }
+            if (name.trim().length < 2) {
+                setError("Name must be at least 2 characters.");
+                return;
+            }
+        }
+
+        if (!email.trim()) {
+            setError("Email address is required.");
+            return;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            setError("Please enter a valid email address.");
+            return;
+        }
+
+        if (!password) {
+            setError("Password is required.");
+            return;
+        }
+
+        if (mode === "signup" && password.length < 8) {
+            setError("Password must be at least 8 characters.");
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            let user;
+
+            if (mode === "signup") {
+                user = await authService.register(name, email, password);
+            } else {
+                user = await authService.login(email, password);
+                // ── Role tab enforcement ──────────────────────────────
+                if (user.role !== role) {
+                    // Clean up — remove the token that was just stored
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("user");
+                    setError(
+                        `No ${role} account found with these credentials.`,
+                    );
+                    setLoading(false);
+                    return;
+                }
+            }
+            // Redirect based on role returned from backend
+            /*if (user.role === "admin") navigate("/admin");
+            else if (user.role === "doctor") navigate("/doctor");
+            else navigate("/patient");*/
+        } catch (err) {
+            console.error("Full error:", err);
+            console.error("Response:", err.response);
+            // Laravel validation errors come back as errors object (422)
+            if (err.response?.data?.errors) {
+                // Grab the first error message from whichever field failed
+                const firstError = Object.values(
+                    err.response.data.errors,
+                )[0][0];
+                setError(firstError);
+            } else {
+                const msg =
+                    err.response?.data?.message ||
+                    "Something went wrong. Please try again.";
+                setError(msg);
+            }
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -199,10 +302,7 @@ export default function AuthForm({ activeRole, onRoleChange }) {
                 >
                     <form
                         className="flex flex-col gap-4"
-                        onSubmit={(e) => {
-                            e.preventDefault();
-                            navigate(`/${role}`);
-                        }}
+                        onSubmit={handleSubmit}
                     >
                         {mode === "signup" && (
                             <InputField
@@ -211,6 +311,8 @@ export default function AuthForm({ activeRole, onRoleChange }) {
                                 type="text"
                                 accent={cfg.accent}
                                 accentGlow={cfg.accentGlow}
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
                             />
                         )}
 
@@ -220,6 +322,8 @@ export default function AuthForm({ activeRole, onRoleChange }) {
                             type="email"
                             accent={cfg.accent}
                             accentGlow={cfg.accentGlow}
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
                         />
 
                         <InputField
@@ -228,12 +332,15 @@ export default function AuthForm({ activeRole, onRoleChange }) {
                             type="password"
                             accent={cfg.accent}
                             accentGlow={cfg.accentGlow}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
                         />
 
                         {/* Forgot Password */}
                         {mode === "login" && (
                             <div className="flex justify-end -mt-1">
                                 <button
+                                    type="button"
                                     className="text-xs font-medium bg-transparent border-none cursor-pointer transition-opacity focus:outline-none hover:opacity-70 p-0"
                                     style={{ color: cfg.accent }}
                                 >
@@ -242,20 +349,32 @@ export default function AuthForm({ activeRole, onRoleChange }) {
                             </div>
                         )}
 
+                        {/* Error message */}
+                        {error && (
+                            <p className="text-red-500 text-xs text-center -mt-1">
+                                {error}
+                            </p>
+                        )}
+
                         <motion.button
                             type="submit"
+                            disabled={loading}
                             whileHover={{
-                                scale: 1.02,
+                                scale: loading ? 1 : 1.02,
                                 boxShadow: `0 12px 44px ${cfg.accentGlow}`,
                             }}
-                            whileTap={{ scale: 0.98 }}
-                            className="w-full py-3.5 rounded-xl font-bold text-white text-sm cursor-pointer border-none mt-1 flex items-center justify-center gap-2 font-sans  outline-none focus:outline-none ring-0 focus:ring-0"
+                            whileTap={{ scale: loading ? 1 : 0.98 }}
+                            className="w-full py-3.5 rounded-xl font-bold text-white text-sm cursor-pointer border-none mt-1 flex items-center justify-center gap-2 font-sans outline-none focus:outline-none ring-0 focus:ring-0 disabled:opacity-60"
                             style={{
                                 background: `linear-gradient(135deg, ${cfg.accent} 0%, ${cfg.meshC} 100%)`,
                                 boxShadow: `0 4px 22px ${cfg.accentGlow}`,
                             }}
                         >
-                            {mode === "login" ? "Sign In" : "Create Account"}
+                            {loading
+                                ? "Please wait..."
+                                : mode === "login"
+                                  ? "Sign In"
+                                  : "Create Account"}
                         </motion.button>
                     </form>
 
@@ -272,12 +391,13 @@ export default function AuthForm({ activeRole, onRoleChange }) {
                         {["Google", "Facebook"].map((provider) => (
                             <motion.button
                                 key={provider}
+                                type="button"
                                 whileHover={{
                                     y: -2,
                                     backgroundColor: "rgba(241,245,249,1)",
                                 }}
                                 whileTap={{ scale: 0.97 }}
-                                className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-slate-600 text-sm font-medium cursor-pointer font-sans border  outline-none focus:outline-none ring-0 focus:ring-0"
+                                className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-slate-600 text-sm font-medium cursor-pointer font-sans border  outline-none focus:outline-none ring-0 focus:ring-0"
                                 style={{
                                     background: "rgba(248,250,252,0.8)",
                                     borderColor: "#E2E8F0",
@@ -295,6 +415,7 @@ export default function AuthForm({ activeRole, onRoleChange }) {
                             ? "Don't have an account? "
                             : "Already have an account? "}
                         <motion.button
+                            type="button"
                             whileHover={{ opacity: 0.8 }}
                             onClick={toggleMode}
                             className="font-semibold bg-transparent border-none cursor-pointer font-sans outline-none focus:outline-none p-0"
