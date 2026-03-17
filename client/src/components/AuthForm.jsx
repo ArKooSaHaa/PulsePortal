@@ -212,9 +212,9 @@ export default function AuthForm({ activeRole, onRoleChange }) {
                 }
             }
             // Redirect based on role returned from backend
-            /*if (user.role === "admin") navigate("/admin");
+            if (user.role === "admin") navigate("/admin");
             else if (user.role === "doctor") navigate("/doctor");
-            else navigate("/patient");*/
+            else navigate("/patient");
         } catch (err) {
             console.error("Full error:", err);
             console.error("Response:", err.response);

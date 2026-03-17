@@ -63,25 +63,33 @@ class AuthController extends Controller
     // POST /api/auth/login
     public function login(Request $request)
     {
-        $credentials = $request->validate([
-            'email'    => 'required|email',
-            'password' => 'required|string',
-        ]);
+        try {
+            $credentials = $request->validate([
+                'email'    => 'required|email',
+                'password' => 'required|string',
+            ]);
 
-        $result = $this->authService->login($credentials);
+            $result = $this->authService->login($credentials);
 
-        if (!$result) {
+            if (!$result) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Invalid email or password',
+                ], 401);
+            }
+
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Invalid email or password',
-            ], 401);
+                'status'  => 'success',
+                'message' => 'Login successful',
+                'data'    => $result,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ], 500);
         }
-
-        return response()->json([
-            'status'  => 'success',
-            'message' => 'Login successful',
-            'data'    => $result,
-        ]);
     }
 
     // POST /api/auth/logout
