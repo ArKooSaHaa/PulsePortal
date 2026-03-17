@@ -15,6 +15,7 @@ import PatientAppointments from "./pages/patient/PatientAppointments";
 import BookAppointment from "./pages/patient/BookAppointment";
 // Doctor pages
 import DoctorDashboard from "./pages/doctor/DoctorDashboard";
+import DoctorProfile from "./pages/doctor/DoctorProfile";
 // Admin pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AddDoctor from "./pages/admin/AddDoctor";
@@ -50,6 +51,7 @@ function App() {
                         element={<AddDoctor />}
                     />
                      <Route path="/admin/add-admin" element={<AddAdmin />} /> 
+                     <Route path="/doctor/profile" element={<DoctorProfile />} />
                 </Route>
                 {/* Patient */}
                 <Route

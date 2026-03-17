@@ -321,6 +321,7 @@ export default function Navbar() {
                                             className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-slate-200 bg-white shadow-xl p-2 z-50"
                                         >
                                             <motion.button
+                                            onClick={() => navigate(`/${role}/profile`)}
                                                 whileHover={{
                                                     x: 3,
                                                     backgroundColor:
