@@ -20,6 +20,7 @@ import DoctorProfile from "./pages/doctor/DoctorProfile";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AddDoctor from "./pages/admin/AddDoctor";
 import AddAdmin from "./pages/admin/AddAdmin";
+import AdminProfile from "./pages/admin/AdminProfile";
 function RoleLayout() {
     return (
         <>
@@ -52,6 +53,7 @@ function App() {
                     />
                      <Route path="/admin/add-admin" element={<AddAdmin />} /> 
                      <Route path="/doctor/profile" element={<DoctorProfile />} />
+                     <Route path="/admin/profile" element={<AdminProfile />} />
                 </Route>
                 {/* Patient */}
                 <Route
