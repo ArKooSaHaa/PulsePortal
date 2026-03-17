@@ -17,7 +17,8 @@ import BookAppointment from "./pages/patient/BookAppointment";
 import DoctorDashboard from "./pages/doctor/DoctorDashboard";
 // Admin pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
-
+import AddDoctor from "./pages/admin/AddDoctor";
+import AddAdmin from "./pages/admin/AddAdmin";
 function RoleLayout() {
     return (
         <>
@@ -42,6 +43,14 @@ function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/auth" element={<AuthPage />} />
 
+                {/*  PUBLIC  ROUTE   */}
+                <Route element={<RoleLayout />}>
+                    <Route
+                        path="/admin/add-doctor"
+                        element={<AddDoctor />}
+                    />
+                     <Route path="/admin/add-admin" element={<AddAdmin />} /> 
+                </Route>
                 {/* Patient */}
                 <Route
                     path="/patient"
