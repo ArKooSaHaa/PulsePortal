@@ -36,12 +36,21 @@ class Handler extends ExceptionHandler
             ], 400);
         }
 
-        // Default response for unexpected exceptions
+        // If Debug is ON, show the real error message
+        if (config('app.debug')) {
+            return response()->json([
+                'error' => true,
+                'message' => $exception->getMessage(),
+                'exception' => get_class($exception),
+                'line' => $exception->getLine(),
+                'file' => $exception->getFile(),
+            ], 500);
+        }
+
+        // Default response for production
         return response()->json([
             'error' => true,
             'message' => 'An unexpected error occurred',
         ], 500);
-
     }
-
 }
