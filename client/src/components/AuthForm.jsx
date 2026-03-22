@@ -185,8 +185,8 @@ export default function AuthForm({ activeRole, onRoleChange }) {
             return;
         }
 
-        if (mode === "signup" && password.length < 8) {
-            setError("Password must be at least 8 characters.");
+        if (mode === "signup" && password.length < 6) {
+            setError("Password must be at least 6 characters.");
             return;
         }
 
@@ -196,7 +196,7 @@ export default function AuthForm({ activeRole, onRoleChange }) {
             let user;
 
             if (mode === "signup") {
-                user = await authService.register(name, email, password, "patient");
+                user = await authService.register(name, email, password);
             } else {
                 user = await authService.login(email, password);
                 // ── Role tab enforcement ──────────────────────────────
@@ -209,6 +209,11 @@ export default function AuthForm({ activeRole, onRoleChange }) {
                     return;
                 }
             }
+
+            setName("");
+            setEmail("");
+            setPassword("");
+
             // Redirect based on role returned from backend
             if (user.role === "admin") navigate("/admin");
             else if (user.role === "doctor") navigate("/doctor");
