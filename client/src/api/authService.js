@@ -29,10 +29,13 @@ const authService = {
                 password,
             });
 
-            const user = response.data?.data;
-            if (!user) {
+            const token = response.data?.access_token;
+            const user = response.data?.user;
+            if (!token || !user) {
                 throw new Error("Unexpected response from register API.");
             }
+
+            localStorage.setItem(SESSION_TOKEN_KEY, token);
 
             return saveSessionUser(user);
         } catch (err) {
@@ -47,24 +50,45 @@ const authService = {
                 password,
             });
 
-            const payload = response.data?.data;
-            if (!payload) {
+            const token = response.data?.access_token;
+            const user = response.data?.user;
+            if (!token || !user) {
                 throw new Error("Unexpected response from login API.");
             }
 
-            if (payload.token) {
-                localStorage.setItem(SESSION_TOKEN_KEY, payload.token);
-            }
+            localStorage.setItem(SESSION_TOKEN_KEY, token);
 
-            return saveSessionUser(payload);
+            return saveSessionUser(user);
         } catch (err) {
             normalizeApiError(err);
         }
     },
 
     logout: async () => {
+        try {
+            await api.post("/logout");
+        } catch {
+            // Always clear local session even if server token was already invalid.
+        }
         localStorage.removeItem(SESSION_USER_KEY);
         localStorage.removeItem(SESSION_TOKEN_KEY);
+    },
+
+    refreshToken: async () => {
+        try {
+            const response = await api.post("/refresh");
+            const token = response.data?.access_token;
+            const user = response.data?.user;
+
+            if (!token || !user) {
+                throw new Error("Unexpected response from refresh API.");
+            }
+
+            localStorage.setItem(SESSION_TOKEN_KEY, token);
+            return saveSessionUser(user);
+        } catch (err) {
+            normalizeApiError(err);
+        }
     },
 
     getCurrentUser: () => {
@@ -81,7 +105,11 @@ const authService = {
     },
 
     isLoggedIn: () => {
-        return !!localStorage.getItem(SESSION_USER_KEY);
+        return !!localStorage.getItem(SESSION_TOKEN_KEY);
+    },
+
+    getToken: () => {
+        return localStorage.getItem(SESSION_TOKEN_KEY);
     },
 };
 

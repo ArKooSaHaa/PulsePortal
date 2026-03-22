@@ -31,8 +31,9 @@ function RoleLayout() {
 }
 
 function ProtectedRoute({ expectedRole }) {
+    const isLoggedIn = authService.isLoggedIn();
     const user = authService.getCurrentUser();
-    if (!user) return <Navigate to="/auth" replace />;
+    if (!isLoggedIn || !user) return <Navigate to="/auth" replace />;
     if (user.role !== expectedRole)
         return <Navigate to={`/${user.role}`} replace />;
     return <Outlet />;

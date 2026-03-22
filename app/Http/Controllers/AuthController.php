@@ -6,9 +6,15 @@ use App\Models\Patient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Tymon\JWTAuth\Facades\JWTAuth;
 
 class AuthController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('auth:api')->except(['register', 'login']);
+    }
+
     public function register(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -24,9 +30,14 @@ class AuthController extends Controller
             'role' => 'patient',
         ]);
 
+        $token = JWTAuth::fromUser($patient);
+
         return response()->json([
             'message' => 'Patient registered successfully.',
-            'data' => $patient,
+            'access_token' => $token,
+            'token_type' => 'bearer',
+            'expires_in' => JWTAuth::factory()->getTTL() * 60,
+            'user' => $patient,
         ], 201);
     }
 
@@ -37,22 +48,57 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        $patient = Patient::where('email', $validated['email'])->first();
-
-        if (! $patient || ! Hash::check($validated['password'], $patient->password)) {
+        if (! $token = JWTAuth::attempt($validated)) {
             return response()->json([
                 'message' => 'Invalid email or password.',
             ], 401);
         }
 
+        $patient = JWTAuth::user();
+
         return response()->json([
-            'message' => 'Login successful.',
-            'data' => [
-                'id' => $patient->id,
-                'name' => $patient->name,
-                'email' => $patient->email,
-                'role' => $patient->role,
-            ],
+            'access_token' => $token,
+            'token_type' => 'bearer',
+            'expires_in' => JWTAuth::factory()->getTTL() * 60,
+            'user' => $patient,
         ], 200);
+    }
+
+    public function profile(): JsonResponse
+    {
+        return response()->json([
+            'user' => JWTAuth::parseToken()->authenticate(),
+        ]);
+    }
+
+    public function dashboard(): JsonResponse
+    {
+        $user = JWTAuth::parseToken()->authenticate();
+
+        return response()->json([
+            'message' => 'Dashboard data fetched successfully.',
+            'user' => $user,
+        ]);
+    }
+
+    public function logout(): JsonResponse
+    {
+        JWTAuth::parseToken()->invalidate();
+
+        return response()->json([
+            'message' => 'Successfully logged out.',
+        ]);
+    }
+
+    public function refresh(): JsonResponse
+    {
+        $newToken = JWTAuth::parseToken()->refresh();
+
+        return response()->json([
+            'access_token' => $newToken,
+            'token_type' => 'bearer',
+            'expires_in' => JWTAuth::factory()->getTTL() * 60,
+            'user' => JWTAuth::setToken($newToken)->user(),
+        ]);
     }
 }
