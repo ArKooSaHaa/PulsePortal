@@ -1,15 +1,5 @@
 # Project Title: Pulse Portal
 
-## Team members
-
-| Name                   | ID          | Email                       | Role                |
-| ---------------------- | ----------- | --------------------------- | ------------------- |
-| Samia Rahman Arpita    | 20230104007 | arpitarahmansamia@gmail.com | Front-end Developer |
-| Kazi Md Shahadat Hasan | 20230104008 | tamimshahadat15@gmail.com   | Back-end Developer  |
-| Hrittika Saha          | 20230104024 | hrittika23.st05@gmail.com   | Lead                |
-
-# Project Overview
-
 ### Objective
 
 The objective of Pulse Portal is to develop an intelligent healthcare support system that enhances patient access to healthcare services and improves consultation management for doctors and professionals. By integrating structured appointment workflows with AI-assisted guidance, summarization, and administrative support, the system aims to facilitate informed decision-making, reduce communication barriers, and improve overall operational efficiency.
@@ -39,7 +29,7 @@ The objective of Pulse Portal is to develop an intelligent healthcare support sy
 
 ### 4. Database
 
-- **MySQL:** Will store patient profiles, doctor information, appointments, visit records, and AI-generated summaries.
+- **MSSQL:** Will store patient profiles, doctor information, appointments, visit records, and AI-generated summaries.
 
 ### 5. AI Integration
 
