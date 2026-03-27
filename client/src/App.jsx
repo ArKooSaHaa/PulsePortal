@@ -13,6 +13,7 @@ import authService from "./api/authService";
 import PatientDashboard from "./pages/patient/PatientDashboard";
 import PatientAppointments from "./pages/patient/PatientAppointments";
 import BookAppointment from "./pages/patient/BookAppointment";
+import PatientProfile from "./pages/patient/PatientProfile";
 // Doctor pages
 import DoctorDashboard from "./pages/doctor/DoctorDashboard";
 import DoctorProfile from "./pages/doctor/DoctorProfile";
@@ -54,40 +55,27 @@ function App() {
                      <Route path="/admin/add-admin" element={<AddAdmin />} /> 
                      <Route path="/doctor/profile" element={<DoctorProfile />} />
                      <Route path="/admin/profile" element={<AdminProfile />} />
+                     <Route path="/patient/profile" element={<PatientProfile />} />
                 </Route>
+
                 {/* Patient */}
-                <Route
-                    path="/patient"
-                    element={<ProtectedRoute expectedRole="patient" />}
-                >
+                <Route path="/patient" element={<ProtectedRoute expectedRole="patient" />}>
                     <Route element={<RoleLayout />}>
                         <Route index element={<PatientDashboard />} />
-                        <Route
-                            path="appointments"
-                            element={<PatientAppointments />}
-                        />
-                        <Route
-                            path="book-appointment"
-                            element={<BookAppointment />}
-                        />
+                        <Route path="appointments" element={<PatientAppointments />} />
+                        <Route  path="book-appointment" element={<BookAppointment />} />
                     </Route>
                 </Route>
 
                 {/* Doctor */}
-                <Route
-                    path="/doctor"
-                    element={<ProtectedRoute expectedRole="doctor" />}
-                >
+                <Route path="/doctor" element={<ProtectedRoute expectedRole="doctor" />}>
                     <Route element={<RoleLayout />}>
                         <Route index element={<DoctorDashboard />} />
                     </Route>
                 </Route>
 
                 {/* Admin */}
-                <Route
-                    path="/admin"
-                    element={<ProtectedRoute expectedRole="admin" />}
-                >
+                <Route path="/admin" element={<ProtectedRoute expectedRole="admin" />}>
                     <Route element={<RoleLayout />}>
                         <Route index element={<AdminDashboard />} />
                     </Route>
