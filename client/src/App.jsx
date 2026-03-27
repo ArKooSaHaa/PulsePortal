@@ -57,39 +57,25 @@ function App() {
                      <Route path="/admin/profile" element={<AdminProfile />} />
                      <Route path="/patient/profile" element={<PatientProfile />} />
                 </Route>
+
                 {/* Patient */}
-                <Route
-                    path="/patient"
-                    element={<ProtectedRoute expectedRole="patient" />}
-                >
+                <Route path="/patient" element={<ProtectedRoute expectedRole="patient" />}>
                     <Route element={<RoleLayout />}>
                         <Route index element={<PatientDashboard />} />
-                        <Route
-                            path="appointments"
-                            element={<PatientAppointments />}
-                        />
-                        <Route
-                            path="book-appointment"
-                            element={<BookAppointment />}
-                        />
+                        <Route path="appointments" element={<PatientAppointments />} />
+                        <Route  path="book-appointment" element={<BookAppointment />} />
                     </Route>
                 </Route>
 
                 {/* Doctor */}
-                <Route
-                    path="/doctor"
-                    element={<ProtectedRoute expectedRole="doctor" />}
-                >
+                <Route path="/doctor" element={<ProtectedRoute expectedRole="doctor" />}>
                     <Route element={<RoleLayout />}>
                         <Route index element={<DoctorDashboard />} />
                     </Route>
                 </Route>
 
                 {/* Admin */}
-                <Route
-                    path="/admin"
-                    element={<ProtectedRoute expectedRole="admin" />}
-                >
+                <Route path="/admin" element={<ProtectedRoute expectedRole="admin" />}>
                     <Route element={<RoleLayout />}>
                         <Route index element={<AdminDashboard />} />
                     </Route>

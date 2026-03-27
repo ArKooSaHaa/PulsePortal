@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { HeartPulse, LogOut, User, Menu, X, Bell } from "lucide-react";
+import { HeartPulse, LogOut, User, Menu, X, Bell, Loader2 } from "lucide-react";
 import demoImage from "../assets/demo.jpg";
 import authService from "../api/authService";
 
@@ -63,6 +63,7 @@ export default function Navbar() {
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isNotifOpen, setIsNotifOpen] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
     const dropdownRef = useRef(null);
     const notifRef = useRef(null);
     const mobileMenuRef = useRef(null);
@@ -71,6 +72,7 @@ export default function Navbar() {
     const dashboardPath = `/${role}`;
 
     const handleLogout = async () => {
+        setIsLoggingOut(true);
         await authService.logout();
         navigate("/auth");
     };
@@ -321,10 +323,10 @@ export default function Navbar() {
                                             className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-slate-200 bg-white shadow-xl p-2 z-50"
                                         >
                                             <motion.button
-                                            // onClick={() => navigate(`/${role}/profile`)}
                                              onClick={() => {
                                                  if (role === "admin") navigate("/admin/profile");
-                                                 else if (role === "doctor") navigate("/doctor/profile"); }}
+                                                 else if (role === "doctor") navigate("/doctor/profile");
+                                                 else if (role === "patient") navigate("/patient/profile"); }}
                                                 whileHover={{
                                                     x: 3,
                                                     backgroundColor:
@@ -343,6 +345,7 @@ export default function Navbar() {
 
                                             <motion.button
                                                 onClick={handleLogout}
+                                                disabled={isLoggingOut}
                                                 whileHover={{
                                                     x: 3,
                                                     backgroundColor:
@@ -351,10 +354,16 @@ export default function Navbar() {
                                                 }}
                                                 whileTap={{ scale: 0.97 }}
                                                 transition={{ duration: 0.2 }}
-                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:text-red-600 rounded-lg transition-colors font-medium"
+                                                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm rounded-lg transition-colors font-medium
+                                                    ${isLoggingOut ? "text-red-600 bg-red-50" : "text-slate-700 hover:text-red-600"}
+                                                `}
                                             >
-                                                <LogOut size={18} />
-                                                Sign Out
+                                                {isLoggingOut ? (
+                                                    <Loader2 size={18} className="animate-spin text-red-500" />
+                                                ) : (
+                                                    <LogOut size={18} />
+                                                )}
+                                                {isLoggingOut ? "Signing Out..." : "Sign Out"}
                                             </motion.button>
                                         </motion.div>
                                     )}
