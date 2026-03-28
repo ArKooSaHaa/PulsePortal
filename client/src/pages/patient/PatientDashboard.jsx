@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     CalendarPlus,
@@ -11,10 +11,14 @@ import {
     CalendarDays,
     AlarmClock,
     Sparkles,
+    Loader2,
+    Video,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import AIChatPanel from "../../components/AIChatPanel";
+import appointmentService from "../../api/appointmentService";
+import authService from "../../api/authService";
 
-// Today's Date
 const TODAY = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
@@ -22,53 +26,26 @@ const TODAY = new Date().toLocaleDateString("en-US", {
 });
 
 const STATUS_STYLES = {
-    Scheduled: "bg-blue-50 text-blue-600 border border-blue-100",
-    Pending: "bg-amber-50 text-amber-600 border border-amber-100",
+    confirmed: "bg-blue-50 text-blue-600 border border-blue-100",
+    pending: "bg-amber-50 text-amber-600 border border-amber-100",
+    completed: "bg-green-50 text-green-600 border border-green-100",
+    cancelled: "bg-red-50 text-red-400 border border-red-100",
 };
 
-const APPOINTMENTS = [
-    {
-        id: 1,
-        doctor: "Dr. Elena Rossi",
-        specialty: "Cardiology Specialist",
-        date: "Mar 15, 2025",
-        time: "10:00 AM",
-        location: "Room 304, West Wing",
-        status: "Scheduled",
-        type: "In-Person",
-    },
-    {
-        id: 2,
-        doctor: "Dr. James Patel",
-        specialty: "General Physician",
-        date: "Mar 22, 2025",
-        time: "2:30 PM",
-        location: "Online Consultation",
-        status: "Pending",
-        type: "Virtual",
-    },
-];
+function formatDate(dateStr) {
+    return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+    });
+}
 
-const HISTORY = [
-    {
-        id: 1,
-        icon: Stethoscope,
-        doctor: "Dr. Michael Chen",
-        specialty: "Pediatrician",
-        type: "Check-up",
-        date: "Feb 12, 2025",
-        action: "View Summary",
-    },
-    {
-        id: 2,
-        icon: HeartPulse,
-        doctor: "Dr. Sarah Kim",
-        specialty: "Cardiologist",
-        type: "Follow-up",
-        date: "Jan 10, 2025",
-        action: "View Summary",
-    },
-];
+function formatTime(timeStr) {
+    if (!timeStr) return "—";
+    const [h, m] = timeStr.split(":");
+    const hour = parseInt(h);
+    return `${hour > 12 ? hour - 12 : hour || 12}:${m} ${hour >= 12 ? "PM" : "AM"}`;
+}
 
 function ActionCard({ icon: Icon, title, description, label, onClick, isAI }) {
     return (
@@ -85,9 +62,7 @@ function ActionCard({ icon: Icon, title, description, label, onClick, isAI }) {
                     AI Powered
                 </span>
             )}
-            <div
-                className={`w-11 h-11 rounded-xl flex items-center justify-center bg-blue-50 text-[#127fec]`}
-            >
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-blue-50 text-[#127fec]">
                 <Icon size={22} />
             </div>
             <div>
@@ -98,20 +73,23 @@ function ActionCard({ icon: Icon, title, description, label, onClick, isAI }) {
                     {description}
                 </p>
             </div>
-            <button
-                className={`mt-auto self-start flex items-center gap-1 py-1 px-3 text-xs font-semibold border rounded-full transition-colors text-[#127fec] border-[#127fec] hover:bg-[#127fec] hover:text-white hover:border-transparent bg-transparent`}
-            >
+            <button className="mt-auto self-start flex items-center gap-1 py-1 px-3 text-xs font-semibold border rounded-full transition-colors text-[#127fec] border-[#127fec] hover:bg-[#127fec] hover:text-white hover:border-transparent bg-transparent">
                 {label} <ChevronRight size={13} />
             </button>
         </motion.div>
     );
 }
+
 function AppointmentCard({ appt }) {
-    const statusCls = STATUS_STYLES[appt.status] || STATUS_STYLES.Scheduled;
+    const statusCls = STATUS_STYLES[appt.status] || STATUS_STYLES.pending;
     const accentColor =
-        appt.status === "Pending"
+        appt.status === "pending"
             ? "linear-gradient(180deg, #f59e0b, #fbbf24)"
-            : "linear-gradient(180deg, #0a5bbf, #127fec)";
+            : appt.status === "confirmed"
+              ? "linear-gradient(180deg, #0a5bbf, #127fec)"
+              : appt.status === "completed"
+                ? "linear-gradient(180deg, #16a34a, #22c55e)"
+                : "linear-gradient(180deg, #f87171, #ef4444)";
 
     return (
         <div className="bg-white/90 rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -123,20 +101,20 @@ function AppointmentCard({ appt }) {
                 <div className="flex-1 p-5">
                     <div className="flex items-center gap-3 mb-4">
                         <span
-                            className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide ${statusCls}`}
+                            className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide capitalize ${statusCls}`}
                         >
                             {appt.status}
                         </span>
                         <span className="text-slate-400 text-xs">
-                            {appt.type}
+                            {appt.type === "in_person" ? "In-Person" : "Online"}
                         </span>
                     </div>
 
                     <p className="text-xl font-bold text-slate-800">
-                        {appt.doctor}
+                        {appt.doctor_name}
                     </p>
                     <p className="text-sm text-slate-500 mt-0.5">
-                        {appt.specialty}
+                        {appt.specialization}
                     </p>
 
                     <div className="flex flex-wrap gap-2 mt-4">
@@ -145,36 +123,46 @@ function AppointmentCard({ appt }) {
                                 size={13}
                                 className="text-[#127fec]"
                             />
-                            {appt.date}
+                            {formatDate(appt.appointment_date)}
                         </span>
                         <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
                             <AlarmClock size={13} className="text-[#127fec]" />
-                            {appt.time}
+                            {formatTime(appt.appointment_time)}
                         </span>
                         <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
-                            <MapPin size={13} className="text-[#127fec]" />
-                            {appt.location}
+                            {appt.type === "online" ? (
+                                <>
+                                    <Video
+                                        size={13}
+                                        className="text-[#127fec]"
+                                    />{" "}
+                                    Online
+                                </>
+                            ) : (
+                                <>
+                                    <MapPin
+                                        size={13}
+                                        className="text-[#127fec]"
+                                    />{" "}
+                                    In-Person
+                                </>
+                            )}
                         </span>
                     </div>
 
+                    {/* View Details — not functional yet */}
                     <div className="flex items-center gap-2 mt-1 pt-4">
                         <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.97 }}
-                            className="px-4 py-1 rounded-full text-sm font-semibold text-white shadow-sm focus:outline-none"
+                            className="px-4 py-1 rounded-full text-sm font-semibold text-white shadow-sm focus:outline-none opacity-50 cursor-not-allowed"
                             style={{
                                 background:
                                     "linear-gradient(135deg, #0a5bbf, #127fec)",
                             }}
+                            title="Coming soon"
                         >
                             View Details
-                        </motion.button>
-                        <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.97 }}
-                            className="flex items-center gap-1.5 px-4 py-1 rounded-full text-sm font-semibold text-red-500 bg-red-50 hover:bg-red-100 border border-red-100 transition-colors focus:outline-none"
-                        >
-                            Cancel
                         </motion.button>
                     </div>
                 </div>
@@ -185,6 +173,37 @@ function AppointmentCard({ appt }) {
 
 export default function PatientDashboard() {
     const [isChatOpen, setIsChatOpen] = useState(false);
+    const [appointments, setAppointments] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
+
+    const user = authService.getCurrentUser();
+
+    useEffect(() => {
+        appointmentService
+            .getPatientAppointments()
+            .then(setAppointments)
+            .catch(() => {})
+            .finally(() => setLoading(false));
+    }, []);
+
+    // Upcoming = pending or confirmed, sorted by date ascending
+    const upcoming = appointments
+        .filter((a) => ["pending", "confirmed"].includes(a.status))
+        .sort(
+            (a, b) =>
+                new Date(a.appointment_date) - new Date(b.appointment_date),
+        )
+        .slice(0, 3); // show max 3 on dashboard
+
+    // History = completed appointments
+    const history = appointments
+        .filter((a) => a.status === "completed")
+        .sort(
+            (a, b) =>
+                new Date(b.appointment_date) - new Date(a.appointment_date),
+        )
+        .slice(0, 5);
 
     return (
         <div className="min-h-screen bg-[#eff6ff] px-4 sm:px-8 lg:px-12 py-8">
@@ -198,7 +217,7 @@ export default function PatientDashboard() {
                 >
                     <div>
                         <h1 className="text-3xl font-bold text-slate-800">
-                            Welcome back, James
+                            Welcome back, {user?.name?.split(" ")[0] ?? "there"}
                         </h1>
                         <p className="text-slate-500 text-sm mt-1">
                             How are you feeling today?
@@ -209,7 +228,7 @@ export default function PatientDashboard() {
                     </span>
                 </motion.div>
 
-                {/* Cards */}
+                {/* Action Cards */}
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -221,12 +240,14 @@ export default function PatientDashboard() {
                         title="Book Appointment"
                         description="Schedule a new visit with a specialist."
                         label="Book Now"
+                        onClick={() => navigate("/patient/book-appointment")}
                     />
                     <ActionCard
                         icon={CalendarCheck}
-                        title="Upcoming Visits"
-                        description="Check details of your next consultation."
-                        label="View Visits"
+                        title="My Appointments"
+                        description="Check and manage all your appointments."
+                        label="View All"
+                        onClick={() => navigate("/patient/appointments")}
                     />
                     <ActionCard
                         icon={Bot}
@@ -244,14 +265,46 @@ export default function PatientDashboard() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, delay: 0.15 }}
                 >
-                    <h2 className="text-lg font-bold text-slate-800 mb-3">
-                        Upcoming Appointments
-                    </h2>
-                    <div className="flex flex-col gap-4">
-                        {APPOINTMENTS.map((appt) => (
-                            <AppointmentCard key={appt.id} appt={appt} />
-                        ))}
+                    <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-lg font-bold text-slate-800">
+                            Upcoming Appointments
+                        </h2>
+                        <button
+                            onClick={() => navigate("/patient/appointments")}
+                            className="text-xs font-semibold text-[#127fec] hover:underline"
+                        >
+                            View all
+                        </button>
                     </div>
+
+                    {loading ? (
+                        <div className="flex items-center justify-center py-10 text-slate-400 gap-2">
+                            <Loader2 size={18} className="animate-spin" />
+                            <span className="text-sm">
+                                Loading appointments...
+                            </span>
+                        </div>
+                    ) : upcoming.length === 0 ? (
+                        <div className="bg-white/80 rounded-2xl border border-slate-100 p-8 text-center">
+                            <p className="text-slate-400 text-sm">
+                                No upcoming appointments.
+                            </p>
+                            <button
+                                onClick={() =>
+                                    navigate("/patient/book-appointment")
+                                }
+                                className="mt-3 text-xs font-semibold text-[#127fec] hover:underline"
+                            >
+                                Book one now →
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-4">
+                            {upcoming.map((appt) => (
+                                <AppointmentCard key={appt.id} appt={appt} />
+                            ))}
+                        </div>
+                    )}
                 </motion.section>
 
                 {/* Recent History */}
@@ -263,42 +316,63 @@ export default function PatientDashboard() {
                     <h2 className="text-lg font-bold text-slate-800 mb-3">
                         Recent History
                     </h2>
-                    <div className="flex flex-col gap-2">
-                        {HISTORY.map((item) => (
-                            <motion.div
-                                key={item.id}
-                                whileHover={{
-                                    backgroundColor: "rgba(255,255,255,1)",
-                                    boxShadow:
-                                        "0 4px 20px rgba(18,127,236,0.08)",
-                                }}
-                                className="flex items-center gap-4 bg-white/70 rounded-2xl px-5 py-4 my-1 border border-slate-100 transition-colors cursor-pointer"
-                            >
-                                <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
-                                    <item.icon
-                                        size={18}
-                                        className="text-[#127fec]"
-                                    />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-semibold text-slate-800 truncate">
-                                        {item.doctor}
-                                    </p>
-                                    <p className="text-xs text-slate-500 truncate">
-                                        {item.specialty}&nbsp;·&nbsp;{item.type}
-                                    </p>
-                                </div>
-                                <div className="flex items-center gap-4 flex-shrink-0 text-right">
-                                    <span className="text-xs text-slate-400 hidden sm:block">
-                                        {item.date}
-                                    </span>
-                                    <button className="text-xs font-semibold text-[#127fec] hover:underline focus:outline-none whitespace-nowrap">
-                                        {item.action}
-                                    </button>
-                                </div>
-                            </motion.div>
-                        ))}
-                    </div>
+
+                    {loading ? (
+                        <div className="flex items-center justify-center py-8 text-slate-400 gap-2">
+                            <Loader2 size={16} className="animate-spin" />
+                            <span className="text-sm">Loading history...</span>
+                        </div>
+                    ) : history.length === 0 ? (
+                        <div className="bg-white/80 rounded-2xl border border-slate-100 p-6 text-center">
+                            <p className="text-slate-400 text-sm">
+                                No completed appointments yet.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-2">
+                            {history.map((item) => (
+                                <motion.div
+                                    key={item.id}
+                                    whileHover={{
+                                        backgroundColor: "rgba(255,255,255,1)",
+                                        boxShadow:
+                                            "0 4px 20px rgba(18,127,236,0.08)",
+                                    }}
+                                    className="flex items-center gap-4 bg-white/70 rounded-2xl px-5 py-4 my-1 border border-slate-100 transition-colors cursor-pointer"
+                                >
+                                    <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+                                        <Stethoscope
+                                            size={18}
+                                            className="text-[#127fec]"
+                                        />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-semibold text-slate-800 truncate">
+                                            {item.doctor_name}
+                                        </p>
+                                        <p className="text-xs text-slate-500 truncate">
+                                            {item.specialization}&nbsp;·&nbsp;
+                                            {item.type === "in_person"
+                                                ? "In-Person"
+                                                : "Online"}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-4 flex-shrink-0 text-right">
+                                        <span className="text-xs text-slate-400 hidden sm:block">
+                                            {formatDate(item.appointment_date)}
+                                        </span>
+                                        {/* Not functional yet */}
+                                        <button
+                                            className="text-xs font-semibold text-slate-300 cursor-not-allowed focus:outline-none whitespace-nowrap"
+                                            title="Coming soon"
+                                        >
+                                            View Summary
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            ))}
+                        </div>
+                    )}
                 </motion.section>
 
                 <AnimatePresence>
@@ -321,13 +395,16 @@ export default function PatientDashboard() {
                 </AnimatePresence>
             </div>
 
-            {/* Floating  Chat Button */}
+            {/* Floating Chat Button */}
             <motion.button
                 whileHover={{ scale: 1.12 }}
                 whileTap={{ scale: 0.93 }}
                 onClick={() => setIsChatOpen(true)}
                 className="ai-float-glow fixed bottom-6 right-6 z-30 w-14 h-14 rounded-full flex items-center justify-center text-white focus:outline-none"
-                style={{ background: "linear-gradient(135deg, #a855f7, #3b82f6, #06b6d4)" }}
+                style={{
+                    background:
+                        "linear-gradient(135deg, #a855f7, #3b82f6, #06b6d4)",
+                }}
                 title="Open AI Health Assistant"
             >
                 <Bot size={24} />

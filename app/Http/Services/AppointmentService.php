@@ -1,0 +1,95 @@
+<?php
+
+namespace App\Http\Services;
+
+use App\Models\Appointment;
+
+class AppointmentService
+{
+    public function createAppointment(int $patientId, array $data): Appointment
+    {
+        return Appointment::create([
+            'patient_id'       => $patientId,
+            'doctor_id'        => $data['doctor_id'],
+            'appointment_date' => $data['appointment_date'],
+            'appointment_time' => $data['appointment_time'],
+            'type'             => $data['type'],
+            'symptoms'         => $data['symptoms'],
+            'status'           => 'pending',
+        ]);
+    }
+
+    public function getPatientAppointments(int $patientId)
+    {
+        return Appointment::with(['doctor.user'])
+            ->where('patient_id', $patientId)
+            ->orderBy('appointment_date', 'desc')
+            ->orderBy('appointment_time', 'desc')
+            ->get()
+            ->map(fn($a) => $this->formatAppointment($a));
+    }
+
+    public function getDoctorAppointments(int $doctorId)
+    {
+        return Appointment::with(['patient.user'])
+            ->where('doctor_id', $doctorId)
+            ->orderBy('appointment_date', 'asc')
+            ->orderBy('appointment_time', 'asc')
+            ->get()
+            ->map(fn($a) => $this->formatAppointmentForDoctor($a));
+    }
+
+    public function updateAppointmentStatus(int $appointmentId, string $status, int $doctorId): ?Appointment
+    {
+        $appointment = Appointment::where('id', $appointmentId)
+            ->where('doctor_id', $doctorId)
+            ->first();
+
+        if (!$appointment) return null;
+
+        $appointment->update(['status' => $status]);
+        return $appointment;
+    }
+
+    public function cancelAppointment(int $appointmentId, int $patientId): ?Appointment
+    {
+        $appointment = Appointment::where('id', $appointmentId)
+            ->where('patient_id', $patientId)
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->first();
+
+        if (!$appointment) return null;
+
+        $appointment->update(['status' => 'cancelled']);
+        return $appointment;
+    }
+
+    private function formatAppointment(Appointment $a): array
+    {
+        return [
+            'id'               => $a->id,
+            'doctor_id'        => $a->doctor_id,
+            'doctor_name'      => $a->doctor->user->name ?? 'Unknown',
+            'specialization'   => $a->doctor->specialization ?? '',
+            'appointment_date' => $a->appointment_date,
+            'appointment_time' => $a->appointment_time,
+            'type'             => $a->type,
+            'status'           => $a->status,
+            'symptoms'         => $a->symptoms,
+        ];
+    }
+
+    private function formatAppointmentForDoctor(Appointment $a): array
+    {
+        return [
+            'id'               => $a->id,
+            'patient_id'       => $a->patient_id,
+            'patient_name'     => $a->patient->user->name ?? 'Unknown',
+            'appointment_date' => $a->appointment_date,
+            'appointment_time' => $a->appointment_time,
+            'type'             => $a->type,
+            'status'           => $a->status,
+            'symptoms'         => $a->symptoms,
+        ];
+    }
+}
