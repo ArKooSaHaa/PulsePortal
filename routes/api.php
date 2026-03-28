@@ -1,9 +1,13 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\UsersController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\DoctorController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+
 
 // ── Auth routes ───────────────────────────────────────────────
 Route::prefix('auth')->group(function () {
@@ -15,6 +19,12 @@ Route::prefix('auth')->group(function () {
 
 // ── Protected routes ──────────────────────────────────────────
 Route::middleware('auth:api')->group(function () {
+    Route::get('profile', [ProfileController::class, 'show']);
+
+
+// Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
+//     return $request->user();
+// });
 
     // Patient routes
     Route::prefix('patient')->group(function () {

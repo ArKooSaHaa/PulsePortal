@@ -31,6 +31,11 @@ const authService = {
         }
     },
 
+    getProfile: async () => {
+        const response = await api.get('/profile');
+        return response.data.data;
+    },
+
     getCurrentUser: () => {
         const user = localStorage.getItem('user');
         return user ? JSON.parse(user) : null;

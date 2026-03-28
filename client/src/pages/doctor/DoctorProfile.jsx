@@ -1,31 +1,71 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import authService from "../../api/authService";
 import { motion } from "framer-motion";
 import {
     Mail,
     Phone,
-    MapPin,
-    Calendar,
     Clock,
     Edit,
 } from "lucide-react";
 
 export default function DoctorProfile() {
     const [isEdit, setIsEdit] = useState(false);
+    const [loading, setLoading] = useState(true)
 
-    const [profile, setProfile] = useState({
-        name: "Dr. Emily Stone",
-        specialization: "Cardiology",
-        license: "MD-123456789",
-        email: "emily@pulseportal.med",
-        phone: "+88012360-4567",
-        location: "Cardiology Dept, Wing B, Floor 3",
-        bio: "Dr. Emily Stone is a board-certified cardiologist with over 15 years of experience in diagnosing and treating cardiovascular diseases.",
-        days: "Monday - Friday",
-        time: "09:00 AM - 05:00 PM",
-    });
+    const [profile, setProfile] = useState(null);
+
+    useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                const data = await authService.getProfile();
+                const fetchedProfile = {
+                    name: data.user?.name || "—",
+                    email: data.user?.email || "—",
+                    specialization: data.profile?.specialization || "—",
+                    phone: data.profile?.phone || "—",
+                    bio: data.profile?.bio || "—",
+                    license: "—",
+                    availability: data.profile?.availability || "",
+                }
+                setProfile(fetchedProfile);
+            } catch (error) {
+                console.error("Failed to fetch profile", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchProfile();
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            </div>
+        );
+    }
 
     const handleChange = (e) => {
-        setProfile({ ...profile, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        if (name.startsWith("avail_")) {
+            const [, type, day] = name.split("_"); 
+            setProfile((prev) => {
+                const dayTimes = prev.availability?.[day] || ["", ""];
+                const newTimes = [...dayTimes];
+                if (type === "start") newTimes[0] = value;
+                else newTimes[1] = value;
+                
+                return {
+                    ...prev,
+                    availability: {
+                        ...prev.availability,
+                        [day]: newTimes,
+                    },
+                };
+            });
+        } else {
+            setProfile({ ...profile, [name]: value });
+        }
     };
 
     const toggleEdit = () => {
@@ -135,23 +175,19 @@ export default function DoctorProfile() {
                 >
                     <h3 className="font-semibold mb-4 text-lg">Availability</h3>
 
-                    <EditableIconField
-                        icon={<Calendar size={18} />}
-                        label="Working Days"
-                        name="days"
-                        value={profile.days}
-                        isEdit={isEdit}
-                        handleChange={handleChange}
-                    />
-
-                    <EditableIconField
-                        icon={<Clock size={18} />}
-                        label="Time Slots"
-                        name="time"
-                        value={profile.time}
-                        isEdit={isEdit}
-                        handleChange={handleChange}
-                    />
+                    {profile.availability && Object.keys(profile.availability).length > 0 ? (
+                        Object.entries(profile.availability).map(([day, times]) => (
+                            <EditableAvailabilityField
+                                key={day}
+                                day={day}
+                                times={times}
+                                isEdit={isEdit}
+                                handleChange={handleChange}
+                            />
+                        ))
+                    ) : (
+                        <div className="text-sm text-slate-500">No availability set</div>
+                    )}
                 </motion.div>
 
                 {/* Bio */}
@@ -198,15 +234,6 @@ export default function DoctorProfile() {
                         label="Phone"
                         name="phone"
                         value={profile.phone}
-                        isEdit={isEdit}
-                        handleChange={handleChange}
-                    />
-
-                    <EditableIconField
-                        icon={<MapPin size={18} />}
-                        label="Office Location"
-                        name="location"
-                        value={profile.location}
                         isEdit={isEdit}
                         handleChange={handleChange}
                     />
@@ -260,6 +287,42 @@ function EditableIconField({
                     />
                 ) : (
                     <span className="font-medium">{value}</span>
+                )}
+            </div>
+        </div>
+    );
+}
+
+/* Reusable Editable Availability Field */
+function EditableAvailabilityField({ day, times, isEdit, handleChange }) {
+    const dayName = day.charAt(0).toUpperCase() + day.slice(1);
+    return (
+        <div className="flex items-center gap-3 text-sm mb-3">
+            <div className="text-blue-500"><Clock size={18} /></div>
+            <div className="flex justify-between w-full items-center">
+                <span className="text-slate-500 w-24">{dayName}</span>
+                {isEdit ? (
+                    <div className="flex gap-2 items-center">
+                        <input
+                            name={`avail_start_${day}`}
+                            value={times[0] || ""}
+                            onChange={handleChange}
+                            className="border px-2 py-1 rounded w-28 text-center text-sm"
+                            type="time"
+                        />
+                        <span>-</span>
+                        <input
+                            name={`avail_end_${day}`}
+                            value={times[1] || ""}
+                            onChange={handleChange}
+                            className="border px-2 py-1 rounded w-28 text-center text-sm"
+                            type="time"
+                        />
+                    </div>
+                ) : (
+                    <span className="font-medium">
+                        {times[0] && times[1] ? `${times[0]} - ${times[1]}` : "Closed"}
+                    </span>
                 )}
             </div>
         </div>

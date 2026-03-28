@@ -1,19 +1,43 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { User, Briefcase } from "lucide-react";
+import authService from "../../api/authService";
 
 export default function AdminProfile() {
   const [isEdit, setIsEdit] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Sample data
-  const [profile, setProfile] = useState({
-    name: "Alexander Pierce",
-    phone: "+880123-4567",
-    email: "alexander.pierce@pulseportal.com",
-    role: "Super Admin",
-    department: "All Departments / System Wide",
-    lastLogin: "Today, 08:45 AM ",
-  });
+  const [profile, setProfile] = useState(null);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const data = await authService.getProfile();
+        const fetchedProfile = {
+          name: data.user?.name || "—",
+          email: data.user?.email || "—",
+          role: data.user?.role || "—",
+          department: data.user?.department || "All Departments / System Wide",
+          lastLogin: data.user?.last_login || "—",
+        };
+        setProfile(fetchedProfile);
+      } catch (error) {
+        console.error("Failed to fetch profile", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   const handleChange = (e) => {
     setProfile({ ...profile, [e.target.name]: e.target.value });
@@ -85,20 +109,6 @@ export default function AdminProfile() {
                 />
               ) : (
                 <p className="text-base mt-1 text-black">{profile.name}</p>
-              )}
-            </div>
-
-            <div>
-              <p className="text-xs font-semibold uppercase">Phone Number</p>
-              {isEdit ? (
-                <input
-                  name="phone"
-                  value={profile.phone}
-                  onChange={handleChange}
-                  className="border px-3 py-2 rounded w-full text-sm text-black"
-                />
-              ) : (
-                <p className="text-base mt-1 text-black">{profile.phone}</p>
               )}
             </div>
 
