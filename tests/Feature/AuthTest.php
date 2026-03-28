@@ -49,4 +49,72 @@ class AuthTest extends TestCase
 
         $response->assertStatus(422); 
     }
+
+    public function test_user_login() {
+        $data = [
+            'name'                  => 'Test Patient',
+            'email'                 => 'patient.test@gmail.com',
+            'password'              => 'Password1',   
+            'password_confirmation' => 'Password1',
+        ];
+
+        $this->postJson('/api/auth/register', $data);
+        $response = $this->postJson('/api/auth/login', [
+            'email'    => 'patient.test@gmail.com',
+            'password' => 'Password1',
+        ]);
+
+        $response->assertStatus(200)
+                 ->assertJsonPath('status', 'success');
+    }
+
+    public function test_login_wrong_password() {
+        $data = [
+            'name'                  => 'Test Patient',
+            'email'                 => 'patient.test@gmail.com',
+            'password'              => 'Password1',   
+            'password_confirmation' => 'Password1',
+        ];
+
+        $this->postJson('/api/auth/register', $data);
+        $response = $this->postJson('/api/auth/login', [
+            'email'    => 'patient.test@gmail.com',
+            'password' => 'password', // Incorrect password
+        ]);
+
+        $response->assertStatus(401) // 401 - Unauthorized
+                 ->assertJsonPath('status', 'error');
+    }
+
+    public function test_login_wrong_email() {
+        $response = $this->postJson('/api/auth/login', [
+            'email'    => 'patient.test.2@gmail.com', // Wrong email
+            'password' => 'Password1',
+        ]);
+
+        $response->assertStatus(401)
+                 ->assertJsonPath('status', 'error');
+    }
+
+    public function test_user_can_logout() {
+        $this->postJson('/api/auth/register', [
+            'name'                  => 'Test Patient',
+            'email'                 => 'patient.test@gmail.com',
+            'password'              => 'Password1',
+            'password_confirmation' => 'Password1',
+        ]);
+
+        $loginResponse = $this->postJson('/api/auth/login', [
+            'email'    => 'patient.test@gmail.com',
+            'password' => 'Password1',
+        ]);
+
+        $token = $loginResponse->json('data.token');
+
+        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
+                         ->postJson('/api/auth/logout');
+
+        $response->assertStatus(200)
+                 ->assertJsonPath('status', 'success');
+    }
 }
