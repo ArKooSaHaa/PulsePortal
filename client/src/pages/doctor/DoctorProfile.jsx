@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import authService from "../../api/authService";
 import { motion } from "framer-motion";
 import {
     Mail,
@@ -11,18 +12,44 @@ import {
 
 export default function DoctorProfile() {
     const [isEdit, setIsEdit] = useState(false);
+    const [loading, setLoading] = useState(true)
 
-    const [profile, setProfile] = useState({
-        name: "Dr. Emily Stone",
-        specialization: "Cardiology",
-        license: "MD-123456789",
-        email: "emily@pulseportal.med",
-        phone: "+88012360-4567",
-        location: "Cardiology Dept, Wing B, Floor 3",
-        bio: "Dr. Emily Stone is a board-certified cardiologist with over 15 years of experience in diagnosing and treating cardiovascular diseases.",
-        days: "Monday - Friday",
-        time: "09:00 AM - 05:00 PM",
-    });
+    const [profile, setProfile] = useState(null);
+
+    useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                const data = await authService.getProfile();
+                const fetchedProfile = {
+                    name: data.user?.name || "",
+                    email: data.user?.email || "",
+                    specialization: data.profile?.specialization || "",
+                    phone: data.profile?.phone || "",
+                    bio: data.profile?.bio || "",
+                    // These fields aren't in the base schema but we keep them for the UI 
+                    // or in case you add them to the database later via availability JSON.
+                    license: "",
+                    location: "",
+                    days: "Monday - Friday",
+                    time: "09:00 AM - 05:00 PM",
+                }
+                setProfile(fetchedProfile);
+            } catch (error) {
+                console.error("Failed to fetch profile", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchProfile();
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            </div>
+        );
+    }
 
     const handleChange = (e) => {
         setProfile({ ...profile, [e.target.name]: e.target.value });
@@ -198,15 +225,6 @@ export default function DoctorProfile() {
                         label="Phone"
                         name="phone"
                         value={profile.phone}
-                        isEdit={isEdit}
-                        handleChange={handleChange}
-                    />
-
-                    <EditableIconField
-                        icon={<MapPin size={18} />}
-                        label="Office Location"
-                        name="location"
-                        value={profile.location}
                         isEdit={isEdit}
                         handleChange={handleChange}
                     />
