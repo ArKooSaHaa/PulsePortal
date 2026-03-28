@@ -3,20 +3,13 @@
 use App\Http\Controllers\UsersController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\AppointmentController;
+use App\Http\Controllers\DoctorController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-/*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "api" middleware group. Make something great!
-|
-*/
 
+// ── Auth routes ───────────────────────────────────────────────
 Route::prefix('auth')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login',    [AuthController::class, 'login']);
@@ -24,22 +17,31 @@ Route::prefix('auth')->group(function () {
     Route::get('me',        [AuthController::class, 'me'])->middleware('auth:api');
 });
 
+// ── Protected routes ──────────────────────────────────────────
 Route::middleware('auth:api')->group(function () {
     Route::get('profile', [ProfileController::class, 'show']);
 
-    Route::prefix('patient')->group(function () {});
-    Route::prefix('doctor')->group(function () {});
-    Route::prefix('admin')->group(function () {});
-});
+
 // Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 //     return $request->user();
 // });
 
-/* Dummy CRUD operations for items using UsersController
-Route::get('/items', [UsersController::class, 'index']);
-Route::get('/items/{id}', [UsersController::class, 'show']);
-Route::post('/items', [UsersController::class, 'store']);
-Route::put('/items/{id}', [UsersController::class, 'update']);
-Route::patch('/items/{id}', [UsersController::class, 'patch']);
-Route::delete('/items/{id}', [UsersController::class, 'destroy']);
-*/
+    // Patient routes
+    Route::prefix('patient')->group(function () {
+        Route::get('appointments',              [AppointmentController::class, 'patientIndex']);
+        Route::post('appointments',             [AppointmentController::class, 'store']);
+        Route::patch('appointments/{id}/cancel', [AppointmentController::class, 'cancel']);
+    });
+
+    // Doctor routes
+    Route::prefix('doctor')->group(function () {
+        Route::get('appointments',                      [AppointmentController::class, 'doctorIndex']);
+        Route::patch('appointments/{id}/status',        [AppointmentController::class, 'updateStatus']);
+        Route::get('available',                         [DoctorController::class, 'index']);
+    });
+
+    // Admin routes
+    Route::prefix('admin')->group(function () {
+        // Milestone 2
+    });
+});

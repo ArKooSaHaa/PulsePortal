@@ -1,60 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import AIChatPanel from "../../components/AIChatPanel";
-import { Star, CheckCircle2, ChevronLeft, ChevronRight, Bot, Sparkles, Search, CalendarDays, Clock, UserCheck, ArrowRight, Video, MapPin } from "lucide-react";
+import appointmentService from "../../api/appointmentService";
+import { Star, CheckCircle2, ChevronLeft, ChevronRight, Bot, Sparkles, Search, CalendarDays, Clock, UserCheck, ArrowRight, Video, MapPin, Loader2 } from "lucide-react";
 
-const DOCTORS = [
-    {
-        id: 1,
-        name: "Dr. Sarah Ahmed",
-        specialty: "Senior Cardiologist",
-        department: "Cardiology",
-        clinic: "Heart Center",
-        rating: 4.9,
-        fee: 60,
-        avatar: "SA",
-        color: "#e0f2fe",
-        accent: "#0284c7",
-    },
-    {
-        id: 2,
-        name: "Dr. Michael Chen",
-        specialty: "Neurologist",
-        department: "Neurology",
-        clinic: "Brain & Nerve Clinic",
-        rating: 4.8,
-        fee: 55,
-        avatar: "MC",
-        color: "#ede9fe",
-        accent: "#7c3aed",
-    },
-    {
-        id: 3,
-        name: "Dr. Elena Rodriguez",
-        specialty: "Pediatrician",
-        department: "Pediatrics",
-        clinic: "Family Care",
-        rating: 5.0,
-        fee: 45,
-        avatar: "ER",
-        color: "#dcfce7",
-        accent: "#16a34a",
-    },
-    {
-        id: 4,
-        name: "Dr. James Patel",
-        specialty: "General Physician",
-        department: "General",
-        clinic: "General Practice",
-        rating: 4.7,
-        fee: 40,
-        avatar: "JP",
-        color: "#fff7ed",
-        accent: "#ea580c",
-    },
-];
-
-const DEPARTMENTS = ["All", "Cardiology", "Neurology", "Pediatrics", "General"];
+// ── Keep your existing DEPARTMENTS, TIME_SLOTS, WEEKDAYS constants ──
+const DEPARTMENTS = ["All", "Cardiology", "Neurology", "Pediatrics", "General", "Orthopedics"];
 
 const TIME_SLOTS = [
     { id: 1, time: "09:00 AM", available: true },
@@ -160,7 +111,7 @@ function getFirstDayOfWeek(year, month) {
     return (d + 6) % 7;
 }
 const MONTH_NAMES = [
-    "January","February","March","April","May","June", "July","August","September","October","November","December",
+    "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December",
 ];
 
 function MiniCalendar({ selectedDate, onSelect }) {
@@ -312,18 +263,56 @@ function formatDate(year, month, day) {
     return `${day} ${MONTH_NAMES[month]} ${year}`;
 }
 
-
+// ── Only the main export changes ──
 export default function BookAppointment() {
-    const [search, setSearch] = useState("");
-    const [dept, setDept] = useState("All");
+    const [search, setSearch]               = useState("");
+    const [dept, setDept]                   = useState("All");
     const [selectedDoctor, setSelectedDoctor] = useState(null);
-    const [selectedType, setSelectedType] = useState(null);
-    const [selectedDate, setSelectedDate] = useState(null);
-    const [selectedTime, setSelectedTime] = useState(null);
-    const [isChatOpen, setIsChatOpen] = useState(false);
-    const [confirmed, setConfirmed] = useState(false);
+    const [selectedType, setSelectedType]   = useState(null);
+    const [selectedDate, setSelectedDate]   = useState(null);
+    const [selectedTime, setSelectedTime]   = useState(null);
+    const [isChatOpen, setIsChatOpen]       = useState(false);
+    const [confirmed, setConfirmed]         = useState(false);
+    const [symptoms, setSymptoms]           = useState("");
 
-    const filteredDoctors = DOCTORS.filter((d) => {
+    // ── NEW: real doctors from API ──
+    const [doctors, setDoctors]     = useState([]);
+    const [loadingDoctors, setLoadingDoctors] = useState(true);
+    const [bookingLoading, setBookingLoading] = useState(false);
+    const [bookingError, setBookingError]     = useState("");
+
+    useEffect(() => {
+        appointmentService.getDoctors()
+            .then(setDoctors)
+            .catch(() => setDoctors([]))
+            .finally(() => setLoadingDoctors(false));
+    }, []);
+
+    // Map API doctor to shape your DoctorCard expects
+    const mappedDoctors = doctors.map((d, i) => {
+        const COLORS = [
+            { color: "#e0f2fe", accent: "#0284c7" },
+            { color: "#ede9fe", accent: "#7c3aed" },
+            { color: "#dcfce7", accent: "#16a34a" },
+            { color: "#fff7ed", accent: "#ea580c" },
+            { color: "#fce7f3", accent: "#db2777" },
+        ];
+        const c = COLORS[i % COLORS.length];
+        return {
+            id:         d.id,
+            name:       d.name,
+            specialty:  d.specialization,
+            department: d.specialization,
+            clinic:     "PulsePortal Clinic",
+            rating:     4.8,
+            fee:        d.fee ?? 50,
+            avatar:     d.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(),
+            color:      c.color,
+            accent:     c.accent,
+        };
+    });
+
+    const filteredDoctors = mappedDoctors.filter((d) => {
         const matchSearch =
             d.name.toLowerCase().includes(search.toLowerCase()) ||
             d.specialty.toLowerCase().includes(search.toLowerCase());
@@ -331,17 +320,43 @@ export default function BookAppointment() {
         return matchSearch && matchDept;
     });
 
-    const canConfirm = selectedDoctor && selectedType && selectedDate && selectedTime;
+    const canConfirm = selectedDoctor && selectedType && selectedDate && selectedTime && symptoms.trim();
 
-    const handleConfirm = () => {
-        if (canConfirm) setConfirmed(true);
+    // ── Convert UI time "09:00 AM" → "09:00:00" for backend ──
+    const convertTime = (timeStr) => {
+        const [time, modifier] = timeStr.split(" ");
+        let [hours, minutes] = time.split(":");
+        if (modifier === "PM" && hours !== "12") hours = String(parseInt(hours) + 12);
+        if (modifier === "AM" && hours === "12") hours = "00";
+        return `${hours.padStart(2, "0")}:${minutes}:00`;
+    };
+
+    const handleConfirm = async () => {
+        if (!canConfirm) return;
+        setBookingLoading(true);
+        setBookingError("");
+
+        try {
+            await appointmentService.bookAppointment({
+                doctor_id:        selectedDoctor.id,
+                appointment_date: `${selectedDate.year}-${String(selectedDate.month + 1).padStart(2, "0")}-${String(selectedDate.day).padStart(2, "0")}`,
+                appointment_time: convertTime(selectedTime),
+                type:             selectedType === "in-person" ? "in_person" : "online",
+                symptoms:         symptoms,
+            });
+            setConfirmed(true);
+        } catch (err) {
+            setBookingError(err.response?.data?.message || "Booking failed. Please try again.");
+        } finally {
+            setBookingLoading(false);
+        }
     };
 
     const dateLabel = selectedDate
         ? formatDate(selectedDate.year, selectedDate.month, selectedDate.day)
         : "Not selected";
 
-    // Booking confirmation overlay
+    // ── Booking confirmation screen ──
     if (confirmed) {
         return (
             <div className="min-h-screen bg-[#eff6ff] flex items-center justify-center px-4">
@@ -390,6 +405,7 @@ export default function BookAppointment() {
                             setSelectedType(null);
                             setSelectedDate(null);
                             setSelectedTime(null);
+                            setSymptoms("");
                         }}
                         className="w-full py-3 rounded-xl text-sm font-bold text-white shadow-lg"
                         style={{ background: "linear-gradient(135deg, #0a5bbf, #127fec)" }}
@@ -400,10 +416,11 @@ export default function BookAppointment() {
             </div>
         );
     }
+
     return (
         <div className="min-h-screen bg-[#eff6ff] px-3 sm:px-5 lg:px-8 py-5">
             <div className="max-w-6xl mx-auto">
-                {/*  Header  */}
+                {/* Header */}
                 <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -416,10 +433,8 @@ export default function BookAppointment() {
                     </p>
                 </motion.div>
 
-                {/*  Two-column layout  */}
                 <div className="flex flex-col lg:flex-row gap-6 items-start">
-
-                    {/*  LEFT panel  */}
+                    {/* LEFT panel */}
                     <div className="flex-1 flex flex-col gap-5 min-w-0">
                         <motion.div
                             initial={{ opacity: 0, y: 10 }}
@@ -427,11 +442,8 @@ export default function BookAppointment() {
                             transition={{ duration: 0.4, delay: 0.05 }}
                             className="bg-white/80 backdrop-blur-sm rounded-3xl border border-slate-100 shadow-sm py-6 px-8"
                         >
-                            {/* Section header */}
                             <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-2">
-                                    <h2 className="font-bold text-lg text-slate-800">Find a Doctor</h2>
-                                </div>
+                                <h2 className="font-bold text-lg text-slate-800">Find a Doctor</h2>
                                 <motion.button
                                     whileHover={{ scale: 1.03 }}
                                     whileTap={{ scale: 0.96 }}
@@ -443,7 +455,6 @@ export default function BookAppointment() {
                                 </motion.button>
                             </div>
 
-                            {/* Search + Department filter */}
                             <div className="flex flex-col sm:flex-row gap-2 mb-4">
                                 <div className="relative flex-1">
                                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -467,41 +478,49 @@ export default function BookAppointment() {
 
                             {/* Doctor list */}
                             <div className="flex flex-col gap-2">
-                                <AnimatePresence>
-                                    {filteredDoctors.length === 0 ? (
-                                        <motion.div
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: 1 }}
-                                            className="text-center py-8 text-sm text-slate-400"
-                                        >
-                                            No doctors found.
-                                        </motion.div>
-                                    ) : (
-                                        filteredDoctors.map((doc) => (
+                                {loadingDoctors ? (
+                                    <div className="flex items-center justify-center py-10 text-slate-400 gap-2">
+                                        <Loader2 size={18} className="animate-spin" />
+                                        <span className="text-sm">Loading doctors...</span>
+                                    </div>
+                                ) : (
+                                    <AnimatePresence>
+                                        {filteredDoctors.length === 0 ? (
                                             <motion.div
-                                                key={doc.id}
-                                                layout
-                                                initial={{ opacity: 0, y: 8 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                exit={{ opacity: 0, scale: 0.96 }}
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                className="text-center py-8 text-sm text-slate-400"
                                             >
-                                                <DoctorCard
-                                                    doctor={doc}
-                                                    selected={selectedDoctor?.id === doc.id}
-                                                    onSelect={(d) => {
-                                                        setSelectedDoctor(d);
-                                                        setSelectedType(null);
-                                                        setSelectedDate(null);
-                                                        setSelectedTime(null);
-                                                    }}
-                                                />
+                                                No doctors found.
                                             </motion.div>
-                                        ))
-                                    )}
-                                </AnimatePresence>
+                                        ) : (
+                                            filteredDoctors.map((doc) => (
+                                                <motion.div
+                                                    key={doc.id}
+                                                    layout
+                                                    initial={{ opacity: 0, y: 8 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, scale: 0.96 }}
+                                                >
+                                                    <DoctorCard
+                                                        doctor={doc}
+                                                        selected={selectedDoctor?.id === doc.id}
+                                                        onSelect={(d) => {
+                                                            setSelectedDoctor(d);
+                                                            setSelectedType(null);
+                                                            setSelectedDate(null);
+                                                            setSelectedTime(null);
+                                                        }}
+                                                    />
+                                                </motion.div>
+                                            ))
+                                        )}
+                                    </AnimatePresence>
+                                )}
                             </div>
                         </motion.div>
-                        {/* Type selector */}
+
+                        {/* Type selector — keep exactly as yours */}
                         <AnimatePresence>
                             {selectedDoctor && (
                                 <motion.div
@@ -562,7 +581,7 @@ export default function BookAppointment() {
                             )}
                         </AnimatePresence>
 
-                        {/* Calendar and Time grid */}
+                        {/* Calendar + Time slots */}
                         <AnimatePresence>
                             {selectedType && (
                                 <motion.div
@@ -573,15 +592,12 @@ export default function BookAppointment() {
                                     transition={{ duration: 0.35 }}
                                     className="grid grid-cols-1 sm:grid-cols-2 gap-4"
                                 >
-                                    {/* Calendar */}
                                     <div>
                                         <div className="flex items-center gap-2 mb-2 px-1">
                                             <h2 className="text-base font-bold text-slate-800">Select Date</h2>
                                         </div>
                                         <MiniCalendar selectedDate={selectedDate} onSelect={(d) => { setSelectedDate(d); setSelectedTime(null); }} />
                                     </div>
-
-                                    {/* Time Slots */}
                                     <div>
                                         <div className="flex items-center gap-2 mb-2 px-1">
                                             <h2 className="text-base font-bold text-slate-800">Select Time</h2>
@@ -591,8 +607,32 @@ export default function BookAppointment() {
                                 </motion.div>
                             )}
                         </AnimatePresence>
+
+                        {/* ── NEW: Symptoms input ── */}
+                        <AnimatePresence>
+                            {selectedTime && (
+                                <motion.div
+                                    key="symptoms"
+                                    initial={{ opacity: 0, y: 16 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: 10 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="bg-white/80 backdrop-blur-sm rounded-3xl border border-slate-100 shadow-sm py-5 px-6"
+                                >
+                                    <h2 className="text-base font-bold text-slate-800 mb-2">Describe Your Symptoms</h2>
+                                    <textarea
+                                        value={symptoms}
+                                        onChange={(e) => setSymptoms(e.target.value)}
+                                        placeholder="e.g. I have been experiencing chest pain and shortness of breath for the past 3 days..."
+                                        rows={3}
+                                        className="w-full text-sm rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 focus:outline-none focus:border-[#127fec] focus:ring-2 focus:ring-[#127fec]/20 transition-all resize-none text-slate-700"
+                                    />
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
-                    {/*  RIGHT panel  */}
+
+                    {/* RIGHT panel — summary card */}
                     <motion.div
                         initial={{ opacity: 0, x: 16 }}
                         animate={{ opacity: 1, x: 0 }}
@@ -600,7 +640,6 @@ export default function BookAppointment() {
                         className="w-full lg:w-80 xl:w-[330px] flex-shrink-0 sticky top-24"
                     >
                         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5">
-                            {/* Card header */}
                             <div className="flex items-center gap-2 mb-5">
                                 <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-blue-50">
                                     <CalendarDays size={16} className="text-[#127fec]" />
@@ -608,7 +647,7 @@ export default function BookAppointment() {
                                 <h3 className="text-base font-bold text-slate-800">Appointment Summary</h3>
                             </div>
 
-                            {/* Doctor summary with avatar */}
+                            {/* Doctor summary */}
                             <div className="mb-5">
                                 <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-2">Doctor</span>
                                 <AnimatePresence mode="wait">
@@ -647,6 +686,7 @@ export default function BookAppointment() {
                                     )}
                                 </AnimatePresence>
                             </div>
+
                             <div className="h-px bg-slate-100 mb-5" />
 
                             <div className="mb-4">
@@ -658,7 +698,6 @@ export default function BookAppointment() {
                                 />
                             </div>
 
-                            {/* Date + Time rows */}
                             <div className="grid grid-cols-2 gap-4 mb-5">
                                 <SummaryRow
                                     label="Date"
@@ -674,7 +713,6 @@ export default function BookAppointment() {
                                 />
                             </div>
 
-                            {/* Fee */}
                             <AnimatePresence>
                                 {selectedDoctor && (
                                     <motion.div
@@ -684,19 +722,22 @@ export default function BookAppointment() {
                                         className="flex items-center justify-between py-3 mb-4 border-t border-slate-100"
                                     >
                                         <span className="text-sm text-slate-500 font-medium">Consultation Fee</span>
-                                        <span className="text-xl font-bold text-slate-800">
-                                            ${selectedDoctor.fee}.00
-                                        </span>
+                                        <span className="text-xl font-bold text-slate-800">${selectedDoctor.fee}.00</span>
                                     </motion.div>
                                 )}
                             </AnimatePresence>
+
+                            {/* Error */}
+                            {bookingError && (
+                                <p className="text-red-500 text-xs text-center mb-3">{bookingError}</p>
+                            )}
 
                             {/* Confirm button */}
                             <motion.button
                                 whileHover={canConfirm ? { scale: 1.02 } : {}}
                                 whileTap={canConfirm ? { scale: 0.97 } : {}}
                                 onClick={handleConfirm}
-                                disabled={!canConfirm}
+                                disabled={!canConfirm || bookingLoading}
                                 className={`w-full py-3.5 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300
                                     ${canConfirm
                                         ? "text-white shadow-lg shadow-blue-200 cursor-pointer"
@@ -704,7 +745,9 @@ export default function BookAppointment() {
                                     }`}
                                 style={canConfirm ? { background: "linear-gradient(135deg, #0a5bbf, #127fec)" } : {}}
                             >
-                                {canConfirm ? (
+                                {bookingLoading ? (
+                                    <><Loader2 size={16} className="animate-spin" /> Booking...</>
+                                ) : canConfirm ? (
                                     <>Confirm Booking <ArrowRight size={16} /></>
                                 ) : (
                                     "Complete all steps above"
@@ -712,23 +755,21 @@ export default function BookAppointment() {
                             </motion.button>
                         </div>
 
-                        {/* Progress tracker */}
+                        {/* Progress tracker — keep exactly as yours */}
                         <div className="mt-4 bg-white/80 rounded-2xl border border-slate-100 shadow-sm p-4">
                             <p className="text-xs font-bold text-slate-500 mb-3 uppercase tracking-widest">Your Progress</p>
                             <div className="flex items-center gap-2">
                                 {[
                                     { label: "Doctor", done: !!selectedDoctor },
-                                    { label: "Type", done: !!selectedType },
-                                    { label: "Date", done: !!selectedDate },
-                                    { label: "Time", done: !!selectedTime },
+                                    { label: "Type",   done: !!selectedType },
+                                    { label: "Date",   done: !!selectedDate },
+                                    { label: "Time",   done: !!selectedTime },
                                 ].map((step, i, arr) => (
                                     <div key={step.label} className="flex items-center gap-2 flex-1">
                                         <div className="flex flex-col items-center gap-1 flex-1">
                                             <motion.div
                                                 animate={{
-                                                    background: step.done
-                                                        ? "linear-gradient(135deg, #0a5bbf, #127fec)"
-                                                        : "#e2e8f0",
+                                                    background: step.done ? "linear-gradient(135deg, #0a5bbf, #127fec)" : "#e2e8f0",
                                                     scale: step.done ? 1.1 : 1,
                                                 }}
                                                 transition={{ duration: 0.3 }}
