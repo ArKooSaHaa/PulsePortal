@@ -55,6 +55,7 @@ export default function PatientProfile() {
     const [isEdit, setIsEdit] = useState(false);
     const [draft, setDraft] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [editLoading, setEditLoading] = useState(false);
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -108,12 +109,15 @@ export default function PatientProfile() {
     }
 
     async function saveEdit() {
+        setEditLoading(true);
         try {
             await authService.editProfile(draft);
             setProfile({ ...draft });
             setIsEdit(false);
         } catch (error) {
             console.error("Failed to update profile", error);
+        } finally {
+            setEditLoading(false);
         }
     }
 
@@ -184,18 +188,25 @@ export default function PatientProfile() {
                     <div className="flex items-center gap-3 mt-2 md:mt-4">
                         <motion.button
                             onClick={cancelEdit}
+                            disabled={editLoading}
                             whileTap={{ scale: 0.92 }}
-                            className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-red-600 text-red-700 font-semibold text-sm hover:bg-red-50 transition-colors"
+                            className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-red-600 text-red-700 font-semibold text-sm hover:bg-red-50 transition-colors disabled:opacity-50"
                         >
                             <X size={15} /> Cancel
                         </motion.button>
                         <motion.button
                             onClick={saveEdit}
+                            disabled={editLoading}
                             whileHover={{ y: -2 }}
                             whileTap={{ scale: 0.92 }}
-                            className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-blue-500 text-white font-semibold text-sm hover:bg-blue-600 transition-colors shadow-md shadow-blue-500/20"
+                            className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-blue-500 text-white font-semibold text-sm hover:bg-blue-600 transition-colors shadow-md shadow-blue-500/20 disabled:opacity-50"
                         >
-                            <Check size={15} /> Save Changes
+                            {editLoading ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white hidden sm:block"></div>
+                            ) : (
+                                <Check size={15} />
+                            )}{" "}
+                            {editLoading ? "Saving..." : "Save Changes"}
                         </motion.button>
                     </div>
                 ) : (

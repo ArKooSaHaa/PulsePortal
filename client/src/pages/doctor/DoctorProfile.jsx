@@ -1,17 +1,12 @@
 import React, { useEffect, useState } from "react";
 import authService from "../../api/authService";
 import { motion } from "framer-motion";
-import {
-    Mail,
-    Phone,
-    Clock,
-    Edit,
-} from "lucide-react";
+import { Mail, Phone, Clock, Edit, Check } from "lucide-react";
 
 export default function DoctorProfile() {
     const [isEdit, setIsEdit] = useState(false);
-    const [loading, setLoading] = useState(true)
-
+    const [loading, setLoading] = useState(true);
+    const [editLoading, setEditLoading] = useState(false);
     const [profile, setProfile] = useState(null);
 
     useEffect(() => {
@@ -26,7 +21,7 @@ export default function DoctorProfile() {
                     bio: data.profile?.bio || "—",
                     license: "—",
                     availability: data.profile?.availability || "",
-                }
+                };
                 setProfile(fetchedProfile);
             } catch (error) {
                 console.error("Failed to fetch profile", error);
@@ -48,13 +43,12 @@ export default function DoctorProfile() {
     const handleChange = (e) => {
         const { name, value } = e.target;
         if (name.startsWith("avail_")) {
-            const [, type, day] = name.split("_"); 
+            const [, type, day] = name.split("_");
             setProfile((prev) => {
                 const dayTimes = prev.availability?.[day] || ["", ""];
                 const newTimes = [...dayTimes];
                 if (type === "start") newTimes[0] = value;
                 else newTimes[1] = value;
-                
                 return {
                     ...prev,
                     availability: {
@@ -70,10 +64,13 @@ export default function DoctorProfile() {
 
     const toggleEdit = async () => {
         if (isEdit) {
+            setEditLoading(true);
             try {
                 await authService.editProfile(profile);
             } catch (error) {
                 console.error("Failed to update profile", error);
+            } finally {
+                setEditLoading(false);
             }
         }
         setIsEdit(!isEdit);
@@ -130,16 +127,24 @@ export default function DoctorProfile() {
 
                 <button
                     onClick={toggleEdit}
-                    className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500 text-white hover:bg-blue-600"
+                    disabled={editLoading}
+                    className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50"
                 >
-                    <Edit size={16} />
-                    {isEdit ? "Save" : "Edit Profile"}
+                    {isEdit ? (
+                        editLoading ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white hidden sm:block"></div>
+                        ) : (
+                            <Check size={15} />
+                        )
+                    ) : (
+                        <Edit size={16} />
+                    )}
+                    {isEdit ? (editLoading ? "Saving..." : "Save") : "Edit Profile"}
                 </button>
             </motion.div>
 
             {/* Grid */}
             <div className="grid md:grid-cols-2 gap-6">
-
                 {/* Professional Info */}
                 <motion.div
                     whileHover={{ y: -5 }}
@@ -262,7 +267,6 @@ function EditableField({ label, name, value, isEdit, handleChange }) {
                     className="border px-2 py-1 rounded"
                 />
             ) : (
-                
                 <span className="font-medium">{value}</span>
             )}
         </div>
@@ -270,16 +274,8 @@ function EditableField({ label, name, value, isEdit, handleChange }) {
 }
 
 /* Reusable Editable Icon Field */
-function EditableIconField({
-    icon,
-    label,
-    name,
-    value,
-    isEdit,
-    handleChange,
-}) {
+function EditableIconField({ icon, label, name, value, isEdit, handleChange }) {
     return (
-        
         <div className="flex items-center gap-3 text-sm mb-3">
             <div className="text-blue-500">{icon}</div>
             <div className="flex justify-between w-full">
@@ -304,7 +300,9 @@ function EditableAvailabilityField({ day, times, isEdit, handleChange }) {
     const dayName = day.charAt(0).toUpperCase() + day.slice(1);
     return (
         <div className="flex items-center gap-3 text-sm mb-3">
-            <div className="text-blue-500"><Clock size={18} /></div>
+            <div className="text-blue-500">
+                <Clock size={18} />
+            </div>
             <div className="flex justify-between w-full items-center">
                 <span className="text-slate-500 w-24">{dayName}</span>
                 {isEdit ? (
@@ -327,7 +325,9 @@ function EditableAvailabilityField({ day, times, isEdit, handleChange }) {
                     </div>
                 ) : (
                     <span className="font-medium">
-                        {times[0] && times[1] ? `${times[0]} - ${times[1]}` : "Closed"}
+                        {times[0] && times[1]
+                            ? `${times[0]} - ${times[1]}`
+                            : "Closed"}
                     </span>
                 )}
             </div>
