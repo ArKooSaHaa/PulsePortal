@@ -48,27 +48,16 @@ jobs:
       - name: Build frontend assets
         run: npm run build
 
-      - name: Create .env for CI
+      - name: Copy .env
+        run: cp .env.example .env
+
+      - name: Configure environment
         run: |
-          cat > .env << 'EOF'
-          APP_NAME=PulsePortal
-          APP_ENV=testing
-          APP_DEBUG=true
-          APP_URL=http://localhost
-
-          DB_CONNECTION=mysql
-          DB_HOST=127.0.0.1
-          DB_PORT=3306
-          DB_DATABASE=pulse_portal
-          DB_USERNAME=root
-          DB_PASSWORD=root
-
-          JWT_SECRET=ci-test-jwt-secret-not-used-in-production
-
-          CACHE_DRIVER=array
-          SESSION_DRIVER=array
-          QUEUE_CONNECTION=sync
-          EOF
+          sed -i 's/DB_HOST=.*/DB_HOST=127.0.0.1/' .env
+          sed -i 's/DB_PORT=.*/DB_PORT=3306/' .env
+          sed -i 's/DB_DATABASE=.*/DB_DATABASE=pulse_portal/' .env
+          sed -i 's/DB_USERNAME=.*/DB_USERNAME=root/' .env
+          sed -i 's/DB_PASSWORD=.*/DB_PASSWORD=root/' .env
 
       - name: Generate app key
         run: php artisan key:generate
