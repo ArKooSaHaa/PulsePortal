@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
     CalendarPlus,
     CalendarCheck,
@@ -185,6 +186,7 @@ function AppointmentCard({ appt }) {
 
 export default function PatientDashboard() {
     const [isChatOpen, setIsChatOpen] = useState(false);
+    const navigate = useNavigate();
 
     return (
         <div className="min-h-screen bg-[#eff6ff] px-4 sm:px-8 lg:px-12 py-8">
@@ -221,12 +223,14 @@ export default function PatientDashboard() {
                         title="Book Appointment"
                         description="Schedule a new visit with a specialist."
                         label="Book Now"
+                        onClick={() => navigate("/patient/book-appointment")}
                     />
                     <ActionCard
                         icon={CalendarCheck}
                         title="Upcoming Visits"
                         description="Check details of your next consultation."
                         label="View Visits"
+                        onClick={() => navigate("/patient/appointments")}
                     />
                     <ActionCard
                         icon={Bot}
