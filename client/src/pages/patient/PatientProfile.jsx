@@ -53,7 +53,7 @@ function FieldRow({
 export default function PatientProfile() {
     const [profile, setProfile] = useState(null);
     const [isEdit, setIsEdit] = useState(false);
-    const [draft, setDraft] = useState(null); 
+    const [draft, setDraft] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -380,6 +380,7 @@ export default function PatientProfile() {
                             onChange={handleChange}
                             isEdit={isEdit}
                         />
+                        <hr className="border-slate-100" />
                         <FieldRow
                             label="Emergency Phone"
                             name="emergencyPhone"

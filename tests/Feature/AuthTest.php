@@ -117,4 +117,32 @@ class AuthTest extends TestCase
         $response->assertStatus(200)
                  ->assertJsonPath('status', 'success');
     }
+
+    public function test_authenticated_user_get_profile() {
+        $this->postJson('/api/auth/register', [
+            'name'                  => 'Test Patient',
+            'email'                 => 'patient.test@gmail.com',
+            'password'              => 'Password1',
+            'password_confirmation' => 'Password1',
+        ]);
+
+        $loginResponse = $this->postJson('/api/auth/login', [
+            'email'    => 'patient.test@gmail.com',
+            'password' => 'Password1',
+        ]);
+
+        $token = $loginResponse->json('data.token');
+
+        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
+                         ->getJson('/api/auth/me');
+
+        $response->assertStatus(200)
+                 ->assertJsonPath('status', 'success');
+    }
+
+    public function test_unauthenticated_user_cannot_get_profile() {
+        $response = $this->getJson('/api/auth/me');
+
+        $response->assertStatus(401);
+    }
 }
