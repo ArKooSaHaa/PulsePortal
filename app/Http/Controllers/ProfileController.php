@@ -34,4 +34,16 @@ class ProfileController extends Controller
             ],
         ]);
     }
+
+    public function update(Request $request) {
+        $user = auth()->user();
+
+        $profile = match ($user->role) {
+            'patient' => Patient::where('user_id', $user->id)->first(),
+            'doctor'  => Doctor::where('user_id', $user->id)->first(),
+            'admin'   => Admin::where('user_id', $user->id)->first(),
+            default   => null,
+        };
+
+    }
 }

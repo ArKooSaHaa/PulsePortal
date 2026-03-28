@@ -68,9 +68,15 @@ export default function DoctorProfile() {
         }
     };
 
-    const toggleEdit = () => {
+    const toggleEdit = async () => {
+        if (isEdit) {
+            try {
+                await authService.editProfile(profile);
+            } catch (error) {
+                console.error("Failed to update profile", error);
+            }
+        }
         setIsEdit(!isEdit);
-        
     };
 
     return (

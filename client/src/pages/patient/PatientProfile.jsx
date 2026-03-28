@@ -107,9 +107,14 @@ export default function PatientProfile() {
         setIsEdit(false);
     }
 
-    function saveEdit() {
-        setProfile({ ...draft });
-        setIsEdit(false);
+    async function saveEdit() {
+        try {
+            await authService.editProfile(draft);
+            setProfile({ ...draft });
+            setIsEdit(false);
+        } catch (error) {
+            console.error("Failed to update profile", error);
+        }
     }
 
     function handleChange(e) {
