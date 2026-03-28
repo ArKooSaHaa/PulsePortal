@@ -30,13 +30,14 @@ function formatTime(t) {
 
 export default function DoctorDashboard() {
     const [appointments, setAppointments] = useState([]);
-    const [loading, setLoading]           = useState(true);
-    const [updating, setUpdating]         = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [updating, setUpdating] = useState(null);
 
     const user = authService.getCurrentUser();
 
     useEffect(() => {
-        appointmentService.getDoctorAppointments()
+        appointmentService
+            .getDoctorAppointments()
             .then(setAppointments)
             .catch(() => {})
             .finally(() => setLoading(false));
@@ -46,25 +47,28 @@ export default function DoctorDashboard() {
         setUpdating(id);
         try {
             await appointmentService.updateAppointmentStatus(id, status);
-            setAppointments(prev =>
-                prev.map(a => a.id === id ? { ...a, status } : a)
+            setAppointments((prev) =>
+                prev.map((a) => (a.id === id ? { ...a, status } : a)),
             );
-        } catch {}
-        finally { setUpdating(null); }
+        } catch {
+        } finally {
+            setUpdating(null);
+        }
     };
 
     // Fix: use local date not UTC
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
-    const todayAppts = appointments.filter(a => a.appointment_date === todayStr);
-    const upcomingCount = appointments.filter(a =>
-        !["cancelled", "completed"].includes(a.status)
+    const todayAppts = appointments.filter(
+        (a) => String(a.appointment_date).slice(0, 10) === todayStr,
+    );
+    const upcomingCount = appointments.filter(
+        (a) => !["cancelled", "completed"].includes(a.status),
     ).length;
 
     return (
         <div className="min-h-screen bg-[#eff6ff] px-4 sm:px-8 lg:px-12 py-8">
-
             {/* Header */}
             <motion.div
                 initial={{ opacity: 0, y: -20 }}
@@ -78,7 +82,8 @@ export default function DoctorDashboard() {
                     <p className="text-slate-500 mt-1">
                         You have{" "}
                         <span className="text-[#0a5bbf] font-semibold">
-                            {loading ? "—" : todayAppts.length} appointment{todayAppts.length !== 1 ? "s" : ""}
+                            {loading ? "—" : todayAppts.length} appointment
+                            {todayAppts.length !== 1 ? "s" : ""}
                         </span>{" "}
                         scheduled for today.
                     </p>
@@ -88,7 +93,9 @@ export default function DoctorDashboard() {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     className="flex items-center gap-2 px-5 py-3 rounded-full text-white font-semibold shadow-md"
-                    style={{ background: "linear-gradient(135deg, #127fec, #0a5bbf)" }}
+                    style={{
+                        background: "linear-gradient(135deg, #127fec, #0a5bbf)",
+                    }}
                 >
                     <Plus size={18} />
                     New Appointment
@@ -96,10 +103,8 @@ export default function DoctorDashboard() {
             </motion.div>
 
             <div className="grid lg:grid-cols-3 gap-6">
-
                 {/* LEFT SIDE */}
                 <div className="lg:col-span-2 space-y-6">
-
                     {/* Stats Cards */}
                     <div className="grid md:grid-cols-2 gap-6">
                         {[
@@ -128,7 +133,9 @@ export default function DoctorDashboard() {
                                         {item.icon}
                                     </div>
                                 </div>
-                                <p className="text-slate-500 text-sm">{item.title}</p>
+                                <p className="text-slate-500 text-sm">
+                                    {item.title}
+                                </p>
                                 <h2 className="text-3xl font-bold text-slate-800 mt-1">
                                     {item.value}
                                 </h2>
@@ -164,8 +171,13 @@ export default function DoctorDashboard() {
                         <div className="space-y-3">
                             {loading ? (
                                 <div className="flex items-center justify-center py-8 text-slate-400 gap-2">
-                                    <Loader2 size={16} className="animate-spin" />
-                                    <span className="text-sm">Loading schedule...</span>
+                                    <Loader2
+                                        size={16}
+                                        className="animate-spin"
+                                    />
+                                    <span className="text-sm">
+                                        Loading schedule...
+                                    </span>
                                 </div>
                             ) : todayAppts.length === 0 ? (
                                 <div className="text-center py-8 text-sm text-slate-400">
@@ -175,7 +187,9 @@ export default function DoctorDashboard() {
                                 todayAppts.map((item) => (
                                     <motion.div
                                         key={item.id}
-                                        whileHover={{ backgroundColor: "#f8fafc" }}
+                                        whileHover={{
+                                            backgroundColor: "#f8fafc",
+                                        }}
                                         className="grid grid-cols-4 items-center p-4 rounded-xl border border-slate-100 transition"
                                     >
                                         <div className="font-medium text-slate-700">
@@ -193,36 +207,63 @@ export default function DoctorDashboard() {
                                         </div>
 
                                         <div className="text-slate-500 text-sm">
-                                            {item.type === "in_person" ? "In-Person" : "Online"}
+                                            {item.type === "in_person"
+                                                ? "In-Person"
+                                                : "Online"}
                                         </div>
 
                                         <div className="flex items-center gap-2">
-                                            <span className={`text-xs px-3 py-1 rounded-full font-medium capitalize ${
-                                                item.status === "confirmed" ? "bg-blue-100 text-blue-600"   :
-                                                item.status === "completed" ? "bg-green-100 text-green-600" :
-                                                item.status === "cancelled" ? "bg-red-100 text-red-400"     :
-                                                "bg-yellow-100 text-yellow-600"
-                                            }`}>
+                                            <span
+                                                className={`text-xs px-3 py-1 rounded-full font-medium capitalize ${
+                                                    item.status === "confirmed"
+                                                        ? "bg-blue-100 text-blue-600"
+                                                        : item.status ===
+                                                            "completed"
+                                                          ? "bg-green-100 text-green-600"
+                                                          : item.status ===
+                                                              "cancelled"
+                                                            ? "bg-red-100 text-red-400"
+                                                            : "bg-yellow-100 text-yellow-600"
+                                                }`}
+                                            >
                                                 {item.status}
                                             </span>
 
                                             {/* Quick action buttons */}
                                             {item.status === "pending" && (
                                                 <button
-                                                    onClick={() => handleStatusUpdate(item.id, "confirmed")}
-                                                    disabled={updating === item.id}
+                                                    onClick={() =>
+                                                        handleStatusUpdate(
+                                                            item.id,
+                                                            "confirmed",
+                                                        )
+                                                    }
+                                                    disabled={
+                                                        updating === item.id
+                                                    }
                                                     className="text-xs px-2 py-1 rounded-full bg-blue-500 text-white font-medium hover:bg-blue-600 transition disabled:opacity-50"
                                                 >
-                                                    {updating === item.id ? "..." : "Confirm"}
+                                                    {updating === item.id
+                                                        ? "..."
+                                                        : "Confirm"}
                                                 </button>
                                             )}
                                             {item.status === "confirmed" && (
                                                 <button
-                                                    onClick={() => handleStatusUpdate(item.id, "completed")}
-                                                    disabled={updating === item.id}
+                                                    onClick={() =>
+                                                        handleStatusUpdate(
+                                                            item.id,
+                                                            "completed",
+                                                        )
+                                                    }
+                                                    disabled={
+                                                        updating === item.id
+                                                    }
                                                     className="text-xs px-2 py-1 rounded-full bg-green-500 text-white font-medium hover:bg-green-600 transition disabled:opacity-50"
                                                 >
-                                                    {updating === item.id ? "..." : "Complete"}
+                                                    {updating === item.id
+                                                        ? "..."
+                                                        : "Complete"}
                                                 </button>
                                             )}
                                         </div>
@@ -253,7 +294,10 @@ export default function DoctorDashboard() {
                         <div className="space-y-3">
                             {loading ? (
                                 <div className="flex items-center justify-center py-8 text-slate-400 gap-2">
-                                    <Loader2 size={16} className="animate-spin" />
+                                    <Loader2
+                                        size={16}
+                                        className="animate-spin"
+                                    />
                                     <span className="text-sm">Loading...</span>
                                 </div>
                             ) : appointments.length === 0 ? (
@@ -264,52 +308,92 @@ export default function DoctorDashboard() {
                                 appointments.map((item) => (
                                     <motion.div
                                         key={item.id}
-                                        whileHover={{ backgroundColor: "#f8fafc" }}
+                                        whileHover={{
+                                            backgroundColor: "#f8fafc",
+                                        }}
                                         className="grid grid-cols-4 items-center p-4 rounded-xl border border-slate-100 transition"
                                     >
                                         <div className="font-medium text-slate-700 text-sm">
-                                            {new Date(item.appointment_date + "T00:00:00").toLocaleDateString("en-US", {
-                                                month: "short", day: "numeric", year: "numeric"
+                                            {new Date(
+                                                item.appointment_date +
+                                                    "T00:00:00",
+                                            ).toLocaleDateString("en-US", {
+                                                month: "short",
+                                                day: "numeric",
+                                                year: "numeric",
                                             })}
-                                            <div className="text-xs text-slate-400">{formatTime(item.appointment_time)}</div>
+                                            <div className="text-xs text-slate-400">
+                                                {formatTime(
+                                                    item.appointment_time,
+                                                )}
+                                            </div>
                                         </div>
 
                                         <div className="flex items-center gap-3">
                                             <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white flex items-center justify-center text-xs font-semibold">
                                                 {item.patient_name?.charAt(0)}
                                             </div>
-                                            <span className="text-slate-600 font-medium text-sm">{item.patient_name}</span>
+                                            <span className="text-slate-600 font-medium text-sm">
+                                                {item.patient_name}
+                                            </span>
                                         </div>
 
                                         <div className="text-slate-500 text-sm">
-                                            {item.type === "in_person" ? "In-Person" : "Online"}
+                                            {item.type === "in_person"
+                                                ? "In-Person"
+                                                : "Online"}
                                         </div>
 
                                         <div className="flex items-center gap-2">
-                                            <span className={`text-xs px-3 py-1 rounded-full font-medium capitalize ${
-                                                item.status === "confirmed" ? "bg-blue-100 text-blue-600"   :
-                                                item.status === "completed" ? "bg-green-100 text-green-600" :
-                                                item.status === "cancelled" ? "bg-red-100 text-red-400"     :
-                                                "bg-yellow-100 text-yellow-600"
-                                            }`}>
+                                            <span
+                                                className={`text-xs px-3 py-1 rounded-full font-medium capitalize ${
+                                                    item.status === "confirmed"
+                                                        ? "bg-blue-100 text-blue-600"
+                                                        : item.status ===
+                                                            "completed"
+                                                          ? "bg-green-100 text-green-600"
+                                                          : item.status ===
+                                                              "cancelled"
+                                                            ? "bg-red-100 text-red-400"
+                                                            : "bg-yellow-100 text-yellow-600"
+                                                }`}
+                                            >
                                                 {item.status}
                                             </span>
                                             {item.status === "pending" && (
                                                 <button
-                                                    onClick={() => handleStatusUpdate(item.id, "confirmed")}
-                                                    disabled={updating === item.id}
+                                                    onClick={() =>
+                                                        handleStatusUpdate(
+                                                            item.id,
+                                                            "confirmed",
+                                                        )
+                                                    }
+                                                    disabled={
+                                                        updating === item.id
+                                                    }
                                                     className="text-xs px-2 py-1 rounded-full bg-blue-500 text-white font-medium hover:bg-blue-600 transition disabled:opacity-50"
                                                 >
-                                                    {updating === item.id ? "..." : "Confirm"}
+                                                    {updating === item.id
+                                                        ? "..."
+                                                        : "Confirm"}
                                                 </button>
                                             )}
                                             {item.status === "confirmed" && (
                                                 <button
-                                                    onClick={() => handleStatusUpdate(item.id, "completed")}
-                                                    disabled={updating === item.id}
+                                                    onClick={() =>
+                                                        handleStatusUpdate(
+                                                            item.id,
+                                                            "completed",
+                                                        )
+                                                    }
+                                                    disabled={
+                                                        updating === item.id
+                                                    }
                                                     className="text-xs px-2 py-1 rounded-full bg-green-500 text-white font-medium hover:bg-green-600 transition disabled:opacity-50"
                                                 >
-                                                    {updating === item.id ? "..." : "Complete"}
+                                                    {updating === item.id
+                                                        ? "..."
+                                                        : "Complete"}
                                                 </button>
                                             )}
                                         </div>
@@ -328,7 +412,10 @@ export default function DoctorDashboard() {
                         transition={{ delay: 0.6 }}
                         whileHover={{ scale: 1.02 }}
                         className="rounded-2xl p-6 text-white shadow-lg"
-                        style={{ background: "linear-gradient(135deg, #0a5bbf, #127fec)" }}
+                        style={{
+                            background:
+                                "linear-gradient(135deg, #0a5bbf, #127fec)",
+                        }}
                     >
                         <div className="flex justify-between items-center mb-4">
                             <p className="font-medium">Weekly Efficiency</p>
@@ -348,27 +435,56 @@ export default function DoctorDashboard() {
                             transition={{ delay: 0.7 }}
                             className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6"
                         >
-                            <h3 className="text-sm font-semibold text-slate-700 mb-4">Appointment Breakdown</h3>
+                            <h3 className="text-sm font-semibold text-slate-700 mb-4">
+                                Appointment Breakdown
+                            </h3>
                             <div className="space-y-3">
                                 {[
-                                    { label: "Pending",   status: "pending",   color: "bg-yellow-400" },
-                                    { label: "Confirmed", status: "confirmed", color: "bg-blue-500"   },
-                                    { label: "Completed", status: "completed", color: "bg-green-500"  },
-                                    { label: "Cancelled", status: "cancelled", color: "bg-red-400"    },
+                                    {
+                                        label: "Pending",
+                                        status: "pending",
+                                        color: "bg-yellow-400",
+                                    },
+                                    {
+                                        label: "Confirmed",
+                                        status: "confirmed",
+                                        color: "bg-blue-500",
+                                    },
+                                    {
+                                        label: "Completed",
+                                        status: "completed",
+                                        color: "bg-green-500",
+                                    },
+                                    {
+                                        label: "Cancelled",
+                                        status: "cancelled",
+                                        color: "bg-red-400",
+                                    },
                                 ].map(({ label, status, color }) => {
-                                    const count = appointments.filter(a => a.status === status).length;
-                                    const pct   = Math.round((count / appointments.length) * 100);
+                                    const count = appointments.filter(
+                                        (a) => a.status === status,
+                                    ).length;
+                                    const pct = Math.round(
+                                        (count / appointments.length) * 100,
+                                    );
                                     return (
                                         <div key={status}>
                                             <div className="flex justify-between text-xs text-slate-500 mb-1">
                                                 <span>{label}</span>
-                                                <span className="font-semibold text-slate-700">{count}</span>
+                                                <span className="font-semibold text-slate-700">
+                                                    {count}
+                                                </span>
                                             </div>
                                             <div className="w-full bg-slate-100 rounded-full h-1.5">
                                                 <motion.div
                                                     initial={{ width: 0 }}
-                                                    animate={{ width: `${pct}%` }}
-                                                    transition={{ duration: 0.6, ease: "easeOut" }}
+                                                    animate={{
+                                                        width: `${pct}%`,
+                                                    }}
+                                                    transition={{
+                                                        duration: 0.6,
+                                                        ease: "easeOut",
+                                                    }}
                                                     className={`h-1.5 rounded-full ${color}`}
                                                 />
                                             </div>
