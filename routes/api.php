@@ -20,7 +20,7 @@ Route::prefix('auth')->group(function () {
 // ── Protected routes ──────────────────────────────────────────
 Route::middleware('auth:api')->group(function () {
     Route::get('profile', [ProfileController::class, 'show']);
-
+    Route::put('profile', [ProfileController::class, 'update']);
 
 // Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 //     return $request->user();

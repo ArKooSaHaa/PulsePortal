@@ -182,7 +182,14 @@ export default function AdminProfile() {
       {isEdit && (
         <div className="flex justify-end mt-4">
           <button
-            onClick={() => setIsEdit(false)}
+            onClick={async () => {
+              try {
+                await authService.editProfile(profile);
+                setIsEdit(false);
+              } catch (error) {
+                console.error("Failed to update profile", error);
+              }
+            }}
             className="px-6 py-2 bg-blue-600 text-white rounded-full font-semibold shadow hover:bg-blue-700 transition-colors duration-300"
           >
             Save Changes
