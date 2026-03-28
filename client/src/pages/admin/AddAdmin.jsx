@@ -1,6 +1,36 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { User, Mail, Lock, Phone, Briefcase, Eye, EyeOff, Plus } from "lucide-react";
+import {
+    User,
+    Mail,
+    Lock,
+    Phone,
+    Eye,
+    EyeOff,
+    Plus,
+    Loader2,
+    CheckCircle2,
+    AlertCircle,
+} from "lucide-react";
+import adminService from "../../api/adminService";
+
+function Input({ icon, error, ...props }) {
+    return (
+        <div className="relative">
+            <div className="absolute left-3 top-3 text-slate-400">{icon}</div>
+            <input
+                {...props}
+                className={`w-full pl-10 pr-4 py-3 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all
+                    ${
+                        error
+                            ? "border-red-300 focus:ring-red-200"
+                            : "border-slate-200 focus:ring-blue-200 focus:border-blue-400"
+                    }`}
+            />
+            {error && <p className="text-red-500 text-xs mt-1 ml-1">{error}</p>}
+        </div>
+    );
+}
 
 export default function AddAdmin() {
     const [showPass, setShowPass] = useState(false);
@@ -9,18 +39,99 @@ export default function AddAdmin() {
         email: "",
         password: "",
         phone: "",
-        role: "",
     });
+
+    const [errors, setErrors] = useState({});
+    const [loading, setLoading] = useState(false);
+    const [success, setSuccess] = useState(false);
+    const [apiError, setApiError] = useState("");
 
     const handleChange = (e) => {
         setForm({ ...form, [e.target.name]: e.target.value });
+        if (errors[e.target.name]) {
+            setErrors({ ...errors, [e.target.name]: "" });
+        }
     };
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        console.log(form);
-        // ekhane API call kora jabe
+    const validate = () => {
+        const e = {};
+        if (!form.name.trim()) e.name = "Full name is required.";
+        if (!form.email.trim()) e.email = "Email is required.";
+        if (!form.password) e.password = "Password is required.";
+        if (form.password.length < 8)
+            e.password = "Password must be at least 8 characters.";
+        return e;
     };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setApiError("");
+
+        const validationErrors = validate();
+        if (Object.keys(validationErrors).length > 0) {
+            setErrors(validationErrors);
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await adminService.createAdmin(form);
+            setSuccess(true);
+            setForm({ name: "", email: "", password: "", phone: "" });
+        } catch (err) {
+            if (err.response?.data?.errors) {
+                const firstError = Object.values(
+                    err.response.data.errors,
+                )[0][0];
+                setApiError(firstError);
+            } else {
+                setApiError(
+                    err.response?.data?.message ||
+                        "Something went wrong. Please try again.",
+                );
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (success) {
+        return (
+            <div className="min-h-screen bg-[#eff6ff] flex items-center justify-center px-4">
+                <motion.div
+                    initial={{ scale: 0.85, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="bg-white rounded-3xl shadow-xl p-10 max-w-md w-full text-center"
+                >
+                    <div
+                        className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+                        style={{
+                            background:
+                                "linear-gradient(135deg, #0a5bbf, #127fec)",
+                        }}
+                    >
+                        <CheckCircle2 size={32} className="text-white" />
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-800 mb-2">
+                        Admin Account Created!
+                    </h2>
+                    <p className="text-sm text-slate-500 mb-6">
+                        The new admin can now log in with their credentials.
+                    </p>
+                    <button
+                        onClick={() => setSuccess(false)}
+                        className="px-6 py-2.5 rounded-full text-white font-semibold text-sm"
+                        style={{
+                            background:
+                                "linear-gradient(135deg, #0a5bbf, #127fec)",
+                        }}
+                    >
+                        Add Another Admin
+                    </button>
+                </motion.div>
+            </div>
+        );
+    }
 
     return (
         <motion.div
@@ -37,112 +148,118 @@ export default function AddAdmin() {
             >
                 <h2 className="text-2xl font-bold mb-2">Register New Admin</h2>
                 <p className="text-slate-500 mb-8">
-                    Grant system-wide administrative privileges to a new team member.
+                    Grant system-wide administrative privileges to a new team
+                    member.
                 </p>
+
+                {apiError && (
+                    <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-xl mb-6">
+                        <AlertCircle size={16} />
+                        {apiError}
+                    </div>
+                )}
 
                 <form onSubmit={handleSubmit}>
                     <div className="grid md:grid-cols-2 gap-6">
                         {/* Full Name */}
                         <div>
-                            <label className="block text-black mb-1">Full Name</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                Full Name
+                            </label>
                             <Input
                                 icon={<User size={16} />}
-                                placeholder="e.g. Sarah "
+                                placeholder="e.g. Sarah Ahmed"
                                 name="name"
+                                value={form.name}
                                 onChange={handleChange}
+                                error={errors.name}
                             />
                         </div>
 
-                        {/* Email Address */}
+                        {/* Email */}
                         <div>
-                            <label className="block text-black mb-1">Email Address</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                Email Address
+                            </label>
                             <Input
                                 icon={<Mail size={16} />}
-                                placeholder="sarah@pulseportal.med"
+                                placeholder="sarah@pulseportal.com"
                                 name="email"
+                                type="email"
+                                value={form.email}
                                 onChange={handleChange}
+                                error={errors.email}
                             />
                         </div>
 
                         {/* Password */}
                         <div>
-                            <label className="block text-black mb-1">Password</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                Password
+                            </label>
                             <div className="relative">
                                 <Input
                                     icon={<Lock size={18} />}
                                     type={showPass ? "text" : "password"}
-                                    placeholder="••••••••"
+                                    placeholder="Min 8 chars, uppercase, number"
                                     name="password"
+                                    value={form.password}
                                     onChange={handleChange}
+                                    error={errors.password}
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPass(!showPass)}
-                                    className="absolute right-3 top-3 text-slate-500"
+                                    className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
                                 >
-                                    {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                                    {showPass ? (
+                                        <EyeOff size={14} />
+                                    ) : (
+                                        <Eye size={14} />
+                                    )}
                                 </button>
                             </div>
                         </div>
 
                         {/* Phone */}
                         <div>
-                            <label className="block text-black mb-1">Phone Number</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                Phone (optional)
+                            </label>
                             <Input
                                 icon={<Phone size={16} />}
-                                placeholder="+8801700-0000"
+                                placeholder="+8801700-000000"
                                 name="phone"
+                                value={form.phone}
                                 onChange={handleChange}
                             />
                         </div>
                     </div>
 
-                    {/* Role */}
-                    <div className="mt-6">
-                        <label className="block text-black mb-1">Role</label>
-                        <div className="relative">
-                            <Briefcase
-                                size={16}
-                                className="absolute left-3 top-3 text-slate-400"
-                            />
-                            <select
-                                name="role"
-                                onChange={handleChange}
-                                className="w-full pl-10 pr-4 py-3 rounded-xl border bg-white text-slate-600"
-                            >
-                                <option>Select a role</option>
-                                <option>Super Admin</option>
-                                <option>Manager</option>
-                                <option>HR</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Submit Button */}
                     <motion.button
-                        whileHover={{ scale: 1.03 }}
-                        whileTap={{ scale: 0.95 }}
+                        whileHover={{ scale: loading ? 1 : 1.03 }}
+                        whileTap={{ scale: loading ? 1 : 0.95 }}
                         type="submit"
-                        // className="w-full mt-6 py-2.5 rounded-full text-white font-semibold shadow-md flex items-center justify-center gap-2"
-                            className="w-auto mx-auto mt-6 py-2.5 px-5 rounded-full text-white text-sm font-semibold shadow-md flex items-center justify-center gap-2"
-                        style={{ background: "linear-gradient(135deg, #0a5bbf, #127fec)" }}
+                        disabled={loading}
+                        className="w-auto mx-auto mt-8 py-2.5 px-6 rounded-full text-white text-sm font-semibold shadow-md flex items-center justify-center gap-2 disabled:opacity-60"
+                        style={{
+                            background:
+                                "linear-gradient(135deg, #0a5bbf, #127fec)",
+                        }}
                     >
-                        <Plus size={18} /> Create Admin Account
+                        {loading ? (
+                            <>
+                                <Loader2 size={16} className="animate-spin" />{" "}
+                                Creating...
+                            </>
+                        ) : (
+                            <>
+                                <Plus size={18} /> Create Admin Account
+                            </>
+                        )}
                     </motion.button>
                 </form>
             </motion.div>
         </motion.div>
-    );
-}
-
-function Input({ icon, ...props }) {
-    return (
-        <div className="relative">
-            <div className="absolute left-3 top-3 text-slate-400">{icon}</div>
-            <input
-                {...props}
-                className="w-full pl-10 pr-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
-        </div>
     );
 }
