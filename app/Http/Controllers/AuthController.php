@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Admin;
 use App\Models\Patient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -48,13 +49,42 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        if (! $token = JWTAuth::attempt($validated)) {
+        $email = strtolower(trim($validated['email']));
+        $credentials = [
+            'email' => $email,
+            'password' => $validated['password'],
+        ];
+
+        // If the email exists in admins, authenticate against the admin guard.
+        if (Admin::where('email', $email)->exists()) {
+            $token = auth('admin')->attempt($credentials);
+
+            if (! $token) {
+                return response()->json([
+                    'message' => 'Invalid email or password.',
+                ], 401);
+            }
+
+            /** @var \App\Models\Admin $admin */
+            $admin = auth('admin')->user();
+
+            return response()->json([
+                'access_token' => $token,
+                'token_type' => 'bearer',
+                'expires_in' => JWTAuth::factory()->getTTL() * 60,
+                'user' => $admin,
+            ], 200);
+        }
+
+        // Default: patient login
+        if (! $token = auth('api')->attempt($credentials)) {
             return response()->json([
                 'message' => 'Invalid email or password.',
             ], 401);
         }
 
-        $patient = JWTAuth::user();
+        /** @var \App\Models\Patient $patient */
+        $patient = auth('api')->user();
 
         return response()->json([
             'access_token' => $token,

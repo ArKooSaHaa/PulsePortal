@@ -1,9 +1,13 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { User, Mail, Lock, Phone, Briefcase, Eye, EyeOff, Plus } from "lucide-react";
+import api from "../../api/axios";
 
 export default function AddAdmin() {
     const [showPass, setShowPass] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+    const [success, setSuccess] = useState("");
     const [form, setForm] = useState({
         name: "",
         email: "",
@@ -16,10 +20,53 @@ export default function AddAdmin() {
         setForm({ ...form, [e.target.name]: e.target.value });
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        console.log(form);
-        // ekhane API call kora jabe
+
+        setError("");
+        setSuccess("");
+
+        if (!form.name.trim()) {
+            setError("Full name is required.");
+            return;
+        }
+        if (!form.email.trim()) {
+            setError("Email is required.");
+            return;
+        }
+        if (!form.password) {
+            setError("Password is required.");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await api.post("/admin/admins", {
+                name: form.name.trim(),
+                email: form.email.trim().toLowerCase(),
+                password: form.password,
+                phone: form.phone?.trim() || null,
+                admin_role: form.role || null,
+            });
+
+            setSuccess("Admin account created successfully.");
+            setForm({
+                name: "",
+                email: "",
+                password: "",
+                phone: "",
+                role: "",
+            });
+        } catch (err) {
+            const msg =
+                err.response?.data?.message ||
+                (err.response?.data?.errors
+                    ? Object.values(err.response.data.errors)[0][0]
+                    : "Failed to create admin. Please try again.");
+            setError(msg);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -40,6 +87,13 @@ export default function AddAdmin() {
                     Grant system-wide administrative privileges to a new team member.
                 </p>
 
+                {error && (
+                    <p className="text-red-600 text-sm mb-4">{error}</p>
+                )}
+                {success && (
+                    <p className="text-green-700 text-sm mb-4">{success}</p>
+                )}
+
                 <form onSubmit={handleSubmit}>
                     <div className="grid md:grid-cols-2 gap-6">
                         {/* Full Name */}
@@ -49,6 +103,7 @@ export default function AddAdmin() {
                                 icon={<User size={16} />}
                                 placeholder="e.g. Sarah "
                                 name="name"
+                                value={form.name}
                                 onChange={handleChange}
                             />
                         </div>
@@ -60,6 +115,7 @@ export default function AddAdmin() {
                                 icon={<Mail size={16} />}
                                 placeholder="sarah@pulseportal.med"
                                 name="email"
+                                value={form.email}
                                 onChange={handleChange}
                             />
                         </div>
@@ -73,6 +129,7 @@ export default function AddAdmin() {
                                     type={showPass ? "text" : "password"}
                                     placeholder="••••••••"
                                     name="password"
+                                    value={form.password}
                                     onChange={handleChange}
                                 />
                                 <button
@@ -92,6 +149,7 @@ export default function AddAdmin() {
                                 icon={<Phone size={16} />}
                                 placeholder="+8801700-0000"
                                 name="phone"
+                                value={form.phone}
                                 onChange={handleChange}
                             />
                         </div>
@@ -108,6 +166,7 @@ export default function AddAdmin() {
                             <select
                                 name="role"
                                 onChange={handleChange}
+                                value={form.role}
                                 className="w-full pl-10 pr-4 py-3 rounded-xl border bg-white text-slate-600"
                             >
                                 <option>Select a role</option>
@@ -123,11 +182,12 @@ export default function AddAdmin() {
                         whileHover={{ scale: 1.03 }}
                         whileTap={{ scale: 0.95 }}
                         type="submit"
+                        disabled={loading}
                         // className="w-full mt-6 py-2.5 rounded-full text-white font-semibold shadow-md flex items-center justify-center gap-2"
                             className="w-auto mx-auto mt-6 py-2.5 px-5 rounded-full text-white text-sm font-semibold shadow-md flex items-center justify-center gap-2"
                         style={{ background: "linear-gradient(135deg, #0a5bbf, #127fec)" }}
                     >
-                        <Plus size={18} /> Create Admin Account
+                        <Plus size={18} /> {loading ? "Creating..." : "Create Admin Account"}
                     </motion.button>
                 </form>
             </motion.div>
