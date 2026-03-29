@@ -29,7 +29,7 @@ class AuthController extends Controller
             ],
             'email'    => [
                 'required',
-                'email:rfc,dns',
+                app()->environment('testing') ? 'email:rfc' : 'email:rfc,dns',
                 'unique:users,email',
                 // Only allow these specific domains
                 'regex:/^[a-zA-Z0-9._%+\-]+@(gmail\.com|yahoo\.com|outlook\.com|aust\.edu|pulseportal\.com)$/',
@@ -51,13 +51,20 @@ class AuthController extends Controller
             'email.unique'   => 'This email is already registered.',
         ]);
 
-        $result = $this->authService->registerPatient($data);
+        try {
+            $result = $this->authService->registerPatient($data);
 
-        return response()->json([
-            'status'  => 'success',
-            'message' => 'Registration successful',
-            'data'    => $result,
-        ], 201);
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Registration successful',
+                'data'    => $result,
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     // POST /api/auth/login

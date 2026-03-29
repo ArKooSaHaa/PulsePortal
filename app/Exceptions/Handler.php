@@ -30,6 +30,13 @@ class Handler extends ExceptionHandler
 
     public function render($request, Throwable $exception)
     {
+        // Let Laravel handle validation errors (422) and auth errors (401/403) natively
+        if ($exception instanceof \Illuminate\Validation\ValidationException ||
+            $exception instanceof \Illuminate\Auth\AuthenticationException ||
+            $exception instanceof \Illuminate\Auth\Access\AuthorizationException) {
+            return parent::render($request, $exception);
+        }
+
         if ($exception instanceof BadRequestException) {
             return response()->json([
                 'message' => $exception->getMessage(),

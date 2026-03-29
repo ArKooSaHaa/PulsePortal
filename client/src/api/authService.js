@@ -31,6 +31,24 @@ const authService = {
         }
     },
 
+    getProfile: async () => {
+        const response = await api.get('/profile');
+        return response.data.data;
+    },
+
+    editProfile: async (profileData) => {
+        const response = await api.put('/profile', profileData);
+        
+        // If the backend returns the updated user object, refresh local storage
+        if (response.data?.data?.user) {
+            const currentUser = JSON.parse(localStorage.getItem('user')) || {};
+            const updatedUser = { ...currentUser, ...response.data.data.user };
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+        }
+        
+        return response.data;
+    },
+
     getCurrentUser: () => {
         const user = localStorage.getItem('user');
         return user ? JSON.parse(user) : null;
