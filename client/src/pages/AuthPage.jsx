@@ -4,7 +4,7 @@
 //   3. Auth Form (right side)
 // ─────────────────────────────────────────────────────────────
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ROLES } from "../config/roles";
 import AuthForm from "../components/AuthForm";

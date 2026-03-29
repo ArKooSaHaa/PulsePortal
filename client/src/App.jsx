@@ -13,6 +13,7 @@ import authService from "./api/authService";
 import PatientDashboard from "./pages/patient/PatientDashboard";
 import PatientAppointments from "./pages/patient/PatientAppointments";
 import BookAppointment from "./pages/patient/BookAppointment";
+import ProfilePage from "./pages/ProfilePage";
 // Doctor pages
 import DoctorDashboard from "./pages/doctor/DoctorDashboard";
 import DoctorProfile from "./pages/doctor/DoctorProfile";
@@ -53,8 +54,6 @@ function App() {
                         element={<AddDoctor />}
                     />
                      <Route path="/admin/add-admin" element={<AddAdmin />} /> 
-                     <Route path="/doctor/profile" element={<DoctorProfile />} />
-                     <Route path="/admin/profile" element={<AdminProfile />} />
                 </Route>
                 {/* Patient */}
                 <Route
@@ -71,6 +70,7 @@ function App() {
                             path="book-appointment"
                             element={<BookAppointment />}
                         />
+                        <Route path="profile" element={<ProfilePage />} />
                     </Route>
                 </Route>
 
@@ -81,6 +81,7 @@ function App() {
                 >
                     <Route element={<RoleLayout />}>
                         <Route index element={<DoctorDashboard />} />
+                        <Route path="profile" element={<DoctorProfile />} />
                     </Route>
                 </Route>
 
@@ -91,6 +92,7 @@ function App() {
                 >
                     <Route element={<RoleLayout />}>
                         <Route index element={<AdminDashboard />} />
+                        <Route path="profile" element={<AdminProfile />} />
                     </Route>
                 </Route>
             </Routes>

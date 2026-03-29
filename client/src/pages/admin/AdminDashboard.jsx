@@ -19,18 +19,6 @@ const cardVariants = {
   }),
 };
 
-const rowVariants = {
-  hidden: { opacity: 0, x: -30 },
-  visible: (i) => ({
-    opacity: 1,
-    x: 0,
-    transition: {
-      delay: i * 0.08,
-      duration: 0.4,
-    },
-  }),
-};
-
 export default function AdminDashboard() {
   const stats = [
     {

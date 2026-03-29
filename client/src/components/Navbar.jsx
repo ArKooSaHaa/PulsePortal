@@ -130,7 +130,7 @@ export default function Navbar() {
                     <div className="flex items-center gap-6">
                         {/* Desktop Navigation */}
                         <div className="hidden lg:flex items-center gap-3">
-                            {links.map((link, index) => (
+                            {links.map((link) => (
                                 <React.Fragment key={link.path}>
                                     <NavLink
                                         to={`/${role}/${link.path}`}
@@ -321,10 +321,9 @@ export default function Navbar() {
                                             className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-slate-200 bg-white shadow-xl p-2 z-50"
                                         >
                                             <motion.button
-                                            // onClick={() => navigate(`/${role}/profile`)}
                                              onClick={() => {
-                                                 if (role === "admin") navigate("/admin/profile");
-                                                 else if (role === "doctor") navigate("/doctor/profile"); }}
+                                                 if (role) navigate(`/${role}/profile`);
+                                             }}
                                                 whileHover={{
                                                     x: 3,
                                                     backgroundColor:

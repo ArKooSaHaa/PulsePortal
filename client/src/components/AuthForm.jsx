@@ -1,8 +1,8 @@
 // ─────────────────────────────────────────────────────────────
-//   • The role tabs (Patient / Doctor / Admin)
-//   • Login and Sign Up forms
-//   • Submit button + OAuth buttons
-//   • Toggle between Login and Sign Up modes
+// - The role tabs (Patient / Doctor / Admin)
+// - Login and Sign Up forms
+// - Submit button + OAuth buttons
+// - Toggle between Login and Sign Up modes
 // ─────────────────────────────────────────────────────────────
 
 import { useState } from "react";
