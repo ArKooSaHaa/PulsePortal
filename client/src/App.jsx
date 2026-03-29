@@ -38,7 +38,10 @@ function App() {
                 <Route path="/auth" element={<AuthPage />} />
 
                 {/* Patient */}
-                <Route path="/patient" element={<ProtectedRoute expectedRole="patient" />}>
+                <Route
+                    path="/patient"
+                    element={<ProtectedRoute expectedRole="patient" />}
+                >
                     <Route element={<RoleLayout />}>
                         {patientRoutes.map((route, i) => (
                             <Route key={i} {...route} />
@@ -47,7 +50,10 @@ function App() {
                 </Route>
 
                 {/* Doctor */}
-                <Route path="/doctor" element={<ProtectedRoute expectedRole="doctor" />}>
+                <Route
+                    path="/doctor"
+                    element={<ProtectedRoute expectedRole="doctor" />}
+                >
                     <Route element={<RoleLayout />}>
                         {doctorRoutes.map((route, i) => (
                             <Route key={i} {...route} />
@@ -56,7 +62,10 @@ function App() {
                 </Route>
 
                 {/* Admin */}
-                <Route path="/admin" element={<ProtectedRoute expectedRole="admin" />}>
+                <Route
+                    path="/admin"
+                    element={<ProtectedRoute expectedRole="admin" />}
+                >
                     <Route element={<RoleLayout />}>
                         {adminRoutes.map((route, i) => (
                             <Route key={i} {...route} />

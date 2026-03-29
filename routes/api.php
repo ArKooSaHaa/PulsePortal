@@ -1,13 +1,10 @@
 <?php
 
-use App\Http\Controllers\UsersController;
+use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\DoctorController;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
-
+use App\Http\Controllers\AdminController;
 
 // ── Auth routes ───────────────────────────────────────────────
 Route::prefix('auth')->group(function () {
@@ -19,12 +16,6 @@ Route::prefix('auth')->group(function () {
 
 // ── Protected routes ──────────────────────────────────────────
 Route::middleware('auth:api')->group(function () {
-    Route::get('profile', [ProfileController::class, 'show']);
-    Route::put('profile', [ProfileController::class, 'update']);
-
-// Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-//     return $request->user();
-// });
 
     // Patient routes
     Route::prefix('patient')->group(function () {
@@ -40,8 +31,13 @@ Route::middleware('auth:api')->group(function () {
         Route::get('available',                         [DoctorController::class, 'index']);
     });
 
-    // Admin routes
+    // Admin routes — role:admin enforced inside AdminController constructor
     Route::prefix('admin')->group(function () {
-        // Milestone 2
+        Route::post('doctors',       [AdminController::class, 'createDoctor']);
+        Route::post('admins',        [AdminController::class, 'createAdmin']);
+        Route::get('doctors',        [AdminController::class, 'getDoctors']);
+        Route::get('patients',       [AdminController::class, 'getPatients']);
+        Route::get('appointments',   [AdminController::class, 'getAppointments']);
+        Route::get('stats',          [AdminController::class, 'getStats']);
     });
 });

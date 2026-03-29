@@ -64,7 +64,7 @@ function DoctorCard({ doctor, selected, onSelect }) {
                         {doctor.rating}
                     </span>
                     <span className="text-xs text-slate-400 ml-1">
-                        ${doctor.fee} fee
+                        ৳{doctor.fee} fee
                     </span>
                 </div>
             </div>
@@ -722,7 +722,7 @@ export default function BookAppointment() {
                                         className="flex items-center justify-between py-3 mb-4 border-t border-slate-100"
                                     >
                                         <span className="text-sm text-slate-500 font-medium">Consultation Fee</span>
-                                        <span className="text-xl font-bold text-slate-800">${selectedDoctor.fee}.00</span>
+                                        <span className="text-xl font-bold text-slate-800">৳{selectedDoctor.fee}.00</span>
                                     </motion.div>
                                 )}
                             </AnimatePresence>
