@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Admin;
+use App\Models\Doctor;
 use App\Models\Patient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -73,6 +74,27 @@ class AuthController extends Controller
                 'token_type' => 'bearer',
                 'expires_in' => JWTAuth::factory()->getTTL() * 60,
                 'user' => $admin,
+            ], 200);
+        }
+
+        // If the email exists in doctors, authenticate against the doctor guard.
+        if (Doctor::where('email', $email)->exists()) {
+            $token = auth('doctor')->attempt($credentials);
+
+            if (! $token) {
+                return response()->json([
+                    'message' => 'Invalid email or password.',
+                ], 401);
+            }
+
+            /** @var \App\Models\Doctor $doctor */
+            $doctor = auth('doctor')->user();
+
+            return response()->json([
+                'access_token' => $token,
+                'token_type' => 'bearer',
+                'expires_in' => JWTAuth::factory()->getTTL() * 60,
+                'user' => $doctor,
             ], 200);
         }
 

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\DoctorController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -34,4 +35,5 @@ Route::middleware(['auth:api'])->group(function () {
 
 Route::middleware(['auth:admin'])->group(function () {
     Route::post('/admin/admins', [AdminController::class, 'store']);
+    Route::post('/admin/doctors', [DoctorController::class, 'store']);
 });
