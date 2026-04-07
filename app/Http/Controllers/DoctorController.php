@@ -16,6 +16,14 @@ class DoctorController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $actingAdmin = $request->user();
+
+        if (! $actingAdmin || ($actingAdmin->role ?? null) !== 'admin') {
+            return response()->json([
+                'message' => 'Only admins can create doctor accounts.',
+            ], 403);
+        }
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:doctors,email'],
@@ -36,6 +44,7 @@ class DoctorController extends Controller
 
         try {
             $doctor = $this->doctorRegistration->createDoctor(
+                (int) $actingAdmin->id,
                 (string) $validated['name'],
                 (string) $validated['email'],
                 (string) $validated['password'],
@@ -47,6 +56,12 @@ class DoctorController extends Controller
                 $photoPath,
             );
         } catch (RuntimeException $e) {
+            if (str_contains($e->getMessage(), 'Only super admins and managers')) {
+                return response()->json([
+                    'message' => $e->getMessage(),
+                ], 403);
+            }
+
             return response()->json([
                 'message' => $e->getMessage(),
             ], 422);

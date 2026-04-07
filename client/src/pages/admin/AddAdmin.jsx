@@ -38,6 +38,10 @@ export default function AddAdmin() {
             setError("Password is required.");
             return;
         }
+        if (!form.role) {
+            setError("Admin role is required.");
+            return;
+        }
 
         setLoading(true);
         try {
@@ -169,10 +173,10 @@ export default function AddAdmin() {
                                 value={form.role}
                                 className="w-full pl-10 pr-4 py-3 rounded-xl border bg-white text-slate-600"
                             >
-                                <option>Select a role</option>
-                                <option>Super Admin</option>
-                                <option>Manager</option>
-                                <option>HR</option>
+                                <option value="">Select a role</option>
+                                <option value="super">Super Admin</option>
+                                <option value="manager">Manager</option>
+                                <option value="hr">HR</option>
                             </select>
                         </div>
                     </div>

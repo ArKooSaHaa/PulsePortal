@@ -22,10 +22,65 @@ const formatDate = (dateString) => {
     return parsed.toLocaleString();
 };
 
+const normalizeAdminRole = (adminRole) => {
+    const value = String(adminRole || "")
+        .trim()
+        .toLowerCase();
+
+    if (["super", "super admin", "super-admin", "super_admin"].includes(value)) {
+        return "super";
+    }
+
+    if (value === "manager") {
+        return "manager";
+    }
+
+    if (value === "hr") {
+        return "hr";
+    }
+
+    return "unknown";
+};
+
+const resolveDisplayRole = (user) => {
+    if (!user || user.role !== "admin") {
+        return ROLES[user?.role]?.label || "Patient";
+    }
+
+    const normalizedAdminRole = normalizeAdminRole(user.admin_role);
+
+    if (normalizedAdminRole === "super") {
+        return "Super Admin";
+    }
+
+    if (normalizedAdminRole === "manager") {
+        return "Manager";
+    }
+
+    if (normalizedAdminRole === "hr") {
+        return "HR";
+    }
+
+    return "Admin";
+};
+
+const resolveIdLabel = (role) => {
+    if (role === "admin") {
+        return "Admin ID";
+    }
+
+    if (role === "doctor") {
+        return "Doctor ID";
+    }
+
+    return "Patient ID";
+};
+
 export default function ProfilePage() {
     const user = authService.getCurrentUser();
     const role = user?.role || "patient";
     const cfg = ROLES[role] || ROLES.patient;
+    const displayRole = resolveDisplayRole(user);
 
     if (!user) {
         return (
@@ -59,11 +114,11 @@ export default function ProfilePage() {
         {
             icon: <ShieldCheck size={18} />,
             label: "Role",
-            value: user.role || "patient",
+            value: displayRole,
         },
         {
             icon: <Hash size={18} />,
-            label: "Patient ID",
+            label: resolveIdLabel(role),
             value: user.id ? `#${user.id}` : "Not available",
         },
         {
@@ -103,7 +158,7 @@ export default function ProfilePage() {
 
                         <div>
                             <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                                Patient Portal Profile
+                                {cfg.label} Portal Profile
                             </p>
                             <h1 className="text-3xl font-black text-slate-900 leading-tight">
                                 {user.name}
@@ -115,7 +170,7 @@ export default function ProfilePage() {
                                     border: `1px solid ${cfg.accent}40`,
                                 }}
                             >
-                                {user.role}
+                                {displayRole}
                             </div>
                         </div>
                     </div>

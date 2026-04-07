@@ -261,7 +261,7 @@ function formatDate(year, month, day) {
     return `${day} ${MONTH_NAMES[month]} ${year}`;
 }
 
-function toAppointmentIso(selectedDate, selectedTime) {
+function toAppointmentDateTime(selectedDate, selectedTime) {
     if (!selectedDate || !selectedTime) {
         return null;
     }
@@ -280,16 +280,14 @@ function toAppointmentIso(selectedDate, selectedTime) {
         hours = 0;
     }
 
-    const appointmentDate = new Date(
-        selectedDate.year,
-        selectedDate.month,
-        selectedDate.day,
-        hours,
-        minutes,
-        0,
-    );
+    const yyyy = String(selectedDate.year);
+    const mm = String(selectedDate.month + 1).padStart(2, "0");
+    const dd = String(selectedDate.day).padStart(2, "0");
+    const hh = String(hours).padStart(2, "0");
+    const min = String(minutes).padStart(2, "0");
 
-    return appointmentDate.toISOString();
+    // Keep appointment time in the exact local slot picked by user.
+    return `${yyyy}-${mm}-${dd} ${hh}:${min}:00`;
 }
 
 
@@ -371,13 +369,16 @@ export default function BookAppointment() {
         setBookingError("");
         setIsConfirming(true);
 
-        const appointmentIso = toAppointmentIso(selectedDate, selectedTime);
+        const appointmentDateTime = toAppointmentDateTime(
+            selectedDate,
+            selectedTime,
+        );
 
         try {
             await patientAppointmentService.createAppointment({
                 doctorId: selectedDoctor.id,
                 appointmentType: selectedType,
-                appointmentDate: appointmentIso,
+                appointmentDate: appointmentDateTime,
             });
 
             setConfirmed(true);

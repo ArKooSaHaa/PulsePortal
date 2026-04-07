@@ -10,6 +10,7 @@ class DatabaseFirstDoctorRegistrationService
     private bool $proceduresChecked = false;
 
     public function createDoctor(
+        int $actingAdminId,
         string $name,
         string $email,
         string $plainPassword,
@@ -20,6 +21,12 @@ class DatabaseFirstDoctorRegistrationService
         array $availableDays = [],
         ?string $photoPath = null,
     ): object {
+        $actingAdminRole = $this->resolveAdminRole($actingAdminId);
+
+        if (! in_array($actingAdminRole, ['super', 'manager'], true)) {
+            throw new \RuntimeException('Only super admins and managers can create doctor accounts.');
+        }
+
         $normalizedEmail = strtolower(trim($email));
         $hashedPassword = Hash::make($plainPassword);
         $encodedDays = ! empty($availableDays) ? json_encode(array_values($availableDays)) : null;
@@ -64,8 +71,9 @@ class DatabaseFirstDoctorRegistrationService
         $this->ensureDoctorProcedures();
 
         $rows = DB::select(
-            'EXEC sp_create_doctor @name = ?, @email = ?, @password = ?, @phone = ?, @department = ?, @specialization = ?, @license_number = ?, @available_days = ?, @photo_path = ?',
+            'EXEC sp_create_doctor @acting_admin_id = ?, @name = ?, @email = ?, @password = ?, @phone = ?, @department = ?, @specialization = ?, @license_number = ?, @available_days = ?, @photo_path = ?',
             [
+                $actingAdminId,
                 $name,
                 $normalizedEmail,
                 $hashedPassword,
@@ -79,6 +87,28 @@ class DatabaseFirstDoctorRegistrationService
         );
 
         return $this->normalizeDoctorRow($rows[0] ?? (object) []);
+    }
+
+    private function resolveAdminRole(int $adminId): string
+    {
+        $row = DB::table('admins')
+            ->select('admin_role')
+            ->where('id', $adminId)
+            ->whereNull('deleted_at')
+            ->first();
+
+        if (! $row) {
+            throw new \RuntimeException('Acting admin account was not found.');
+        }
+
+        $rawRole = strtolower(trim((string) ($row->admin_role ?? '')));
+
+        return match ($rawRole) {
+            'super', 'super admin', 'super-admin', 'super_admin' => 'super',
+            'manager' => 'manager',
+            'hr' => 'hr',
+            default => 'unknown',
+        };
     }
 
     private function normalizeDoctorRow(object $row): object
@@ -107,6 +137,7 @@ class DatabaseFirstDoctorRegistrationService
 
         DB::unprepared(<<<'SQL'
 CREATE OR ALTER PROCEDURE sp_create_doctor
+    @acting_admin_id BIGINT,
     @name NVARCHAR(255),
     @email NVARCHAR(255),
     @password NVARCHAR(255),
@@ -119,6 +150,18 @@ CREATE OR ALTER PROCEDURE sp_create_doctor
 AS
 BEGIN
     SET NOCOUNT ON;
+
+    DECLARE @acting_admin_role NVARCHAR(100);
+
+    SELECT TOP 1 @acting_admin_role = LOWER(LTRIM(RTRIM(ISNULL(admin_role, ''))))
+    FROM admins
+    WHERE id = @acting_admin_id
+      AND deleted_at IS NULL;
+
+    IF @acting_admin_role NOT IN ('super', 'super admin', 'super-admin', 'super_admin', 'manager')
+    BEGIN
+        RETURN;
+    END
 
     INSERT INTO doctors (
         name,

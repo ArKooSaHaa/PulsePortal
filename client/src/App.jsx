@@ -24,6 +24,27 @@ import AddDoctor from "./pages/admin/AddDoctor";
 import AddAdmin from "./pages/admin/AddAdmin";
 import AdminProfile from "./pages/admin/AdminProfile";
 import AdminAppointments from "./pages/admin/AdminAppointments";
+
+function normalizeAdminRole(role) {
+    const value = String(role || "")
+        .trim()
+        .toLowerCase();
+
+    if (["super", "super admin", "super-admin", "super_admin"].includes(value)) {
+        return "super";
+    }
+
+    if (value === "manager") {
+        return "manager";
+    }
+
+    if (value === "hr") {
+        return "hr";
+    }
+
+    return "unknown";
+}
+
 function RoleLayout() {
     return (
         <>
@@ -42,6 +63,27 @@ function ProtectedRoute({ expectedRole }) {
     return <Outlet />;
 }
 
+function AdminRoleRoute({ allowedRoles, element }) {
+    const isLoggedIn = authService.isLoggedIn();
+    const user = authService.getCurrentUser();
+
+    if (!isLoggedIn || !user) {
+        return <Navigate to="/auth" replace />;
+    }
+
+    if (user.role !== "admin") {
+        return <Navigate to={`/${user.role}`} replace />;
+    }
+
+    const normalizedAdminRole = normalizeAdminRole(user.admin_role);
+
+    if (!allowedRoles.includes(normalizedAdminRole)) {
+        return <Navigate to="/admin" replace />;
+    }
+
+    return element;
+}
+
 function App() {
     return (
         <BrowserRouter>
@@ -49,14 +91,6 @@ function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/auth" element={<AuthPage />} />
 
-                {/*  PUBLIC  ROUTE   */}
-                <Route element={<RoleLayout />}>
-                    <Route
-                        path="/admin/add-doctor"
-                        element={<AddDoctor />}
-                    />
-                     <Route path="/admin/add-admin" element={<AddAdmin />} /> 
-                </Route>
                 {/* Patient */}
                 <Route
                     path="/patient"
@@ -98,6 +132,24 @@ function App() {
                 >
                     <Route element={<RoleLayout />}>
                         <Route index element={<AdminDashboard />} />
+                        <Route
+                            path="add-doctor"
+                            element={
+                                <AdminRoleRoute
+                                    allowedRoles={["super", "manager"]}
+                                    element={<AddDoctor />}
+                                />
+                            }
+                        />
+                        <Route
+                            path="add-admin"
+                            element={
+                                <AdminRoleRoute
+                                    allowedRoles={["super"]}
+                                    element={<AddAdmin />}
+                                />
+                            }
+                        />
                         <Route
                             path="all-appointments"
                             element={<AdminAppointments />}

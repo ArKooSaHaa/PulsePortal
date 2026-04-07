@@ -11,11 +11,41 @@ const NAV_LINKS = {
         { name: "Book Appointment", path: "book-appointment" },
     ],
     doctor: [{ name: "Appointments", path: "doc-appointments" }],
-    admin: [
-        { name: "Add Doctor", path: "add-doctor" },
-        { name: "Add Admin", path: "add-admin" },
-        { name: "Appointments", path: "all-appointments" },
-    ],
+    admin: [{ name: "Appointments", path: "all-appointments" }],
+};
+
+const normalizeAdminRole = (role) => {
+    const value = String(role || "")
+        .trim()
+        .toLowerCase();
+
+    if (["super", "super admin", "super-admin", "super_admin"].includes(value)) {
+        return "super";
+    }
+
+    if (value === "manager") {
+        return "manager";
+    }
+
+    if (value === "hr") {
+        return "hr";
+    }
+
+    return "unknown";
+};
+
+const getAdminLinks = (adminRole) => {
+    const links = [{ name: "Appointments", path: "all-appointments" }];
+
+    if (["super", "manager"].includes(adminRole)) {
+        links.unshift({ name: "Add Doctor", path: "add-doctor" });
+    }
+
+    if (adminRole === "super") {
+        links.splice(1, 0, { name: "Add Admin", path: "add-admin" });
+    }
+
+    return links;
 };
 
 function NavLink({ to, children, isActive }) {
@@ -67,7 +97,12 @@ export default function Navbar() {
     const notifRef = useRef(null);
     const mobileMenuRef = useRef(null);
 
-    const links = NAV_LINKS[role] || [];
+    const currentUser = authService.getCurrentUser();
+    const normalizedAdminRole = normalizeAdminRole(currentUser?.admin_role);
+    const links =
+        role === "admin"
+            ? getAdminLinks(normalizedAdminRole)
+            : NAV_LINKS[role] || [];
     const dashboardPath = `/${role}`;
 
     const handleLogout = async () => {

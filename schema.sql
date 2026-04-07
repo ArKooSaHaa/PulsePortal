@@ -21,6 +21,7 @@ IF OBJECT_ID('sp_get_doctor_by_email', 'P') IS NOT NULL DROP PROCEDURE sp_get_do
 IF OBJECT_ID('sp_get_admin_by_email', 'P') IS NOT NULL DROP PROCEDURE sp_get_admin_by_email;
 IF OBJECT_ID('sp_email_exists', 'P') IS NOT NULL DROP PROCEDURE sp_email_exists;
 IF OBJECT_ID('sp_get_doctors', 'P') IS NOT NULL DROP PROCEDURE sp_get_doctors;
+IF OBJECT_ID('sp_create_admin', 'P') IS NOT NULL DROP PROCEDURE sp_create_admin;
 IF OBJECT_ID('sp_create_doctor', 'P') IS NOT NULL DROP PROCEDURE sp_create_doctor;
 IF OBJECT_ID('sp_search_doctors', 'P') IS NOT NULL DROP PROCEDURE sp_search_doctors;
 IF OBJECT_ID('sp_update_doctor', 'P') IS NOT NULL DROP PROCEDURE sp_update_doctor;
@@ -273,6 +274,7 @@ GO
 
 -- CREATE DOCTOR
 CREATE PROCEDURE sp_create_doctor
+	@acting_admin_id BIGINT,
 	@name NVARCHAR(255),
 	@email NVARCHAR(255),
 	@password NVARCHAR(255),
@@ -284,6 +286,18 @@ CREATE PROCEDURE sp_create_doctor
 	@photo_path NVARCHAR(255) = NULL
 AS
 BEGIN
+	DECLARE @acting_admin_role NVARCHAR(100);
+
+	SELECT TOP 1 @acting_admin_role = LOWER(LTRIM(RTRIM(ISNULL(admin_role, ''))))
+	FROM admins
+	WHERE id = @acting_admin_id
+	  AND deleted_at IS NULL;
+
+	IF @acting_admin_role NOT IN ('super', 'super admin', 'super-admin', 'super_admin', 'manager')
+	BEGIN
+		RETURN;
+	END
+
 	INSERT INTO doctors (
 		name,
 		email,
@@ -330,6 +344,65 @@ BEGIN
 		updated_at
 	FROM doctors
 	WHERE id = @doctor_id;
+END;
+GO
+
+-- CREATE ADMIN (SUPER ONLY)
+CREATE PROCEDURE sp_create_admin
+	@acting_admin_id BIGINT,
+	@name NVARCHAR(255),
+	@email NVARCHAR(255),
+	@password NVARCHAR(255),
+	@phone NVARCHAR(50) = NULL,
+	@admin_role NVARCHAR(100)
+AS
+BEGIN
+	DECLARE @acting_admin_role NVARCHAR(100);
+
+	SELECT TOP 1 @acting_admin_role = LOWER(LTRIM(RTRIM(ISNULL(admin_role, ''))))
+	FROM admins
+	WHERE id = @acting_admin_id
+	  AND deleted_at IS NULL;
+
+	IF @acting_admin_role NOT IN ('super', 'super admin', 'super-admin', 'super_admin')
+	BEGIN
+		RETURN;
+	END
+
+	INSERT INTO admins (
+		name,
+		email,
+		password,
+		phone,
+		role,
+		admin_role,
+		created_at,
+		updated_at
+	)
+	VALUES (
+		@name,
+		@email,
+		@password,
+		@phone,
+		'admin',
+		@admin_role,
+		GETDATE(),
+		GETDATE()
+	);
+
+	DECLARE @admin_id BIGINT = SCOPE_IDENTITY();
+
+	SELECT TOP 1
+		id,
+		name,
+		email,
+		phone,
+		role,
+		admin_role,
+		created_at,
+		updated_at
+	FROM admins
+	WHERE id = @admin_id;
 END;
 GO
 
