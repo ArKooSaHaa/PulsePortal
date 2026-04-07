@@ -7,6 +7,16 @@ const DOCTOR_THEME = [
     { color: "#fff7ed", accent: "#ea580c" },
 ];
 
+const WEEKDAY_LABELS = {
+    SUN: "Sun",
+    MON: "Mon",
+    TUE: "Tue",
+    WED: "Wed",
+    THU: "Thu",
+    FRI: "Fri",
+    SAT: "Sat",
+};
+
 const toInitials = (name) => {
     const parts = String(name || "")
         .trim()
@@ -41,9 +51,85 @@ const inferRating = (id) => {
     return Number((base + delta).toFixed(1));
 };
 
+const normalizeAvailableDayToken = (value) => {
+    const normalized = String(value || "")
+        .trim()
+        .toUpperCase()
+        .replace(/[._-]/g, "")
+        .replace(/[^A-Z]/g, "");
+
+    switch (normalized) {
+        case "SUN":
+        case "SUNDAY":
+            return "SUN";
+        case "MON":
+        case "MONDAY":
+            return "MON";
+        case "TUE":
+        case "TUESDAY":
+            return "TUE";
+        case "WED":
+        case "WEDNESDAY":
+            return "WED";
+        case "THU":
+        case "THURSDAY":
+            return "THU";
+        case "FRI":
+        case "FRIDAY":
+            return "FRI";
+        case "SAT":
+        case "SATURDAY":
+            return "SAT";
+        default:
+            return null;
+    }
+};
+
+const parseAvailableDays = (rawValue) => {
+    if (Array.isArray(rawValue)) {
+        const uniqueDays = new Set();
+        rawValue.forEach((day) => {
+            const token = normalizeAvailableDayToken(day);
+            if (token) {
+                uniqueDays.add(token);
+            }
+        });
+        return Array.from(uniqueDays);
+    }
+
+    if (typeof rawValue !== "string") {
+        return [];
+    }
+
+    const trimmed = rawValue.trim();
+    if (!trimmed) {
+        return [];
+    }
+
+    try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+            return parseAvailableDays(parsed);
+        }
+    } catch {
+        // Keep raw string parsing as fallback for legacy stored values.
+    }
+
+    const uniqueDays = new Set();
+    trimmed.split(/[\s,;|]+/).forEach((day) => {
+        const token = normalizeAvailableDayToken(day);
+        if (token) {
+            uniqueDays.add(token);
+        }
+    });
+
+    return Array.from(uniqueDays);
+};
+
 const normalizeDoctor = (doctor, index) => {
     const theme = DOCTOR_THEME[index % DOCTOR_THEME.length];
     const department = doctor.department || "General";
+    const availableDays = parseAvailableDays(doctor.available_days);
 
     return {
         id: Number(doctor.id),
@@ -56,6 +142,11 @@ const normalizeDoctor = (doctor, index) => {
         avatar: toInitials(doctor.name),
         color: theme.color,
         accent: theme.accent,
+        availableDays,
+        availableDaysLabel:
+            availableDays.length > 0
+                ? availableDays.map((day) => WEEKDAY_LABELS[day]).join(", ")
+                : "Every day",
     };
 };
 

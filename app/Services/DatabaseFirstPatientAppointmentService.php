@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
@@ -20,7 +21,7 @@ class DatabaseFirstPatientAppointmentService
 
         if (DB::connection()->getDriverName() !== 'sqlsrv') {
             $query = DB::table('doctors')
-                ->select(['id', 'name', 'department', 'specialization', 'photo_path'])
+                ->select(['id', 'name', 'department', 'specialization', 'photo_path', 'available_days'])
                 ->where('role', 'doctor')
                 ->whereNull('deleted_at');
 
@@ -63,6 +64,8 @@ class DatabaseFirstPatientAppointmentService
         if (! $this->doctorExists($doctorId)) {
             throw new RuntimeException('Selected doctor is not available.');
         }
+
+        $this->assertDoctorIsAvailableOnDate($doctorId, $appointmentDate);
 
         if (DB::connection()->getDriverName() !== 'sqlsrv') {
             $hasTypeColumn = Schema::hasColumn('appointments', 'appointment_type');
@@ -115,10 +118,18 @@ class DatabaseFirstPatientAppointmentService
 
         $this->ensureAppointmentProcedures();
 
-        $rows = DB::select(
-            'EXEC sp_create_appointment @patient_id = ?, @doctor_id = ?, @appointment_date = ?, @appointment_type = ?',
-            [$patientId, $doctorId, $appointmentDate, $appointmentType],
-        );
+        try {
+            $rows = DB::select(
+                'EXEC sp_create_appointment @patient_id = ?, @doctor_id = ?, @appointment_date = ?, @appointment_type = ?',
+                [$patientId, $doctorId, $appointmentDate, $appointmentType],
+            );
+        } catch (QueryException $e) {
+            if (str_contains(strtolower($e->getMessage()), 'not available on the selected day')) {
+                throw new RuntimeException('This doctor is not available on the selected day.');
+            }
+
+            throw new RuntimeException('Appointment could not be created.');
+        }
 
         if (! $rows) {
             throw new RuntimeException('Appointment could not be created.');
@@ -193,9 +204,9 @@ class DatabaseFirstPatientAppointmentService
                     $q->where('a.appointment_date', '>=', now())
                         ->orWhere('a.status', 'completed');
                 })
-                ->orderByRaw("CASE WHEN a.appointment_date >= ? THEN 0 ELSE 1 END", [now()])
-                ->orderByRaw("CASE WHEN a.appointment_date >= ? THEN a.appointment_date END ASC", [now()])
-                ->orderByRaw("CASE WHEN a.appointment_date < ? THEN a.appointment_date END DESC", [now()])
+                ->orderByRaw('CASE WHEN a.appointment_date >= ? THEN 0 ELSE 1 END', [now()])
+                ->orderByRaw('CASE WHEN a.appointment_date >= ? THEN a.appointment_date END ASC', [now()])
+                ->orderByRaw('CASE WHEN a.appointment_date < ? THEN a.appointment_date END DESC', [now()])
                 ->limit($normalizedLimit);
 
             if ($hasTypeColumn) {
@@ -418,10 +429,120 @@ class DatabaseFirstPatientAppointmentService
         $row = DB::table('doctors')
             ->select('id')
             ->where('id', $doctorId)
+            ->where('role', 'doctor')
             ->whereNull('deleted_at')
             ->first();
 
         return (bool) $row;
+    }
+
+    private function assertDoctorIsAvailableOnDate(int $doctorId, string $appointmentDate): void
+    {
+        $availableDays = $this->getDoctorAvailableDays($doctorId);
+
+        if ($availableDays === []) {
+            return;
+        }
+
+        $appointmentDay = $this->resolveWeekdayToken($appointmentDate);
+
+        if (! in_array($appointmentDay, $availableDays, true)) {
+            throw new RuntimeException('This doctor is not available on the selected day.');
+        }
+    }
+
+    private function getDoctorAvailableDays(int $doctorId): array
+    {
+        $row = DB::table('doctors')
+            ->select('available_days')
+            ->where('id', $doctorId)
+            ->where('role', 'doctor')
+            ->whereNull('deleted_at')
+            ->first();
+
+        if (! $row) {
+            return [];
+        }
+
+        return $this->normalizeAvailableDays($row->available_days ?? null);
+    }
+
+    private function normalizeAvailableDays(mixed $rawAvailableDays): array
+    {
+        if (! is_string($rawAvailableDays)) {
+            return [];
+        }
+
+        $raw = trim($rawAvailableDays);
+
+        if ($raw === '') {
+            return [];
+        }
+
+        $decoded = json_decode($raw, true);
+        $tokens = [];
+
+        if (is_array($decoded)) {
+            foreach ($decoded as $day) {
+                $token = $this->normalizeWeekdayToken($day);
+
+                if ($token) {
+                    $tokens[$token] = true;
+                }
+            }
+
+            return array_keys($tokens);
+        }
+
+        $parts = preg_split('/[\s,;|]+/', $raw) ?: [];
+
+        foreach ($parts as $day) {
+            $token = $this->normalizeWeekdayToken($day);
+
+            if ($token) {
+                $tokens[$token] = true;
+            }
+        }
+
+        return array_keys($tokens);
+    }
+
+    private function normalizeWeekdayToken(mixed $day): ?string
+    {
+        $value = strtoupper(trim((string) $day));
+        $value = str_replace(['.', '_', '-'], '', $value);
+        $value = preg_replace('/[^A-Z]/', '', $value) ?? '';
+
+        return match ($value) {
+            'SUN', 'SUNDAY' => 'SUN',
+            'MON', 'MONDAY' => 'MON',
+            'TUE', 'TUESDAY' => 'TUE',
+            'WED', 'WEDNESDAY' => 'WED',
+            'THU', 'THURSDAY' => 'THU',
+            'FRI', 'FRIDAY' => 'FRI',
+            'SAT', 'SATURDAY' => 'SAT',
+            default => null,
+        };
+    }
+
+    private function resolveWeekdayToken(string $dateTime): string
+    {
+        try {
+            $date = new \DateTimeImmutable($dateTime);
+        } catch (\Throwable) {
+            throw new RuntimeException('Invalid appointment date selected.');
+        }
+
+        return match (strtoupper($date->format('D'))) {
+            'SUN' => 'SUN',
+            'MON' => 'MON',
+            'TUE' => 'TUE',
+            'WED' => 'WED',
+            'THU' => 'THU',
+            'FRI' => 'FRI',
+            'SAT' => 'SAT',
+            default => throw new RuntimeException('Invalid appointment date selected.'),
+        };
     }
 
     private function ensureAppointmentProcedures(): void
@@ -451,7 +572,8 @@ BEGIN
         name,
         department,
         specialization,
-        photo_path
+        photo_path,
+        available_days
     FROM doctors
         WHERE role = 'doctor'
             AND deleted_at IS NULL
@@ -480,6 +602,96 @@ CREATE OR ALTER PROCEDURE sp_create_appointment
 AS
 BEGIN
     SET NOCOUNT ON;
+
+    DECLARE @available_days NVARCHAR(MAX);
+    DECLARE @normalized_available_days NVARCHAR(MAX);
+    DECLARE @appointment_weekday_index INT;
+    DECLARE @appointment_weekday_token NVARCHAR(3);
+    DECLARE @appointment_weekday_full NVARCHAR(10);
+    DECLARE @is_available BIT = 0;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM doctors
+        WHERE id = @doctor_id
+          AND role = 'doctor'
+          AND deleted_at IS NULL
+    )
+    BEGIN
+        RAISERROR('Selected doctor is not available.', 16, 1);
+        RETURN;
+    END
+
+    SELECT TOP 1 @available_days = available_days
+    FROM doctors
+    WHERE id = @doctor_id
+      AND role = 'doctor'
+      AND deleted_at IS NULL;
+
+    IF @available_days IS NULL OR LTRIM(RTRIM(@available_days)) = ''
+    BEGIN
+        SET @is_available = 1;
+    END
+    ELSE
+    BEGIN
+        SET @appointment_weekday_index = DATEDIFF(DAY, '19000107', CAST(@appointment_date AS DATE)) % 7;
+
+        IF @appointment_weekday_index < 0
+        BEGIN
+            SET @appointment_weekday_index = @appointment_weekday_index + 7;
+        END
+
+        SET @appointment_weekday_token = CASE @appointment_weekday_index
+            WHEN 0 THEN 'SUN'
+            WHEN 1 THEN 'MON'
+            WHEN 2 THEN 'TUE'
+            WHEN 3 THEN 'WED'
+            WHEN 4 THEN 'THU'
+            WHEN 5 THEN 'FRI'
+            WHEN 6 THEN 'SAT'
+        END;
+
+        SET @appointment_weekday_full = CASE @appointment_weekday_token
+            WHEN 'SUN' THEN 'SUNDAY'
+            WHEN 'MON' THEN 'MONDAY'
+            WHEN 'TUE' THEN 'TUESDAY'
+            WHEN 'WED' THEN 'WEDNESDAY'
+            WHEN 'THU' THEN 'THURSDAY'
+            WHEN 'FRI' THEN 'FRIDAY'
+            WHEN 'SAT' THEN 'SATURDAY'
+        END;
+
+        IF ISJSON(@available_days) = 1
+        BEGIN
+            IF EXISTS (
+                SELECT 1
+                FROM OPENJSON(@available_days)
+                WHERE UPPER(LEFT(LTRIM(RTRIM(CONVERT(NVARCHAR(30), [value]))), 3)) = @appointment_weekday_token
+            )
+            BEGIN
+                SET @is_available = 1;
+            END
+        END
+        ELSE
+        BEGIN
+            SET @normalized_available_days = UPPER(LTRIM(RTRIM(@available_days)));
+            SET @normalized_available_days = REPLACE(@normalized_available_days, ';', ',');
+            SET @normalized_available_days = REPLACE(@normalized_available_days, '|', ',');
+            SET @normalized_available_days = REPLACE(@normalized_available_days, ' ', '');
+
+            IF CHARINDEX(',' + @appointment_weekday_token + ',', ',' + @normalized_available_days + ',') > 0
+               OR CHARINDEX(',' + @appointment_weekday_full + ',', ',' + @normalized_available_days + ',') > 0
+            BEGIN
+                SET @is_available = 1;
+            END
+        END
+    END
+
+    IF @is_available = 0
+    BEGIN
+        RAISERROR('This doctor is not available on the selected day.', 16, 1);
+        RETURN;
+    END
 
     INSERT INTO appointments (
         patient_id,

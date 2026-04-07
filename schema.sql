@@ -252,7 +252,8 @@ BEGIN
 		name,
 		department,
 		specialization,
-		photo_path
+		photo_path,
+		available_days
 	FROM doctors
 	WHERE role = 'doctor'
 	  AND deleted_at IS NULL
@@ -451,6 +452,96 @@ CREATE PROCEDURE sp_create_appointment
 	@appointment_type NVARCHAR(30) = NULL
 AS
 BEGIN
+	DECLARE @available_days NVARCHAR(MAX);
+	DECLARE @normalized_available_days NVARCHAR(MAX);
+	DECLARE @appointment_weekday_index INT;
+	DECLARE @appointment_weekday_token NVARCHAR(3);
+	DECLARE @appointment_weekday_full NVARCHAR(10);
+	DECLARE @is_available BIT = 0;
+
+	IF NOT EXISTS (
+		SELECT 1
+		FROM doctors
+		WHERE id = @doctor_id
+		  AND role = 'doctor'
+		  AND deleted_at IS NULL
+	)
+	BEGIN
+		RAISERROR('Selected doctor is not available.', 16, 1);
+		RETURN;
+	END
+
+	SELECT TOP 1 @available_days = available_days
+	FROM doctors
+	WHERE id = @doctor_id
+	  AND role = 'doctor'
+	  AND deleted_at IS NULL;
+
+	IF @available_days IS NULL OR LTRIM(RTRIM(@available_days)) = ''
+	BEGIN
+		SET @is_available = 1;
+	END
+	ELSE
+	BEGIN
+		SET @appointment_weekday_index = DATEDIFF(DAY, '19000107', CAST(@appointment_date AS DATE)) % 7;
+
+		IF @appointment_weekday_index < 0
+		BEGIN
+			SET @appointment_weekday_index = @appointment_weekday_index + 7;
+		END
+
+		SET @appointment_weekday_token = CASE @appointment_weekday_index
+			WHEN 0 THEN 'SUN'
+			WHEN 1 THEN 'MON'
+			WHEN 2 THEN 'TUE'
+			WHEN 3 THEN 'WED'
+			WHEN 4 THEN 'THU'
+			WHEN 5 THEN 'FRI'
+			WHEN 6 THEN 'SAT'
+		END;
+
+		SET @appointment_weekday_full = CASE @appointment_weekday_token
+			WHEN 'SUN' THEN 'SUNDAY'
+			WHEN 'MON' THEN 'MONDAY'
+			WHEN 'TUE' THEN 'TUESDAY'
+			WHEN 'WED' THEN 'WEDNESDAY'
+			WHEN 'THU' THEN 'THURSDAY'
+			WHEN 'FRI' THEN 'FRIDAY'
+			WHEN 'SAT' THEN 'SATURDAY'
+		END;
+
+		IF ISJSON(@available_days) = 1
+		BEGIN
+			IF EXISTS (
+				SELECT 1
+				FROM OPENJSON(@available_days)
+				WHERE UPPER(LEFT(LTRIM(RTRIM(CONVERT(NVARCHAR(30), [value]))), 3)) = @appointment_weekday_token
+			)
+			BEGIN
+				SET @is_available = 1;
+			END
+		END
+		ELSE
+		BEGIN
+			SET @normalized_available_days = UPPER(LTRIM(RTRIM(@available_days)));
+			SET @normalized_available_days = REPLACE(@normalized_available_days, ';', ',');
+			SET @normalized_available_days = REPLACE(@normalized_available_days, '|', ',');
+			SET @normalized_available_days = REPLACE(@normalized_available_days, ' ', '');
+
+			IF CHARINDEX(',' + @appointment_weekday_token + ',', ',' + @normalized_available_days + ',') > 0
+			   OR CHARINDEX(',' + @appointment_weekday_full + ',', ',' + @normalized_available_days + ',') > 0
+			BEGIN
+				SET @is_available = 1;
+			END
+		END
+	END
+
+	IF @is_available = 0
+	BEGIN
+		RAISERROR('This doctor is not available on the selected day.', 16, 1);
+		RETURN;
+	END
+
 	INSERT INTO appointments (
 		patient_id,
 		doctor_id,

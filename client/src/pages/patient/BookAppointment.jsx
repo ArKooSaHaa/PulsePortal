@@ -17,6 +17,15 @@ const TIME_SLOTS = Array.from({ length: 24 }, (_, index) => {
 });
 
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+const WEEKDAY_INDEX_BY_TOKEN = {
+    SUN: 0,
+    MON: 1,
+    TUE: 2,
+    WED: 3,
+    THU: 4,
+    FRI: 5,
+    SAT: 6,
+};
 
 function DoctorCard({ doctor, selected, onSelect }) {
     return (
@@ -55,6 +64,9 @@ function DoctorCard({ doctor, selected, onSelect }) {
                 </p>
                 <p className="text-xs text-slate-500 truncate">
                     {doctor.specialty} · {doctor.clinic}
+                </p>
+                <p className="text-[11px] text-slate-400 truncate">
+                    Available: {doctor.availableDaysLabel}
                 </p>
                 <div className="flex items-center gap-1 mt-1">
                     <Star size={11} className="text-amber-400 fill-amber-400" />
@@ -112,9 +124,12 @@ const MONTH_NAMES = [
     "January","February","March","April","May","June", "July","August","September","October","November","December",
 ];
 
-function MiniCalendar({ selectedDate, onSelect }) {
+function MiniCalendar({ selectedDate, onSelect, allowedWeekdays = null }) {
     const today = new Date();
     const [view, setView] = useState({ year: today.getFullYear(), month: today.getMonth() });
+    const allowedWeekdaySet = Array.isArray(allowedWeekdays) && allowedWeekdays.length > 0
+        ? new Set(allowedWeekdays)
+        : null;
 
     const daysInMonth = getDaysInMonth(view.year, view.month);
     const firstDay = getFirstDayOfWeek(view.year, view.month);
@@ -133,6 +148,15 @@ function MiniCalendar({ selectedDate, onSelect }) {
         cell.setHours(0, 0, 0, 0);
         const t = new Date(); t.setHours(0, 0, 0, 0);
         return cell < t;
+    };
+
+    const isUnavailableWeekday = (d) => {
+        if (!allowedWeekdaySet) {
+            return false;
+        }
+
+        const weekday = new Date(view.year, view.month, d).getDay();
+        return !allowedWeekdaySet.has(weekday);
     };
 
     const isSelected = (d) =>
@@ -179,20 +203,22 @@ function MiniCalendar({ selectedDate, onSelect }) {
                 {cells.map((day, i) => {
                     if (!day) return <div key={`e-${i}`} />;
                     const past = isPast(day);
+                    const unavailable = isUnavailableWeekday(day);
+                    const disabled = past || unavailable;
                     const sel = isSelected(day);
                     const tod = isToday(day);
 
                     return (
                         <motion.button
                             key={day}
-                            whileTap={!past ? { scale: 0.9 } : {}}
-                            disabled={past}
-                            onClick={() => !past && onSelect({ year: view.year, month: view.month, day })}
+                            whileTap={!disabled ? { scale: 0.9 } : {}}
+                            disabled={disabled}
+                            onClick={() => !disabled && onSelect({ year: view.year, month: view.month, day })}
                             className={`w-8 h-8 mx-auto rounded-full text-sm font-medium transition-all flex items-center justify-center
-                                ${past ? "text-slate-200 cursor-not-allowed" : "cursor-pointer hover:bg-blue-50 hover:text-[#127fec]"}
+                                ${disabled ? "text-slate-200 cursor-not-allowed" : "cursor-pointer hover:bg-blue-50 hover:text-[#127fec]"}
                                 ${sel ? "!bg-[#127fec] !text-white shadow-md shadow-blue-200 font-bold" : ""}
-                                ${tod && !sel ? "ring-1 ring-[#127fec] text-[#127fec] font-bold" : ""}
-                                ${!past && !sel ? "text-slate-700" : ""}
+                                ${tod && !sel && !disabled ? "ring-1 ring-[#127fec] text-[#127fec] font-bold" : ""}
+                                ${!disabled && !sel ? "text-slate-700" : ""}
                             `}
                         >
                             {day}
@@ -360,6 +386,15 @@ export default function BookAppointment() {
     const filteredDoctors = doctors;
 
     const canConfirm = selectedDoctor && selectedType && selectedDate && selectedTime;
+    const selectedDoctorAllowedWeekdays =
+        selectedDoctor?.availableDays?.length > 0
+            ? selectedDoctor.availableDays
+                  .map((token) => WEEKDAY_INDEX_BY_TOKEN[token])
+                  .filter((value) => Number.isInteger(value))
+            : null;
+    const selectedDoctorAvailabilityLabel = selectedDoctor
+        ? selectedDoctor.availableDaysLabel
+        : "";
 
     const handleConfirm = async () => {
         if (!canConfirm || isConfirming) {
@@ -650,9 +685,21 @@ export default function BookAppointment() {
                                     {/* Calendar */}
                                     <div>
                                         <div className="flex items-center gap-2 mb-2 px-1">
-                                            <h2 className="text-base font-bold text-slate-800">Select Date</h2>
+                                            <div>
+                                                <h2 className="text-base font-bold text-slate-800">Select Date</h2>
+                                                <p className="text-xs text-slate-500">
+                                                    Available: {selectedDoctorAvailabilityLabel}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <MiniCalendar selectedDate={selectedDate} onSelect={(d) => { setSelectedDate(d); setSelectedTime(null); }} />
+                                        <MiniCalendar
+                                            selectedDate={selectedDate}
+                                            allowedWeekdays={selectedDoctorAllowedWeekdays}
+                                            onSelect={(d) => {
+                                                setSelectedDate(d);
+                                                setSelectedTime(null);
+                                            }}
+                                        />
                                     </div>
 
                                     {/* Time Slots */}
