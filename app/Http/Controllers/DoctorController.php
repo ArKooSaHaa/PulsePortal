@@ -26,8 +26,9 @@ class DoctorController extends Controller
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:doctors,email'],
+            'email' => ['required', 'string', 'email', 'max:255'],
             'password' => ['required', 'string', 'min:6'],
+            'confirm_password' => ['required', 'string', 'min:6'],
             'phone' => ['nullable', 'string', 'max:50'],
             'department' => ['nullable', 'string', 'max:255'],
             'specialization' => ['nullable', 'string', 'max:255'],
@@ -48,6 +49,7 @@ class DoctorController extends Controller
                 (string) $validated['name'],
                 (string) $validated['email'],
                 (string) $validated['password'],
+                (string) $validated['confirm_password'],
                 $validated['phone'] ?? null,
                 $validated['department'] ?? null,
                 $validated['specialization'] ?? null,

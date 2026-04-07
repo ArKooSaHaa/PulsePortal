@@ -20,23 +20,16 @@ class AuthController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255'],
             'password' => ['required', 'string', 'min:6'],
+            'confirm_password' => ['required', 'string', 'min:6'],
         ]);
 
         $email = strtolower(trim($validated['email']));
-
-        if ($this->databaseAuth->emailExists($email)) {
-            return response()->json([
-                'message' => 'The email has already been taken.',
-                'errors' => [
-                    'email' => ['The email has already been taken.'],
-                ],
-            ], 422);
-        }
 
         $patient = $this->databaseAuth->registerPatient(
             $validated['name'],
             $email,
             $validated['password'],
+            $validated['confirm_password'],
         );
 
         $token = JWTAuth::fromUser($patient);

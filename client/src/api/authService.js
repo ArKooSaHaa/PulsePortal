@@ -22,12 +22,13 @@ const normalizeApiError = (err) => {
 };
 
 const authService = {
-    register: async (name, email, password) => {
+    register: async (name, email, password, confirmPassword) => {
         try {
             const response = await api.post("/register", {
                 name: name.trim(),
                 email: email.trim().toLowerCase(),
                 password,
+                confirm_password: confirmPassword,
             });
 
             const token = response.data?.access_token;

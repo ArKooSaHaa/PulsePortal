@@ -26,8 +26,9 @@ class AdminController extends Controller
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:admins,email', 'unique:patients,email', 'unique:doctors,email'],
+            'email' => ['required', 'string', 'email', 'max:255'],
             'password' => ['required', 'string', 'min:6'],
+            'confirm_password' => ['required', 'string', 'min:6'],
             'phone' => ['nullable', 'string', 'max:30'],
             'admin_role' => ['required', 'string', 'in:super,manager,hr'],
         ]);
@@ -38,6 +39,7 @@ class AdminController extends Controller
                 (string) $validated['name'],
                 (string) $validated['email'],
                 (string) $validated['password'],
+                (string) $validated['confirm_password'],
                 $validated['phone'] ?? null,
                 (string) $validated['admin_role'],
             );

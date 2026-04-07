@@ -12,6 +12,7 @@ export default function AddAdmin() {
         name: "",
         email: "",
         password: "",
+        confirmPassword: "",
         phone: "",
         role: "",
     });
@@ -38,6 +39,14 @@ export default function AddAdmin() {
             setError("Password is required.");
             return;
         }
+        if (!form.confirmPassword) {
+            setError("Confirm password is required.");
+            return;
+        }
+        if (form.password !== form.confirmPassword) {
+            setError("Password and confirm password do not match.");
+            return;
+        }
         if (!form.role) {
             setError("Admin role is required.");
             return;
@@ -49,6 +58,7 @@ export default function AddAdmin() {
                 name: form.name.trim(),
                 email: form.email.trim().toLowerCase(),
                 password: form.password,
+                confirm_password: form.confirmPassword,
                 phone: form.phone?.trim() || null,
                 admin_role: form.role || null,
             });
@@ -58,6 +68,7 @@ export default function AddAdmin() {
                 name: "",
                 email: "",
                 password: "",
+                confirmPassword: "",
                 phone: "",
                 role: "",
             });
@@ -134,6 +145,28 @@ export default function AddAdmin() {
                                     placeholder="••••••••"
                                     name="password"
                                     value={form.password}
+                                    onChange={handleChange}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPass(!showPass)}
+                                    className="absolute right-3 top-3 text-slate-500"
+                                >
+                                    {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Confirm Password */}
+                        <div>
+                            <label className="block text-black mb-1">Confirm Password</label>
+                            <div className="relative">
+                                <Input
+                                    icon={<Lock size={18} />}
+                                    type={showPass ? "text" : "password"}
+                                    placeholder="••••••••"
+                                    name="confirmPassword"
+                                    value={form.confirmPassword}
                                     onChange={handleChange}
                                 />
                                 <button

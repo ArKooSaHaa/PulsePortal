@@ -33,6 +33,8 @@ IF OBJECT_ID('sp_get_doctors_for_booking', 'P') IS NOT NULL DROP PROCEDURE sp_ge
 IF OBJECT_ID('sp_get_patient_appointments', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_appointments;
 IF OBJECT_ID('sp_get_patient_upcoming_appointments', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_upcoming_appointments;
 IF OBJECT_ID('sp_get_patient_notifications', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_notifications;
+IF OBJECT_ID('sp_get_sql_feature_report', 'P') IS NOT NULL DROP PROCEDURE sp_get_sql_feature_report;
+IF OBJECT_ID('sp_transfer_room_admission', 'P') IS NOT NULL DROP PROCEDURE sp_transfer_room_admission;
 IF OBJECT_ID('sp_get_patient_room_admission_stats', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_room_admission_stats;
 IF OBJECT_ID('sp_get_patient_room_admissions', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_room_admissions;
 IF OBJECT_ID('sp_get_patient_room_admission_details', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_room_admission_details;
@@ -59,6 +61,8 @@ IF OBJECT_ID('sp_create_room_admission', 'P') IS NOT NULL DROP PROCEDURE sp_crea
 IF OBJECT_ID('sp_discharge_room_admission', 'P') IS NOT NULL DROP PROCEDURE sp_discharge_room_admission;
 IF OBJECT_ID('sp_get_admin_room_dashboard_stats', 'P') IS NOT NULL DROP PROCEDURE sp_get_admin_room_dashboard_stats;
 IF OBJECT_ID('sp_get_admin_recent_room_admissions', 'P') IS NOT NULL DROP PROCEDURE sp_get_admin_recent_room_admissions;
+IF OBJECT_ID('trg_sync_room_status_from_admissions', 'TR') IS NOT NULL DROP TRIGGER trg_sync_room_status_from_admissions;
+IF OBJECT_ID('vw_room_admission_analytics', 'V') IS NOT NULL DROP VIEW vw_room_admission_analytics;
 GO
 
 --------------------------------------------------
@@ -247,9 +251,42 @@ GO
 CREATE PROCEDURE sp_create_patient
 	@name NVARCHAR(255),
 	@email NVARCHAR(255),
-	@password NVARCHAR(255)
+	@password NVARCHAR(255),
+	@plain_password NVARCHAR(255),
+	@confirm_password NVARCHAR(255)
 AS
 BEGIN
+	SET NOCOUNT ON;
+
+	SET @name = LTRIM(RTRIM(@name));
+	SET @email = LOWER(LTRIM(RTRIM(@email)));
+
+	IF ISNULL(LEN(@plain_password), 0) = 0 OR ISNULL(LEN(@confirm_password), 0) = 0
+	BEGIN
+		RAISERROR('Password and confirm password are required.', 16, 1);
+		RETURN;
+	END
+
+	IF LEN(@plain_password) < 6
+	BEGIN
+		RAISERROR('Password must be at least 6 characters.', 16, 1);
+		RETURN;
+	END
+
+	IF @plain_password <> @confirm_password
+	BEGIN
+		RAISERROR('Password and confirm password do not match.', 16, 1);
+		RETURN;
+	END
+
+	IF EXISTS (SELECT 1 FROM patients WHERE email = @email AND deleted_at IS NULL)
+		OR EXISTS (SELECT 1 FROM doctors WHERE email = @email AND deleted_at IS NULL)
+		OR EXISTS (SELECT 1 FROM admins WHERE email = @email AND deleted_at IS NULL)
+	BEGIN
+		RAISERROR('The email has already been taken.', 16, 1);
+		RETURN;
+	END
+
 	INSERT INTO patients (name, email, password, role, created_at, updated_at)
 	VALUES (@name, @email, @password, 'patient', GETDATE(), GETDATE());
 END;
@@ -361,6 +398,8 @@ CREATE PROCEDURE sp_create_doctor
 	@name NVARCHAR(255),
 	@email NVARCHAR(255),
 	@password NVARCHAR(255),
+	@plain_password NVARCHAR(255),
+	@confirm_password NVARCHAR(255),
 	@phone NVARCHAR(50) = NULL,
 	@department NVARCHAR(255) = NULL,
 	@specialization NVARCHAR(255) = NULL,
@@ -369,6 +408,11 @@ CREATE PROCEDURE sp_create_doctor
 	@photo_path NVARCHAR(255) = NULL
 AS
 BEGIN
+	SET NOCOUNT ON;
+
+	SET @name = LTRIM(RTRIM(@name));
+	SET @email = LOWER(LTRIM(RTRIM(@email)));
+
 	DECLARE @acting_admin_role NVARCHAR(100);
 
 	SELECT TOP 1 @acting_admin_role = LOWER(LTRIM(RTRIM(ISNULL(admin_role, ''))))
@@ -378,6 +422,32 @@ BEGIN
 
 	IF @acting_admin_role NOT IN ('super', 'super admin', 'super-admin', 'super_admin', 'manager')
 	BEGIN
+		RETURN;
+	END
+
+	IF ISNULL(LEN(@plain_password), 0) = 0 OR ISNULL(LEN(@confirm_password), 0) = 0
+	BEGIN
+		RAISERROR('Password and confirm password are required.', 16, 1);
+		RETURN;
+	END
+
+	IF LEN(@plain_password) < 6
+	BEGIN
+		RAISERROR('Password must be at least 6 characters.', 16, 1);
+		RETURN;
+	END
+
+	IF @plain_password <> @confirm_password
+	BEGIN
+		RAISERROR('Password and confirm password do not match.', 16, 1);
+		RETURN;
+	END
+
+	IF EXISTS (SELECT 1 FROM patients WHERE email = @email AND deleted_at IS NULL)
+		OR EXISTS (SELECT 1 FROM doctors WHERE email = @email AND deleted_at IS NULL)
+		OR EXISTS (SELECT 1 FROM admins WHERE email = @email AND deleted_at IS NULL)
+	BEGIN
+		RAISERROR('The email has already been taken.', 16, 1);
 		RETURN;
 	END
 
@@ -436,10 +506,17 @@ CREATE PROCEDURE sp_create_admin
 	@name NVARCHAR(255),
 	@email NVARCHAR(255),
 	@password NVARCHAR(255),
+	@plain_password NVARCHAR(255),
+	@confirm_password NVARCHAR(255),
 	@phone NVARCHAR(50) = NULL,
 	@admin_role NVARCHAR(100)
 AS
 BEGIN
+	SET NOCOUNT ON;
+
+	SET @name = LTRIM(RTRIM(@name));
+	SET @email = LOWER(LTRIM(RTRIM(@email)));
+
 	DECLARE @acting_admin_role NVARCHAR(100);
 
 	SELECT TOP 1 @acting_admin_role = LOWER(LTRIM(RTRIM(ISNULL(admin_role, ''))))
@@ -449,6 +526,32 @@ BEGIN
 
 	IF @acting_admin_role NOT IN ('super', 'super admin', 'super-admin', 'super_admin')
 	BEGIN
+		RETURN;
+	END
+
+	IF ISNULL(LEN(@plain_password), 0) = 0 OR ISNULL(LEN(@confirm_password), 0) = 0
+	BEGIN
+		RAISERROR('Password and confirm password are required.', 16, 1);
+		RETURN;
+	END
+
+	IF LEN(@plain_password) < 6
+	BEGIN
+		RAISERROR('Password must be at least 6 characters.', 16, 1);
+		RETURN;
+	END
+
+	IF @plain_password <> @confirm_password
+	BEGIN
+		RAISERROR('Password and confirm password do not match.', 16, 1);
+		RETURN;
+	END
+
+	IF EXISTS (SELECT 1 FROM patients WHERE email = @email AND deleted_at IS NULL)
+		OR EXISTS (SELECT 1 FROM doctors WHERE email = @email AND deleted_at IS NULL)
+		OR EXISTS (SELECT 1 FROM admins WHERE email = @email AND deleted_at IS NULL)
+	BEGIN
+		RAISERROR('The email has already been taken.', 16, 1);
 		RETURN;
 	END
 
@@ -1946,5 +2049,200 @@ BEGIN
 	LEFT JOIN doctors d ON d.id = ra.doctor_id
 	WHERE p.deleted_at IS NULL
 	ORDER BY ra.admitted_at DESC;
+END;
+GO
+
+--------------------------------------------------
+-- SQL FEATURE COVERAGE OBJECTS
+--------------------------------------------------
+
+-- VIEW: ROOM ADMISSION ANALYTICS (LEFT JOIN + AGGREGATES + GROUP BY + HAVING)
+CREATE VIEW vw_room_admission_analytics
+AS
+SELECT
+	hr.id AS room_id,
+	hr.room_number,
+	hr.room_type,
+	hr.floor_number,
+	COUNT(ra.id) AS total_admissions,
+	SUM(CASE WHEN ra.status = 'admitted' AND ra.discharged_at IS NULL THEN 1 ELSE 0 END) AS active_admissions,
+	AVG(CASE WHEN ra.admitted_at IS NOT NULL THEN DATEDIFF(HOUR, ra.admitted_at, ISNULL(ra.discharged_at, GETDATE())) * 1.0 END) AS avg_stay_hours,
+	MIN(ra.admitted_at) AS first_admission_at,
+	MAX(ISNULL(ra.discharged_at, ra.admitted_at)) AS last_admission_at
+FROM hospital_rooms hr
+LEFT JOIN room_admissions ra ON ra.room_id = hr.id
+GROUP BY
+	hr.id,
+	hr.room_number,
+	hr.room_type,
+	hr.floor_number
+HAVING COUNT(ra.id) >= 0;
+GO
+
+-- TRIGGER: KEEP ROOM STATUS IN SYNC WITH ACTIVE ADMISSIONS
+CREATE TRIGGER trg_sync_room_status_from_admissions
+ON room_admissions
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+	SET NOCOUNT ON;
+
+	DECLARE @affected_rooms TABLE (room_id BIGINT PRIMARY KEY);
+
+	INSERT INTO @affected_rooms (room_id)
+	SELECT DISTINCT room_id FROM inserted WHERE room_id IS NOT NULL
+	UNION
+	SELECT DISTINCT room_id FROM deleted WHERE room_id IS NOT NULL;
+
+	UPDATE hr
+	SET
+		hr.status = CASE
+			WHEN EXISTS (
+				SELECT 1
+				FROM room_admissions ra
+				WHERE ra.room_id = hr.id
+				  AND ra.status = 'admitted'
+				  AND ra.discharged_at IS NULL
+			) THEN 'occupied'
+			WHEN hr.status = 'maintenance' THEN 'maintenance'
+			ELSE 'available'
+		END,
+		hr.updated_at = GETDATE()
+	FROM hospital_rooms hr
+	JOIN @affected_rooms ar ON ar.room_id = hr.id;
+END;
+GO
+
+-- PROCEDURE: TRANSACTIONAL ROOM TRANSFER
+CREATE PROCEDURE sp_transfer_room_admission
+	@admission_id BIGINT,
+	@to_room_id BIGINT
+AS
+BEGIN
+	SET NOCOUNT ON;
+
+	DECLARE @from_room_id BIGINT;
+
+	BEGIN TRY
+		BEGIN TRANSACTION;
+
+		SELECT TOP 1 @from_room_id = room_id
+		FROM room_admissions
+		WHERE id = @admission_id
+		  AND status = 'admitted'
+		  AND discharged_at IS NULL;
+
+		IF @from_room_id IS NULL
+		BEGIN
+			RAISERROR('Active room admission not found.', 16, 1);
+		END
+
+		IF NOT EXISTS (SELECT 1 FROM hospital_rooms WHERE id = @to_room_id)
+		BEGIN
+			RAISERROR('Target room was not found.', 16, 1);
+		END
+
+		IF EXISTS (
+			SELECT 1
+			FROM room_admissions
+			WHERE room_id = @to_room_id
+			  AND status = 'admitted'
+			  AND discharged_at IS NULL
+		)
+		BEGIN
+			RAISERROR('Target room is already occupied.', 16, 1);
+		END
+
+		UPDATE room_admissions
+		SET room_id = @to_room_id,
+			updated_at = GETDATE()
+		WHERE id = @admission_id;
+
+		-- Trigger keeps room statuses synchronized after this update.
+
+		COMMIT TRANSACTION;
+	END TRY
+	BEGIN CATCH
+		IF @@TRANCOUNT > 0
+		BEGIN
+			ROLLBACK TRANSACTION;
+		END
+
+		THROW;
+	END CATCH
+
+	SELECT TOP 1
+		ra.id,
+		ra.room_id,
+		ra.patient_id,
+		ra.doctor_id,
+		ra.status,
+		ra.admitted_at,
+		ra.expected_discharge_at,
+		ra.discharged_at,
+		hr.room_number,
+		hr.room_type,
+		hr.floor_number
+	FROM room_admissions ra
+	JOIN hospital_rooms hr ON hr.id = ra.room_id
+	WHERE ra.id = @admission_id;
+END;
+GO
+
+-- PROCEDURE: SQL FEATURE REPORT (INNER/LEFT/RIGHT/FULL JOIN + SUBQUERY + AGGREGATES)
+CREATE PROCEDURE sp_get_sql_feature_report
+AS
+BEGIN
+	SET NOCOUNT ON;
+
+	-- INNER JOIN + SUBQUERY
+	SELECT TOP 5
+		a.id AS appointment_id,
+		p.name AS patient_name,
+		d.name AS doctor_name,
+		a.status,
+		a.appointment_date
+	FROM appointments a
+	INNER JOIN patients p ON p.id = a.patient_id
+	INNER JOIN doctors d ON d.id = a.doctor_id
+	WHERE a.patient_id IN (
+		SELECT id
+		FROM patients
+		WHERE deleted_at IS NULL
+	)
+	ORDER BY ISNULL(a.updated_at, a.created_at) DESC;
+
+	-- RIGHT JOIN
+	SELECT TOP 5
+		hr.id AS room_id,
+		hr.room_number,
+		ra.id AS admission_id,
+		ra.status AS admission_status
+	FROM room_admissions ra
+	RIGHT JOIN hospital_rooms hr ON hr.id = ra.room_id
+	ORDER BY hr.room_number ASC;
+
+	-- FULL JOIN
+	SELECT TOP 10
+		d.id AS doctor_id,
+		d.name AS doctor_name,
+		ra.id AS admission_id,
+		ra.status AS admission_status
+	FROM doctors d
+	FULL JOIN room_admissions ra ON ra.doctor_id = d.id
+	ORDER BY ISNULL(ra.updated_at, d.updated_at) DESC;
+
+	-- AGGREGATES + GROUP BY + HAVING
+	SELECT
+		hr.room_type,
+		COUNT(*) AS total_rows,
+		SUM(CASE WHEN ra.status = 'admitted' AND ra.discharged_at IS NULL THEN 1 ELSE 0 END) AS active_rows,
+		AVG(CASE WHEN ra.admitted_at IS NOT NULL THEN DATEDIFF(HOUR, ra.admitted_at, ISNULL(ra.discharged_at, GETDATE())) * 1.0 END) AS avg_stay_hours,
+		MIN(ra.admitted_at) AS first_admission_at,
+		MAX(ISNULL(ra.discharged_at, ra.admitted_at)) AS last_admission_at
+	FROM hospital_rooms hr
+	LEFT JOIN room_admissions ra ON ra.room_id = hr.id
+	GROUP BY hr.room_type
+	HAVING COUNT(*) >= 1;
 END;
 GO

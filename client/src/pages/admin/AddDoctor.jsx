@@ -8,6 +8,7 @@ export default function AddDoctor() {
         name: "",
         email: "",
         password: "",
+        confirmPassword: "",
         phone: "",
         department: "Cardiology",
         specialization: "",
@@ -57,6 +58,14 @@ export default function AddDoctor() {
             setError("Password is required.");
             return;
         }
+        if (!form.confirmPassword) {
+            setError("Confirm password is required.");
+            return;
+        }
+        if (form.password !== form.confirmPassword) {
+            setError("Password and confirm password do not match.");
+            return;
+        }
 
         setLoading(true);
         try {
@@ -64,6 +73,7 @@ export default function AddDoctor() {
             data.append("name", form.name.trim());
             data.append("email", form.email.trim().toLowerCase());
             data.append("password", form.password);
+            data.append("confirm_password", form.confirmPassword);
             if (form.phone?.trim()) data.append("phone", form.phone.trim());
             if (form.department) data.append("department", form.department);
             if (form.specialization?.trim())
@@ -80,6 +90,7 @@ export default function AddDoctor() {
                 name: "",
                 email: "",
                 password: "",
+                confirmPassword: "",
                 phone: "",
                 department: "Cardiology",
                 specialization: "",
@@ -161,6 +172,7 @@ export default function AddDoctor() {
                             <Input label="Full Name" name="name" value={form.name} onChange={handleChange} />
                             <Input label="Email" name="email" value={form.email} onChange={handleChange} />
                             <Input label="Password" type="password" name="password" value={form.password} onChange={handleChange} />
+                            <Input label="Confirm Password" type="password" name="confirmPassword" value={form.confirmPassword} onChange={handleChange} />
                             <Input label="Phone" name="phone" value={form.phone} onChange={handleChange} />
                         </div>
 

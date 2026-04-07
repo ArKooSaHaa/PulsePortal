@@ -139,6 +139,7 @@ export default function AuthForm({ activeRole, onRoleChange }) {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
@@ -190,13 +191,28 @@ export default function AuthForm({ activeRole, onRoleChange }) {
             return;
         }
 
+        if (mode === "signup" && !confirmPassword) {
+            setError("Confirm password is required.");
+            return;
+        }
+
+        if (mode === "signup" && password !== confirmPassword) {
+            setError("Password and confirm password do not match.");
+            return;
+        }
+
         setLoading(true);
 
         try {
             let user;
 
             if (mode === "signup") {
-                user = await authService.register(name, email, password);
+                user = await authService.register(
+                    name,
+                    email,
+                    password,
+                    confirmPassword,
+                );
             } else {
                 user = await authService.login(email, password);
                 // ── Role tab enforcement ──────────────────────────────
@@ -213,6 +229,7 @@ export default function AuthForm({ activeRole, onRoleChange }) {
             setName("");
             setEmail("");
             setPassword("");
+            setConfirmPassword("");
 
             // Redirect based on role returned from backend
             if (user.role === "admin") navigate("/admin");
@@ -347,6 +364,20 @@ export default function AuthForm({ activeRole, onRoleChange }) {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                         />
+
+                        {mode === "signup" && (
+                            <InputField
+                                label="Confirm Password"
+                                placeholder="••••••••••••"
+                                type="password"
+                                accent={cfg.accent}
+                                accentGlow={cfg.accentGlow}
+                                value={confirmPassword}
+                                onChange={(e) =>
+                                    setConfirmPassword(e.target.value)
+                                }
+                            />
+                        )}
 
                         {/* Forgot Password */}
                         {mode === "login" && (
