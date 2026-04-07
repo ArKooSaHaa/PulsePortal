@@ -62,5 +62,7 @@ Route::middleware(['auth:admin'])->group(function () {
 
 Route::middleware(['auth:doctor'])->group(function () {
     Route::get('/doctor/appointments', [DoctorAppointmentController::class, 'index']);
+    Route::get('/doctor/room-admissions/summary', [DoctorAppointmentController::class, 'roomAdmissionsSummary']);
+    Route::get('/doctor/room-admissions/{admissionId}', [DoctorAppointmentController::class, 'roomAdmissionDetails']);
     Route::patch('/doctor/appointments/{appointmentId}/status', [DoctorAppointmentController::class, 'updateStatus']);
 });

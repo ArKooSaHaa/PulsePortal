@@ -18,9 +18,9 @@ class AdminRoomAdmissionController extends Controller
     {
         $admin = $request->user();
 
-        if (! $admin || ($admin->role ?? null) !== 'admin') {
+        if (! $this->canManageRoomAdmissions($admin)) {
             return response()->json([
-                'message' => 'Only admins can access room admissions.',
+                'message' => 'Only HR and Super Admin can access room admissions.',
             ], 403);
         }
 
@@ -45,9 +45,9 @@ class AdminRoomAdmissionController extends Controller
     {
         $admin = $request->user();
 
-        if (! $admin || ($admin->role ?? null) !== 'admin') {
+        if (! $this->canManageRoomAdmissions($admin)) {
             return response()->json([
-                'message' => 'Only admins can access room lookups.',
+                'message' => 'Only HR and Super Admin can access room lookups.',
             ], 403);
         }
 
@@ -66,9 +66,9 @@ class AdminRoomAdmissionController extends Controller
     {
         $admin = $request->user();
 
-        if (! $admin || ($admin->role ?? null) !== 'admin') {
+        if (! $this->canManageRoomAdmissions($admin)) {
             return response()->json([
-                'message' => 'Only admins can create room admissions.',
+                'message' => 'Only HR and Super Admin can create room admissions.',
             ], 403);
         }
 
@@ -108,9 +108,9 @@ class AdminRoomAdmissionController extends Controller
     {
         $admin = $request->user();
 
-        if (! $admin || ($admin->role ?? null) !== 'admin') {
+        if (! $this->canManageRoomAdmissions($admin)) {
             return response()->json([
-                'message' => 'Only admins can discharge admissions.',
+                'message' => 'Only HR and Super Admin can discharge admissions.',
             ], 403);
         }
 
@@ -139,9 +139,9 @@ class AdminRoomAdmissionController extends Controller
     {
         $admin = $request->user();
 
-        if (! $admin || ($admin->role ?? null) !== 'admin') {
+        if (! $this->canManageRoomAdmissions($admin)) {
             return response()->json([
-                'message' => 'Only admins can access room dashboard summary.',
+                'message' => 'Only HR and Super Admin can access room dashboard summary.',
             ], 403);
         }
 
@@ -161,5 +161,30 @@ class AdminRoomAdmissionController extends Controller
             'stats' => $summary['stats'],
             'recent_admissions' => $summary['recent_admissions'],
         ]);
+    }
+
+    private function canManageRoomAdmissions(mixed $admin): bool
+    {
+        if (! $admin || ($admin->role ?? null) !== 'admin') {
+            return false;
+        }
+
+        return in_array(
+            $this->normalizeAdminRole((string) ($admin->admin_role ?? '')),
+            ['super', 'hr'],
+            true,
+        );
+    }
+
+    private function normalizeAdminRole(string $role): string
+    {
+        $value = strtolower(trim($role));
+
+        return match ($value) {
+            'super', 'super admin', 'super-admin', 'super_admin' => 'super',
+            'hr' => 'hr',
+            'manager' => 'manager',
+            default => 'unknown',
+        };
     }
 }

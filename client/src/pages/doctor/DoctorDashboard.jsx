@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
+  BedDouble,
   Calendar,
   Users,
   Plus,
@@ -28,6 +29,11 @@ export default function DoctorDashboard() {
   const [appointments, setAppointments] = useState([]);
   const [appointmentsToday, setAppointmentsToday] = useState([]);
   const [upcomingCount, setUpcomingCount] = useState(0);
+  const [roomAdmissionStats, setRoomAdmissionStats] = useState({
+    activeRoomAdmissions: 0,
+    totalRoomAdmissions: 0,
+  });
+  const [doctorRoomAdmissions, setDoctorRoomAdmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -39,22 +45,27 @@ export default function DoctorDashboard() {
       setError("");
 
       try {
-        const [rows, upcomingRows, todayRows] = await Promise.all([
+        const [rows, upcomingRows, todayRows, roomSummary] = await Promise.all([
           doctorAppointmentService.getMyAppointments(),
           doctorAppointmentService.getMyAppointments({ scope: "upcoming" }),
           doctorAppointmentService.getMyAppointments({ scope: "today" }),
+          doctorAppointmentService.getRoomAdmissionsSummary({ limit: 4 }),
         ]);
 
         if (!cancelled) {
           setAppointments(rows);
           setAppointmentsToday(todayRows);
           setUpcomingCount(upcomingRows.length);
+          setRoomAdmissionStats(roomSummary.stats);
+          setDoctorRoomAdmissions(roomSummary.roomAdmissions);
         }
       } catch (err) {
         if (!cancelled) {
           setAppointments([]);
           setAppointmentsToday([]);
           setUpcomingCount(0);
+          setRoomAdmissionStats({ activeRoomAdmissions: 0, totalRoomAdmissions: 0 });
+          setDoctorRoomAdmissions([]);
           setError(
             err.response?.data?.message ||
               "Unable to load doctor appointment data right now.",
@@ -121,6 +132,34 @@ export default function DoctorDashboard() {
   const toStatusLabel = (value) => {
     const status = String(value || "pending").toLowerCase();
     return status.charAt(0).toUpperCase() + status.slice(1);
+  };
+
+  const toRoomStatusClass = (value) => {
+    const status = String(value || "admitted").toLowerCase();
+
+    if (status === "discharged") {
+      return "bg-slate-100 text-slate-600";
+    }
+
+    return "bg-emerald-100 text-emerald-700";
+  };
+
+  const formatDateTime = (value) => {
+    if (!value) {
+      return "Not set";
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return "Not set";
+    }
+
+    return date.toLocaleString([], {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   return (
@@ -328,6 +367,63 @@ export default function DoctorDashboard() {
             <p className="text-sm opacity-90 mt-2">
               Completion rate based on your appointment history.
             </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7 }}
+            className="rounded-2xl p-6 bg-white border border-slate-100 shadow-sm"
+          >
+            <div className="flex justify-between items-center mb-4">
+              <p className="font-semibold text-slate-800">Admit Room Information</p>
+              <BedDouble size={20} className="text-[#127fec]" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="rounded-xl bg-slate-50 p-3 border border-slate-100">
+                <p className="text-[11px] uppercase tracking-widest text-slate-400 font-semibold">Active</p>
+                <p className="text-2xl font-bold text-slate-800 mt-1">
+                  {loading ? "..." : roomAdmissionStats.activeRoomAdmissions}
+                </p>
+              </div>
+              <div className="rounded-xl bg-slate-50 p-3 border border-slate-100">
+                <p className="text-[11px] uppercase tracking-widest text-slate-400 font-semibold">Total</p>
+                <p className="text-2xl font-bold text-slate-800 mt-1">
+                  {loading ? "..." : roomAdmissionStats.totalRoomAdmissions}
+                </p>
+              </div>
+            </div>
+
+            {loading ? (
+              <p className="text-sm text-slate-500">Loading room admission details...</p>
+            ) : doctorRoomAdmissions.length === 0 ? (
+              <p className="text-sm text-slate-500">No room admissions assigned to you.</p>
+            ) : (
+              <div className="space-y-3">
+                {doctorRoomAdmissions.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => navigate(`/doctor/room-admissions/${item.id}`)}
+                    className="w-full text-left rounded-xl border border-slate-100 p-3 bg-slate-50 transition hover:border-[#127fec]/40 hover:bg-white"
+                  >
+                    <div className="flex justify-between items-center gap-2">
+                      <p className="text-sm font-semibold text-slate-800">
+                        Room {item.roomNumber} · {item.patientName}
+                      </p>
+                      <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${toRoomStatusClass(item.status)}`}>
+                        {toStatusLabel(item.status)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Admitted: {formatDateTime(item.admittedAt)}
+                    </p>
+                    <p className="text-xs font-semibold text-[#127fec] mt-2">View full details</p>
+                  </button>
+                ))}
+              </div>
+            )}
           </motion.div>
         </div>
       </div>

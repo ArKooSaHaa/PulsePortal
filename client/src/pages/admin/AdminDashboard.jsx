@@ -8,6 +8,25 @@ import {
   Stethoscope,
 } from "lucide-react";
 import adminAppointmentService from "../../api/adminAppointmentService";
+import authService from "../../api/authService";
+
+const normalizeAdminRole = (role) => {
+  const value = String(role || "").trim().toLowerCase();
+
+  if (["super", "super admin", "super-admin", "super_admin"].includes(value)) {
+    return "super";
+  }
+
+  if (value === "hr") {
+    return "hr";
+  }
+
+  if (value === "manager") {
+    return "manager";
+  }
+
+  return "unknown";
+};
 
 const cardVariants = {
   hidden: { opacity: 0, y: 40 },
@@ -75,6 +94,10 @@ const defaultStats = {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const currentUser = authService.getCurrentUser();
+  const canManageRooms = ["super", "hr"].includes(
+    normalizeAdminRole(currentUser?.admin_role),
+  );
   const [stats, setStats] = useState(defaultStats);
   const [recentAppointments, setRecentAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -264,12 +287,14 @@ export default function AdminDashboard() {
           </p>
 
           <div className="flex items-center gap-2">
-            <button
-              className="px-4 py-2 text-sm border border-[#127fec] text-[#127fec] rounded-lg hover:bg-[#127fec]/10 transition-all"
-              onClick={() => navigate("/admin/room-admissions")}
-            >
-              Admit Room
-            </button>
+            {canManageRooms && (
+              <button
+                className="px-4 py-2 text-sm border border-[#127fec] text-[#127fec] rounded-lg hover:bg-[#127fec]/10 transition-all"
+                onClick={() => navigate("/admin/room-admissions")}
+              >
+                Admit Room
+              </button>
+            )}
             <button
               className="px-4 py-2 text-sm text-white rounded-lg hover:opacity-90 transition-all"
               onClick={() => navigate("/admin/all-appointments")}

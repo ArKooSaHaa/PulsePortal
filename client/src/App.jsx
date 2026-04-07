@@ -18,6 +18,7 @@ import ProfilePage from "./pages/ProfilePage";
 import DoctorDashboard from "./pages/doctor/DoctorDashboard";
 import DoctorProfile from "./pages/doctor/DoctorProfile";
 import DoctorAppointments from "./pages/doctor/DoctorAppointments";
+import DoctorRoomAdmissionDetails from "./pages/doctor/DoctorRoomAdmissionDetails";
 // Admin pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AddDoctor from "./pages/admin/AddDoctor";
@@ -122,6 +123,10 @@ function App() {
                             path="doc-appointments"
                             element={<DoctorAppointments />}
                         />
+                        <Route
+                            path="room-admissions/:admissionId"
+                            element={<DoctorRoomAdmissionDetails />}
+                        />
                         <Route path="profile" element={<DoctorProfile />} />
                     </Route>
                 </Route>
@@ -157,7 +162,12 @@ function App() {
                         />
                         <Route
                             path="room-admissions"
-                            element={<AdminRoomAdmissions />}
+                            element={
+                                <AdminRoleRoute
+                                    allowedRoles={["super", "hr"]}
+                                    element={<AdminRoomAdmissions />}
+                                />
+                            }
                         />
                         <Route path="profile" element={<AdminProfile />} />
                     </Route>

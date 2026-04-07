@@ -79,4 +79,61 @@ class DoctorAppointmentController extends Controller
             'appointment' => $appointment,
         ]);
     }
+
+    public function roomAdmissionsSummary(Request $request): JsonResponse
+    {
+        $doctor = $request->user();
+
+        if (! $doctor || ($doctor->role ?? null) !== 'doctor') {
+            return response()->json([
+                'message' => 'Only doctors can access room admission summary.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'limit' => ['nullable', 'integer', 'min:1', 'max:20'],
+        ]);
+
+        try {
+            $summary = $this->appointments->getDoctorRoomAdmissionsSummary(
+                (int) $doctor->id,
+                (int) ($validated['limit'] ?? 5),
+            );
+        } catch (RuntimeException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+
+        return response()->json([
+            'stats' => $summary['stats'],
+            'room_admissions' => $summary['room_admissions'],
+        ]);
+    }
+
+    public function roomAdmissionDetails(Request $request, int $admissionId): JsonResponse
+    {
+        $doctor = $request->user();
+
+        if (! $doctor || ($doctor->role ?? null) !== 'doctor') {
+            return response()->json([
+                'message' => 'Only doctors can access room admission details.',
+            ], 403);
+        }
+
+        try {
+            $admission = $this->appointments->getDoctorRoomAdmissionDetails(
+                (int) $doctor->id,
+                $admissionId,
+            );
+        } catch (RuntimeException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+
+        return response()->json([
+            'room_admission' => $admission,
+        ]);
+    }
 }

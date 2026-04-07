@@ -88,6 +88,8 @@ export default function AdminRoomAdmissions() {
     const [statusFilter, setStatusFilter] = useState("all");
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
+    const [patientSearch, setPatientSearch] = useState("");
+    const [doctorSearch, setDoctorSearch] = useState("");
 
     const [form, setForm] = useState({
         patientId: "",
@@ -145,6 +147,64 @@ export default function AdminRoomAdmissions() {
         ],
         [stats],
     );
+
+    const filteredPatients = useMemo(() => {
+        const term = patientSearch.trim().toLowerCase();
+
+        const baseResults = term
+            ? lookups.patients.filter((patient) => {
+                  const haystack = `${patient.name} ${patient.email}`.toLowerCase();
+                  return haystack.includes(term);
+              })
+            : lookups.patients;
+
+        if (!form.patientId) {
+            return baseResults;
+        }
+
+        const selected = lookups.patients.find(
+            (patient) => String(patient.id) === String(form.patientId),
+        );
+
+        if (!selected) {
+            return baseResults;
+        }
+
+        const alreadyIncluded = baseResults.some(
+            (patient) => patient.id === selected.id,
+        );
+
+        return alreadyIncluded ? baseResults : [selected, ...baseResults];
+    }, [lookups.patients, patientSearch, form.patientId]);
+
+    const filteredDoctors = useMemo(() => {
+        const term = doctorSearch.trim().toLowerCase();
+
+        const baseResults = term
+            ? lookups.doctors.filter((doctor) => {
+                  const haystack = `${doctor.name} ${doctor.department} ${doctor.specialization}`.toLowerCase();
+                  return haystack.includes(term);
+              })
+            : lookups.doctors;
+
+        if (!form.doctorId) {
+            return baseResults;
+        }
+
+        const selected = lookups.doctors.find(
+            (doctor) => String(doctor.id) === String(form.doctorId),
+        );
+
+        if (!selected) {
+            return baseResults;
+        }
+
+        const alreadyIncluded = baseResults.some(
+            (doctor) => doctor.id === selected.id,
+        );
+
+        return alreadyIncluded ? baseResults : [selected, ...baseResults];
+    }, [lookups.doctors, doctorSearch, form.doctorId]);
 
     const loadSummaryAndLookups = async () => {
         setLoadingSummary(true);
@@ -240,6 +300,8 @@ export default function AdminRoomAdmissions() {
                 admissionNotes: "",
                 expectedDischargeAt: "",
             });
+            setPatientSearch("");
+            setDoctorSearch("");
 
             setSuccess("Patient admitted successfully.");
             await refreshAll();
@@ -344,6 +406,13 @@ export default function AdminRoomAdmissions() {
                                 <label className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1 block">
                                     Patient
                                 </label>
+                                <input
+                                    type="text"
+                                    value={patientSearch}
+                                    onChange={(e) => setPatientSearch(e.target.value)}
+                                    placeholder="Search patient by name or email"
+                                    className="mb-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:border-[#127fec]"
+                                />
                                 <select
                                     value={form.patientId}
                                     onChange={(e) =>
@@ -356,12 +425,17 @@ export default function AdminRoomAdmissions() {
                                     required
                                 >
                                     <option value="">Select patient</option>
-                                    {lookups.patients.map((patient) => (
+                                    {filteredPatients.map((patient) => (
                                         <option key={patient.id} value={patient.id}>
                                             {patient.name} ({patient.email})
                                         </option>
                                     ))}
                                 </select>
+                                {filteredPatients.length === 0 && (
+                                    <p className="mt-1 text-xs text-slate-400">
+                                        No patients match this search.
+                                    </p>
+                                )}
                             </div>
 
                             <div>
@@ -392,6 +466,13 @@ export default function AdminRoomAdmissions() {
                                 <label className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1 block">
                                     Assigned Doctor (Optional)
                                 </label>
+                                <input
+                                    type="text"
+                                    value={doctorSearch}
+                                    onChange={(e) => setDoctorSearch(e.target.value)}
+                                    placeholder="Search doctor by name or department"
+                                    className="mb-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:border-[#127fec]"
+                                />
                                 <select
                                     value={form.doctorId}
                                     onChange={(e) =>
@@ -403,13 +484,18 @@ export default function AdminRoomAdmissions() {
                                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:border-[#127fec]"
                                 >
                                     <option value="">Not assigned</option>
-                                    {lookups.doctors.map((doctor) => (
+                                    {filteredDoctors.map((doctor) => (
                                         <option key={doctor.id} value={doctor.id}>
                                             {doctor.name}
                                             {doctor.department ? ` · ${doctor.department}` : ""}
                                         </option>
                                     ))}
                                 </select>
+                                {filteredDoctors.length === 0 && (
+                                    <p className="mt-1 text-xs text-slate-400">
+                                        No doctors match this search.
+                                    </p>
+                                )}
                             </div>
 
                             <div>
