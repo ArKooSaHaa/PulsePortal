@@ -9,15 +9,21 @@ use RuntimeException;
 class DatabaseFirstDoctorAppointmentService
 {
     private const ALLOWED_STATUSES = ['pending', 'confirmed', 'completed', 'cancelled'];
+    private const ALLOWED_SCOPES = ['all', 'upcoming', 'today'];
 
     private bool $proceduresChecked = false;
 
-    public function listDoctorAppointments(int $doctorId, ?string $status = null): array
+    public function listDoctorAppointments(int $doctorId, ?string $status = null, string $scope = 'all'): array
     {
         $normalizedStatus = strtolower(trim((string) $status));
+        $normalizedScope = strtolower(trim($scope));
 
         if ($normalizedStatus !== '' && ! in_array($normalizedStatus, self::ALLOWED_STATUSES, true)) {
             throw new RuntimeException('Invalid appointment status filter.');
+        }
+
+        if (! in_array($normalizedScope, self::ALLOWED_SCOPES, true)) {
+            throw new RuntimeException('Invalid appointment scope filter.');
         }
 
         if (DB::connection()->getDriverName() !== 'sqlsrv') {
@@ -44,6 +50,14 @@ class DatabaseFirstDoctorAppointmentService
                 $query->where('a.status', $normalizedStatus);
             }
 
+            if ($normalizedScope === 'upcoming') {
+                $query->where('a.appointment_date', '>', now());
+            }
+
+            if ($normalizedScope === 'today') {
+                $query->whereDate('a.appointment_date', now()->toDateString());
+            }
+
             if ($hasTypeColumn) {
                 $query->addSelect('a.appointment_type');
             } else {
@@ -56,8 +70,8 @@ class DatabaseFirstDoctorAppointmentService
         $this->ensureDoctorAppointmentProcedures();
 
         return DB::select(
-            'EXEC sp_get_doctor_appointments @doctor_id = ?, @status = ?',
-            [$doctorId, $normalizedStatus !== '' ? $normalizedStatus : null],
+            'EXEC sp_get_doctor_appointments @doctor_id = ?, @status = ?, @scope = ?',
+            [$doctorId, $normalizedStatus !== '' ? $normalizedStatus : null, $normalizedScope],
         );
     }
 
@@ -147,7 +161,8 @@ class DatabaseFirstDoctorAppointmentService
         DB::unprepared(<<<'SQL'
 CREATE OR ALTER PROCEDURE sp_get_doctor_appointments
     @doctor_id BIGINT,
-    @status NVARCHAR(50) = NULL
+    @status NVARCHAR(50) = NULL,
+    @scope NVARCHAR(20) = 'all'
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -172,6 +187,11 @@ BEGIN
             OR LTRIM(RTRIM(@status)) = ''
             OR a.status = @status
       )
+    AND (
+        @scope = 'all'
+        OR (@scope = 'upcoming' AND a.appointment_date > GETDATE())
+        OR (@scope = 'today' AND CAST(a.appointment_date AS DATE) = CAST(GETDATE() AS DATE))
+    )
     ORDER BY a.appointment_date ASC;
 END;
 SQL);

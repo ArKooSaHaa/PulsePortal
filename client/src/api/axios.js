@@ -165,7 +165,6 @@ api.interceptors.response.use(
         const requestConfig = error.config;
 
         const shouldRetryWithNextBaseUrl =
-            !configuredApiBaseUrl &&
             requestConfig &&
             !requestConfig.__apiBaseRetried &&
             (!error.response || [404, 405].includes(error.response?.status));

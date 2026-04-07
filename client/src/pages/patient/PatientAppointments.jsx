@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { CalendarDays, Clock3, UserRound } from "lucide-react";
 import patientAppointmentService from "../../api/patientAppointmentService";
 
+const AUTO_REFRESH_MS = 10000;
+
 const formatDateTime = (value) => {
     if (!value) {
         return { date: "Not set", time: "Not set" };
@@ -37,6 +39,10 @@ const getStatusClass = (status) => {
         return "text-rose-700 bg-rose-50 border-rose-200";
     }
 
+    if (key === "completed") {
+        return "text-blue-700 bg-blue-50 border-blue-200";
+    }
+
     return "text-amber-700 bg-amber-50 border-amber-200";
 };
 
@@ -48,8 +54,11 @@ export default function PatientAppointments() {
     useEffect(() => {
         let cancelled = false;
 
-        const loadAppointments = async () => {
-            setLoading(true);
+        const loadAppointments = async ({ showLoading = true } = {}) => {
+            if (showLoading) {
+                setLoading(true);
+            }
+
             setError("");
 
             try {
@@ -67,16 +76,35 @@ export default function PatientAppointments() {
                     setAppointments([]);
                 }
             } finally {
-                if (!cancelled) {
+                if (!cancelled && showLoading) {
                     setLoading(false);
                 }
             }
         };
 
-        loadAppointments();
+        const refreshSilently = () => {
+            void loadAppointments({ showLoading: false });
+        };
+
+        void loadAppointments();
+
+        const intervalId = window.setInterval(refreshSilently, AUTO_REFRESH_MS);
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "visible") {
+                refreshSilently();
+            }
+        };
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
 
         return () => {
             cancelled = true;
+            window.clearInterval(intervalId);
+            document.removeEventListener(
+                "visibilitychange",
+                handleVisibilityChange,
+            );
         };
     }, []);
 

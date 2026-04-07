@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
     CalendarPlus,
     CalendarCheck,
@@ -22,6 +23,8 @@ const TODAY = new Date().toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
 });
+
+const AUTO_REFRESH_MS = 10000;
 
 const STATUS_STYLES = {
     confirmed: "bg-blue-50 text-blue-600 border border-blue-100",
@@ -93,6 +96,24 @@ function toLocationLabel(appointment) {
         : "Hospital Visit";
 }
 
+function toSummaryNote(status, summaryNote = "") {
+    if (String(summaryNote).trim() !== "") {
+        return summaryNote;
+    }
+
+    const key = String(status || "pending").toLowerCase();
+
+    if (key === "completed") {
+        return "Consultation completed and recorded in your history.";
+    }
+
+    if (key === "cancelled") {
+        return "This appointment was cancelled.";
+    }
+
+    return "Visit details are available in your appointment history.";
+}
+
 function formatDateLabel(value) {
     const parsed = new Date(value);
 
@@ -132,6 +153,7 @@ function getHistoryIcon(specialization = "") {
 
 function AppointmentCard({ appt, onViewDetails, onCancel, canceling }) {
     const statusKey = String(appt.status || "pending").toLowerCase();
+    const canCancel = ["pending", "confirmed", "scheduled"].includes(statusKey);
     const statusCls = STATUS_STYLES[statusKey] || STATUS_STYLES.confirmed;
     const accentColor =
         statusKey === "pending"
@@ -197,15 +219,21 @@ function AppointmentCard({ appt, onViewDetails, onCancel, canceling }) {
                         >
                             View Details
                         </motion.button>
-                        <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.97 }}
-                            onClick={() => onCancel(appt.id)}
-                            disabled={canceling}
-                            className="flex items-center gap-1.5 px-4 py-1 rounded-full text-sm font-semibold text-red-500 bg-red-50 hover:bg-red-100 border border-red-100 transition-colors focus:outline-none"
-                        >
-                            {canceling ? "Cancelling..." : "Cancel"}
-                        </motion.button>
+                        {canCancel ? (
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.97 }}
+                                onClick={() => onCancel(appt.id)}
+                                disabled={canceling}
+                                className="flex items-center gap-1.5 px-4 py-1 rounded-full text-sm font-semibold text-red-500 bg-red-50 hover:bg-red-100 border border-red-100 transition-colors focus:outline-none"
+                            >
+                                {canceling ? "Cancelling..." : "Cancel"}
+                            </motion.button>
+                        ) : (
+                            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                                {statusKey === "completed" ? "Completed" : "Read-only"}
+                            </span>
+                        )}
                     </div>
                 </div>
             </div>
@@ -214,6 +242,7 @@ function AppointmentCard({ appt, onViewDetails, onCancel, canceling }) {
 }
 
 export default function PatientDashboard() {
+    const navigate = useNavigate();
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [upcomingAppointments, setUpcomingAppointments] = useState([]);
     const [loadingUpcoming, setLoadingUpcoming] = useState(true);
@@ -224,6 +253,11 @@ export default function PatientDashboard() {
     const [detailsLoading, setDetailsLoading] = useState(false);
     const [detailsError, setDetailsError] = useState("");
     const [detailsAppointment, setDetailsAppointment] = useState(null);
+    const [summaryModalOpen, setSummaryModalOpen] = useState(false);
+    const [summaryLoading, setSummaryLoading] = useState(false);
+    const [summaryError, setSummaryError] = useState("");
+    const [summaryAppointment, setSummaryAppointment] = useState(null);
+    const [openingSummaryId, setOpeningSummaryId] = useState(null);
     const [historyRows, setHistoryRows] = useState([]);
     const [loadingHistory, setLoadingHistory] = useState(true);
     const [historyError, setHistoryError] = useState("");
@@ -231,8 +265,11 @@ export default function PatientDashboard() {
     useEffect(() => {
         let cancelled = false;
 
-        const loadUpcoming = async () => {
-            setLoadingUpcoming(true);
+        const loadUpcoming = async ({ showLoading = true } = {}) => {
+            if (showLoading) {
+                setLoadingUpcoming(true);
+            }
+
             setUpcomingError("");
 
             try {
@@ -268,16 +305,35 @@ export default function PatientDashboard() {
                     );
                 }
             } finally {
-                if (!cancelled) {
+                if (!cancelled && showLoading) {
                     setLoadingUpcoming(false);
                 }
             }
         };
 
-        loadUpcoming();
+        const refreshSilently = () => {
+            void loadUpcoming({ showLoading: false });
+        };
+
+        void loadUpcoming();
+
+        const intervalId = window.setInterval(refreshSilently, AUTO_REFRESH_MS);
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "visible") {
+                refreshSilently();
+            }
+        };
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
 
         return () => {
             cancelled = true;
+            window.clearInterval(intervalId);
+            document.removeEventListener(
+                "visibilitychange",
+                handleVisibilityChange,
+            );
         };
     }, []);
 
@@ -357,11 +413,49 @@ export default function PatientDashboard() {
         }
     };
 
+    const handleViewSummary = async (appointmentId) => {
+        setSummaryModalOpen(true);
+        setSummaryLoading(true);
+        setSummaryError("");
+        setOpeningSummaryId(appointmentId);
+
+        try {
+            const summary = await patientAppointmentService.getAppointmentSummary(
+                appointmentId,
+            );
+
+            setSummaryAppointment({
+                id: summary.id,
+                doctor: summary.doctorName,
+                specialty: summary.doctorSpecialization || "General Physician",
+                date: formatDateLabel(summary.appointmentDate),
+                time: formatTimeLabel(summary.appointmentDate),
+                location: toLocationLabel(summary),
+                status: summary.status,
+                statusLabel: toStatusLabel(summary.status),
+                type: toTypeLabel(summary.appointmentType),
+                summaryNote: toSummaryNote(summary.status, summary.summaryNote),
+            });
+        } catch (err) {
+            setSummaryAppointment(null);
+            setSummaryError(
+                err.response?.data?.message ||
+                    "Unable to load appointment summary right now.",
+            );
+        } finally {
+            setSummaryLoading(false);
+            setOpeningSummaryId(null);
+        }
+    };
+
     useEffect(() => {
         let cancelled = false;
 
-        const loadHistory = async () => {
-            setLoadingHistory(true);
+        const loadHistory = async ({ showLoading = true } = {}) => {
+            if (showLoading) {
+                setLoadingHistory(true);
+            }
+
             setHistoryError("");
 
             try {
@@ -396,16 +490,35 @@ export default function PatientDashboard() {
                     );
                 }
             } finally {
-                if (!cancelled) {
+                if (!cancelled && showLoading) {
                     setLoadingHistory(false);
                 }
             }
         };
 
-        loadHistory();
+        const refreshSilently = () => {
+            void loadHistory({ showLoading: false });
+        };
+
+        void loadHistory();
+
+        const intervalId = window.setInterval(refreshSilently, AUTO_REFRESH_MS);
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "visible") {
+                refreshSilently();
+            }
+        };
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
 
         return () => {
             cancelled = true;
+            window.clearInterval(intervalId);
+            document.removeEventListener(
+                "visibilitychange",
+                handleVisibilityChange,
+            );
         };
     }, []);
 
@@ -447,12 +560,14 @@ export default function PatientDashboard() {
                         title="Book Appointment"
                         description="Schedule a new visit with a specialist."
                         label="Book Now"
+                        onClick={() => navigate("/patient/book-appointment")}
                     />
                     <ActionCard
                         icon={CalendarCheck}
                         title="Upcoming Visits"
                         description="Check details of your next consultation."
                         label="View Visits"
+                        onClick={() => navigate("/patient/appointments")}
                     />
                     <ActionCard
                         icon={Bot}
@@ -556,8 +671,14 @@ export default function PatientDashboard() {
                                         <span className="text-xs text-slate-400 hidden sm:block">
                                             {item.date}
                                         </span>
-                                        <button className="text-xs font-semibold text-[#127fec] hover:underline focus:outline-none whitespace-nowrap">
-                                            {item.action}
+                                        <button
+                                            onClick={() => handleViewSummary(item.id)}
+                                            disabled={openingSummaryId === item.id}
+                                            className="text-xs font-semibold text-[#127fec] hover:underline focus:outline-none whitespace-nowrap disabled:text-slate-400 disabled:no-underline"
+                                        >
+                                            {openingSummaryId === item.id
+                                                ? "Opening..."
+                                                : item.action}
                                         </button>
                                     </div>
                                 </motion.div>
@@ -567,6 +688,87 @@ export default function PatientDashboard() {
                 </motion.section>
 
                 <AnimatePresence>
+                    {summaryModalOpen && (
+                        <>
+                            <motion.div
+                                key="summary-backdrop"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                onClick={() => setSummaryModalOpen(false)}
+                                className="fixed inset-0 bg-black/25 backdrop-blur-sm z-40"
+                            />
+
+                            <motion.div
+                                key="summary-modal"
+                                initial={{ opacity: 0, y: 30, scale: 0.98 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: 20, scale: 0.98 }}
+                                transition={{ duration: 0.2 }}
+                                className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white border border-slate-100 shadow-xl p-5"
+                            >
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-lg font-bold text-slate-800">
+                                        Visit Summary
+                                    </h3>
+                                    <button
+                                        onClick={() => setSummaryModalOpen(false)}
+                                        className="text-sm text-slate-500 hover:text-slate-700"
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+
+                                {summaryLoading ? (
+                                    <p className="text-sm text-slate-500">
+                                        Loading summary...
+                                    </p>
+                                ) : summaryError ? (
+                                    <p className="text-sm text-red-500">
+                                        {summaryError}
+                                    </p>
+                                ) : summaryAppointment ? (
+                                    <div className="space-y-2 text-sm">
+                                        <p className="text-slate-800 font-semibold">
+                                            {summaryAppointment.doctor}
+                                        </p>
+                                        <p className="text-slate-500">
+                                            {summaryAppointment.specialty}
+                                        </p>
+                                        <p className="text-slate-700">
+                                            Status: {summaryAppointment.statusLabel}
+                                        </p>
+                                        <p className="text-slate-700">
+                                            Type: {summaryAppointment.type}
+                                        </p>
+                                        <p className="text-slate-700">
+                                            Date: {summaryAppointment.date}
+                                        </p>
+                                        <p className="text-slate-700">
+                                            Time: {summaryAppointment.time}
+                                        </p>
+                                        <p className="text-slate-700">
+                                            Location: {summaryAppointment.location}
+                                        </p>
+
+                                        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                            <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">
+                                                Summary
+                                            </p>
+                                            <p className="text-slate-700 mt-1">
+                                                {summaryAppointment.summaryNote}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-slate-500">
+                                        No summary found.
+                                    </p>
+                                )}
+                            </motion.div>
+                        </>
+                    )}
+
                     {detailsModalOpen && (
                         <>
                             <motion.div

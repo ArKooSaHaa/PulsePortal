@@ -122,6 +122,32 @@ class PatientAppointmentController extends Controller
         ]);
     }
 
+    public function summary(Request $request, int $appointmentId): JsonResponse
+    {
+        $patient = $request->user();
+
+        if (! $patient || ($patient->role ?? null) !== 'patient') {
+            return response()->json([
+                'message' => 'Only patients can access appointment summaries.',
+            ], 403);
+        }
+
+        try {
+            $appointment = $this->appointments->getPatientAppointmentSummary(
+                (int) $patient->id,
+                $appointmentId,
+            );
+        } catch (RuntimeException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 404);
+        }
+
+        return response()->json([
+            'appointment' => $appointment,
+        ]);
+    }
+
     public function cancel(Request $request, int $appointmentId): JsonResponse
     {
         $patient = $request->user();

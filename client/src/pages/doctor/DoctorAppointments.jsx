@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, Clock3, Mail, UserRound } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import doctorAppointmentService from "../../api/doctorAppointmentService";
 
 const STATUS_OPTIONS = ["pending", "confirmed", "completed", "cancelled"];
@@ -53,19 +54,31 @@ const toTitleCase = (status) =>
         .join(" ");
 
 export default function DoctorAppointments() {
+    const [searchParams, setSearchParams] = useSearchParams();
+    const queryScopeParam = searchParams.get("scope");
+    const queryScope = ["upcoming", "today"].includes(queryScopeParam)
+        ? queryScopeParam
+        : "all";
+
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
+    const [scopeFilter, setScopeFilter] = useState(queryScope);
     const [updatingId, setUpdatingId] = useState(null);
 
-    const loadAppointments = async (filter = "all") => {
+    useEffect(() => {
+        setScopeFilter(queryScope);
+    }, [queryScope]);
+
+    const loadAppointments = async (filter = "all", scope = "all") => {
         setLoading(true);
         setError("");
 
         try {
             const rows = await doctorAppointmentService.getMyAppointments({
                 status: filter === "all" ? "" : filter,
+                scope,
             });
             setAppointments(rows);
         } catch (err) {
@@ -80,8 +93,8 @@ export default function DoctorAppointments() {
     };
 
     useEffect(() => {
-        loadAppointments(statusFilter);
-    }, [statusFilter]);
+        loadAppointments(statusFilter, scopeFilter);
+    }, [statusFilter, scopeFilter]);
 
     const stats = useMemo(() => {
         const totals = {
@@ -162,6 +175,32 @@ export default function DoctorAppointments() {
                 </div>
 
                 <div className="bg-white rounded-2xl border border-slate-100 p-3 sm:p-4 mb-4 flex flex-wrap gap-2">
+                    {["all", "today", "upcoming"].map((scope) => (
+                        <button
+                            key={scope}
+                            onClick={() => {
+                                setScopeFilter(scope);
+
+                                if (scope !== "all") {
+                                    setSearchParams({ scope });
+                                } else {
+                                    setSearchParams({});
+                                }
+                            }}
+                            className={`px-3 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                                scopeFilter === scope
+                                    ? "border-[#127fec] text-[#127fec] bg-[#127fec]/10"
+                                    : "border-slate-200 text-slate-600 hover:border-slate-300"
+                            }`}
+                        >
+                            {scope === "today"
+                                ? "Today Only"
+                                : scope === "upcoming"
+                                  ? "Upcoming Only"
+                                  : "All Dates"}
+                        </button>
+                    ))}
+
                     {["all", ...STATUS_OPTIONS].map((status) => (
                         <button
                             key={status}

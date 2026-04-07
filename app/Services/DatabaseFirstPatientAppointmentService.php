@@ -188,9 +188,14 @@ class DatabaseFirstPatientAppointmentService
                     'd.department as doctor_department',
                 ])
                 ->where('a.patient_id', $patientId)
-                ->where('a.appointment_date', '>=', now())
                 ->where('a.status', '!=', 'cancelled')
-                ->orderBy('a.appointment_date')
+                ->where(function ($q): void {
+                    $q->where('a.appointment_date', '>=', now())
+                        ->orWhere('a.status', 'completed');
+                })
+                ->orderByRaw("CASE WHEN a.appointment_date >= ? THEN 0 ELSE 1 END", [now()])
+                ->orderByRaw("CASE WHEN a.appointment_date >= ? THEN a.appointment_date END ASC", [now()])
+                ->orderByRaw("CASE WHEN a.appointment_date < ? THEN a.appointment_date END DESC", [now()])
                 ->limit($normalizedLimit);
 
             if ($hasTypeColumn) {
@@ -251,6 +256,59 @@ class DatabaseFirstPatientAppointmentService
             'EXEC sp_get_patient_recent_history @patient_id = ?, @limit = ?',
             [$patientId, $normalizedLimit],
         );
+    }
+
+    public function getPatientAppointmentSummary(int $patientId, int $appointmentId): object
+    {
+        if (DB::connection()->getDriverName() !== 'sqlsrv') {
+            $hasTypeColumn = Schema::hasColumn('appointments', 'appointment_type');
+
+            $query = DB::table('appointments as a')
+                ->join('doctors as d', 'd.id', '=', 'a.doctor_id')
+                ->select([
+                    'a.id',
+                    'a.patient_id',
+                    'a.doctor_id',
+                    'a.appointment_date',
+                    'a.status',
+                    'a.created_at',
+                    'a.updated_at',
+                    'd.name as doctor_name',
+                    'd.specialization as doctor_specialization',
+                    'd.department as doctor_department',
+                ])
+                ->selectRaw("CASE WHEN a.status = 'completed' THEN 'Consultation completed and recorded in your history.' WHEN a.status = 'cancelled' THEN 'This appointment was cancelled.' ELSE 'Visit details are available in your appointment history.' END AS summary_note")
+                ->where('a.patient_id', $patientId)
+                ->where('a.id', $appointmentId)
+                ->where('a.appointment_date', '<', now());
+
+            if ($hasTypeColumn) {
+                $query->addSelect('a.appointment_type');
+            } else {
+                $query->selectRaw("'in-person' AS appointment_type");
+            }
+
+            $row = $query->first();
+
+            if (! $row) {
+                throw new RuntimeException('Appointment summary not found.');
+            }
+
+            return $row;
+        }
+
+        $this->ensureAppointmentProcedures();
+
+        $rows = DB::select(
+            'EXEC sp_get_patient_appointment_summary @patient_id = ?, @appointment_id = ?',
+            [$patientId, $appointmentId],
+        );
+
+        if (! $rows) {
+            throw new RuntimeException('Appointment summary not found.');
+        }
+
+        return $rows[0];
     }
 
     public function getPatientAppointmentDetails(int $patientId, int $appointmentId): object
@@ -516,9 +574,15 @@ BEGIN
     FROM appointments a
     JOIN doctors d ON d.id = a.doctor_id
     WHERE a.patient_id = @patient_id
-      AND a.appointment_date >= GETDATE()
       AND a.status <> 'cancelled'
-    ORDER BY a.appointment_date ASC;
+            AND (
+                        a.appointment_date >= GETDATE()
+                        OR a.status = 'completed'
+            )
+        ORDER BY
+                CASE WHEN a.appointment_date >= GETDATE() THEN 0 ELSE 1 END,
+                CASE WHEN a.appointment_date >= GETDATE() THEN a.appointment_date END ASC,
+                CASE WHEN a.appointment_date < GETDATE() THEN a.appointment_date END DESC;
 END;
 SQL);
 
@@ -552,6 +616,39 @@ BEGIN
     WHERE a.patient_id = @patient_id
       AND a.appointment_date < GETDATE()
     ORDER BY a.appointment_date DESC;
+END;
+SQL);
+
+        DB::unprepared(<<<'SQL'
+CREATE OR ALTER PROCEDURE sp_get_patient_appointment_summary
+    @patient_id BIGINT,
+    @appointment_id BIGINT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT TOP 1
+        a.id,
+        a.patient_id,
+        a.doctor_id,
+        a.appointment_date,
+        ISNULL(a.appointment_type, 'in-person') AS appointment_type,
+        a.status,
+        a.created_at,
+        a.updated_at,
+        d.name AS doctor_name,
+        d.specialization AS doctor_specialization,
+        d.department AS doctor_department,
+        CASE
+            WHEN a.status = 'completed' THEN 'Consultation completed and recorded in your history.'
+            WHEN a.status = 'cancelled' THEN 'This appointment was cancelled.'
+            ELSE 'Visit details are available in your appointment history.'
+        END AS summary_note
+    FROM appointments a
+    JOIN doctors d ON d.id = a.doctor_id
+    WHERE a.patient_id = @patient_id
+      AND a.id = @appointment_id
+      AND a.appointment_date < GETDATE();
 END;
 SQL);
 

@@ -68,6 +68,7 @@ const normalizeAppointment = (item) => ({
     appointmentDate: item.appointment_date,
     appointmentType: item.appointment_type || "in-person",
     status: item.status || "pending",
+    summaryNote: item.summary_note || "",
 });
 
 const patientAppointmentService = {
@@ -126,6 +127,14 @@ const patientAppointmentService = {
 
     getAppointmentDetails: async (appointmentId) => {
         const response = await api.get(`/patient/appointments/${appointmentId}`);
+
+        return normalizeAppointment(response.data?.appointment || {});
+    },
+
+    getAppointmentSummary: async (appointmentId) => {
+        const response = await api.get(
+            `/patient/appointments/${appointmentId}/summary`,
+        );
 
         return normalizeAppointment(response.data?.appointment || {});
     },

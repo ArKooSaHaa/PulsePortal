@@ -32,6 +32,7 @@ IF OBJECT_ID('sp_get_doctors_for_booking', 'P') IS NOT NULL DROP PROCEDURE sp_ge
 IF OBJECT_ID('sp_get_patient_appointments', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_appointments;
 IF OBJECT_ID('sp_get_patient_upcoming_appointments', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_upcoming_appointments;
 IF OBJECT_ID('sp_get_patient_recent_history', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_recent_history;
+IF OBJECT_ID('sp_get_patient_appointment_summary', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_appointment_summary;
 IF OBJECT_ID('sp_get_patient_appointment_details', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_appointment_details;
 IF OBJECT_ID('sp_cancel_patient_appointment', 'P') IS NOT NULL DROP PROCEDURE sp_cancel_patient_appointment;
 IF OBJECT_ID('sp_get_doctor_appointments', 'P') IS NOT NULL DROP PROCEDURE sp_get_doctor_appointments;
@@ -466,9 +467,15 @@ BEGIN
 	FROM appointments a
 	JOIN doctors d ON d.id = a.doctor_id
 	WHERE a.patient_id = @patient_id
-	  AND a.appointment_date >= GETDATE()
 	  AND a.status <> 'cancelled'
-	ORDER BY a.appointment_date ASC;
+	  AND (
+			a.appointment_date >= GETDATE()
+			OR a.status = 'completed'
+	  )
+	ORDER BY
+		CASE WHEN a.appointment_date >= GETDATE() THEN 0 ELSE 1 END,
+		CASE WHEN a.appointment_date >= GETDATE() THEN a.appointment_date END ASC,
+		CASE WHEN a.appointment_date < GETDATE() THEN a.appointment_date END DESC;
 END;
 GO
 
@@ -500,6 +507,37 @@ BEGIN
 	WHERE a.patient_id = @patient_id
 	  AND a.appointment_date < GETDATE()
 	ORDER BY a.appointment_date DESC;
+END;
+GO
+
+-- GET APPOINTMENT DETAILS FOR A PATIENT
+CREATE PROCEDURE sp_get_patient_appointment_summary
+	@patient_id BIGINT,
+	@appointment_id BIGINT
+AS
+BEGIN
+	SELECT TOP 1
+		a.id,
+		a.patient_id,
+		a.doctor_id,
+		a.appointment_date,
+		ISNULL(a.appointment_type, 'in-person') AS appointment_type,
+		a.status,
+		a.created_at,
+		a.updated_at,
+		d.name AS doctor_name,
+		d.specialization AS doctor_specialization,
+		d.department AS doctor_department,
+		CASE
+			WHEN a.status = 'completed' THEN 'Consultation completed and recorded in your history.'
+			WHEN a.status = 'cancelled' THEN 'This appointment was cancelled.'
+			ELSE 'Visit details are available in your appointment history.'
+		END AS summary_note
+	FROM appointments a
+	JOIN doctors d ON d.id = a.doctor_id
+	WHERE a.patient_id = @patient_id
+	  AND a.id = @appointment_id
+	  AND a.appointment_date < GETDATE();
 END;
 GO
 
@@ -573,7 +611,8 @@ GO
 -- GET APPOINTMENTS FOR A DOCTOR
 CREATE PROCEDURE sp_get_doctor_appointments
 	@doctor_id BIGINT,
-	@status NVARCHAR(50) = NULL
+	@status NVARCHAR(50) = NULL,
+	@scope NVARCHAR(20) = 'all'
 AS
 BEGIN
 	SELECT
@@ -595,6 +634,11 @@ BEGIN
 			@status IS NULL
 			OR LTRIM(RTRIM(@status)) = ''
 			OR a.status = @status
+	  )
+	  AND (
+			@scope = 'all'
+			OR (@scope = 'upcoming' AND a.appointment_date > GETDATE())
+			OR (@scope = 'today' AND CAST(a.appointment_date AS DATE) = CAST(GETDATE() AS DATE))
 	  )
 	ORDER BY a.appointment_date ASC;
 END;

@@ -26,12 +26,16 @@ class DoctorAppointmentController extends Controller
 
         $validated = $request->validate([
             'status' => ['nullable', 'string', 'in:pending,confirmed,completed,cancelled'],
+            'scope' => ['nullable', 'string', 'in:all,upcoming,today'],
         ]);
+
+        $scope = $validated['scope'] ?? 'all';
 
         try {
             $appointments = $this->appointments->listDoctorAppointments(
                 (int) $doctor->id,
                 $validated['status'] ?? null,
+                $scope,
             );
         } catch (RuntimeException $e) {
             return response()->json([

@@ -12,10 +12,15 @@ const normalizeAppointment = (item) => ({
 });
 
 const doctorAppointmentService = {
-    getMyAppointments: async ({ status = "" } = {}) => {
+    getMyAppointments: async ({ status = "", scope = "all" } = {}) => {
+        const normalizedScope = ["upcoming", "today"].includes(scope)
+            ? scope
+            : undefined;
+
         const response = await api.get("/doctor/appointments", {
             params: {
                 status: status || undefined,
+                scope: normalizedScope,
             },
         });
 

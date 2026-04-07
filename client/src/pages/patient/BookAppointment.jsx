@@ -4,16 +4,17 @@ import AIChatPanel from "../../components/AIChatPanel";
 import { Star, CheckCircle2, ChevronLeft, ChevronRight, Bot, Sparkles, Search, CalendarDays, Clock, UserCheck, ArrowRight, Video, MapPin } from "lucide-react";
 import patientAppointmentService from "../../api/patientAppointmentService";
 
-const TIME_SLOTS = [
-    { id: 1, time: "09:00 AM", available: true },
-    { id: 2, time: "09:45 AM", available: false },
-    { id: 3, time: "10:30 AM", available: true },
-    { id: 4, time: "11:15 AM", available: true },
-    { id: 5, time: "02:00 PM", available: true },
-    { id: 6, time: "03:30 PM", available: true },
-    { id: 7, time: "04:15 PM", available: false },
-    { id: 8, time: "05:00 PM", available: true },
-];
+const TIME_SLOTS = Array.from({ length: 24 }, (_, index) => {
+    const hour24 = index;
+    const period = hour24 >= 12 ? "PM" : "AM";
+    const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+
+    return {
+        id: index + 1,
+        time: `${String(hour12).padStart(2, "0")}:00 ${period}`,
+        available: true,
+    };
+});
 
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 

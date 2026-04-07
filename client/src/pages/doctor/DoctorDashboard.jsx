@@ -26,6 +26,8 @@ const cardVariant = {
 export default function DoctorDashboard() {
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
+  const [appointmentsToday, setAppointmentsToday] = useState([]);
+  const [upcomingCount, setUpcomingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -37,13 +39,22 @@ export default function DoctorDashboard() {
       setError("");
 
       try {
-        const rows = await doctorAppointmentService.getMyAppointments();
+        const [rows, upcomingRows, todayRows] = await Promise.all([
+          doctorAppointmentService.getMyAppointments(),
+          doctorAppointmentService.getMyAppointments({ scope: "upcoming" }),
+          doctorAppointmentService.getMyAppointments({ scope: "today" }),
+        ]);
+
         if (!cancelled) {
           setAppointments(rows);
+          setAppointmentsToday(todayRows);
+          setUpcomingCount(upcomingRows.length);
         }
       } catch (err) {
         if (!cancelled) {
           setAppointments([]);
+          setAppointmentsToday([]);
+          setUpcomingCount(0);
           setError(
             err.response?.data?.message ||
               "Unable to load doctor appointment data right now.",
@@ -65,22 +76,6 @@ export default function DoctorDashboard() {
 
   const user = authService.getCurrentUser();
   const doctorDisplayName = user?.name ? `Dr. ${user.name}` : "Doctor";
-
-  const todayKey = new Date().toDateString();
-
-  const appointmentsToday = useMemo(
-    () =>
-      appointments.filter((item) => {
-        const date = new Date(item.appointmentDate);
-        return !Number.isNaN(date.getTime()) && date.toDateString() === todayKey;
-      }),
-    [appointments, todayKey],
-  );
-
-  const upcomingAppointments = useMemo(
-    () => appointments.filter((item) => new Date(item.appointmentDate) > new Date()),
-    [appointments],
-  );
 
   const scheduleRows = useMemo(
     () =>
@@ -178,11 +173,15 @@ export default function DoctorDashboard() {
                 title: "Appointments Today",
                 value: loading ? "..." : appointmentsToday.length,
                 icon: <Calendar size={22} />,
+                onClick: () => navigate("/doctor/doc-appointments?scope=today"),
+                helper: "View today details",
               },
               {
                 title: "Upcoming",
-                value: loading ? "..." : upcomingAppointments.length,
+                value: loading ? "..." : upcomingCount,
                 icon: <Users size={22} />,
+                onClick: () => navigate("/doctor/doc-appointments?scope=upcoming"),
+                helper: "View upcoming details",
               },
               
             ].map((item, i) => (
@@ -193,7 +192,24 @@ export default function DoctorDashboard() {
                 animate="visible"
                 custom={i}
                 whileHover={{ y: -5 }}
-                className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100"
+                onClick={item.onClick}
+                onKeyDown={(event) => {
+                  if (!item.onClick) {
+                    return;
+                  }
+
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    item.onClick();
+                  }
+                }}
+                role={item.onClick ? "button" : undefined}
+                tabIndex={item.onClick ? 0 : undefined}
+                className={`bg-white p-6 rounded-2xl shadow-sm border border-slate-100 ${
+                  item.onClick
+                    ? "cursor-pointer transition-colors hover:border-[#127fec]/50"
+                    : ""
+                }`}
               >
                 <div className="flex justify-between items-center mb-4">
                   <div className="p-3 bg-[#127fec]/10 text-[#0a5bbf] rounded-xl">
@@ -204,6 +220,11 @@ export default function DoctorDashboard() {
                 <h2 className="text-3xl font-bold text-slate-800 mt-1">
                   {item.value}
                 </h2>
+                {item.helper && (
+                  <p className="text-xs font-semibold text-[#127fec] mt-3">
+                    {item.helper}
+                  </p>
+                )}
               </motion.div>
             ))}
           </div>
@@ -220,7 +241,10 @@ export default function DoctorDashboard() {
     <h2 className="text-lg font-semibold text-slate-800">
       Today’s Schedule
     </h2>
-    <button className="text-[#127fec] text-sm font-medium hover:underline">
+    <button
+      onClick={() => navigate("/doctor/doc-appointments?scope=today")}
+      className="text-[#127fec] text-sm font-medium hover:underline"
+    >
       View Calendar
     </button>
   </div>
