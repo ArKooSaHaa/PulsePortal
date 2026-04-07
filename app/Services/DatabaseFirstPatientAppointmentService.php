@@ -8,6 +8,9 @@ use RuntimeException;
 
 class DatabaseFirstPatientAppointmentService
 {
+    private const DEFAULT_UPCOMING_LIMIT = 5;
+    private const DEFAULT_HISTORY_LIMIT = 5;
+
     private bool $proceduresChecked = false;
 
     public function listDoctorsForBooking(?string $search = null, ?string $department = null): array
@@ -162,6 +165,93 @@ class DatabaseFirstPatientAppointmentService
         );
     }
 
+    public function listPatientUpcomingAppointments(int $patientId, int $limit = self::DEFAULT_UPCOMING_LIMIT): array
+    {
+        $normalizedLimit = $limit > 0 ? $limit : self::DEFAULT_UPCOMING_LIMIT;
+
+        if (DB::connection()->getDriverName() !== 'sqlsrv') {
+            $hasTypeColumn = Schema::hasColumn('appointments', 'appointment_type');
+
+            $query = DB::table('appointments as a')
+                ->join('doctors as d', 'd.id', '=', 'a.doctor_id')
+                ->select([
+                    'a.id',
+                    'a.patient_id',
+                    'a.doctor_id',
+                    'a.appointment_date',
+                    'a.status',
+                    'a.created_at',
+                    'a.updated_at',
+                    'd.name as doctor_name',
+                    'd.specialization as doctor_specialization',
+                    'd.department as doctor_department',
+                ])
+                ->where('a.patient_id', $patientId)
+                ->where('a.appointment_date', '>=', now())
+                ->where('a.status', '!=', 'cancelled')
+                ->orderBy('a.appointment_date')
+                ->limit($normalizedLimit);
+
+            if ($hasTypeColumn) {
+                $query->addSelect('a.appointment_type');
+            } else {
+                $query->selectRaw("'in-person' AS appointment_type");
+            }
+
+            return $query->get()->all();
+        }
+
+        $this->ensureAppointmentProcedures();
+
+        return DB::select(
+            'EXEC sp_get_patient_upcoming_appointments @patient_id = ?, @limit = ?',
+            [$patientId, $normalizedLimit],
+        );
+    }
+
+    public function listPatientRecentHistory(int $patientId, int $limit = self::DEFAULT_HISTORY_LIMIT): array
+    {
+        $normalizedLimit = $limit > 0 ? $limit : self::DEFAULT_HISTORY_LIMIT;
+
+        if (DB::connection()->getDriverName() !== 'sqlsrv') {
+            $hasTypeColumn = Schema::hasColumn('appointments', 'appointment_type');
+
+            $query = DB::table('appointments as a')
+                ->join('doctors as d', 'd.id', '=', 'a.doctor_id')
+                ->select([
+                    'a.id',
+                    'a.patient_id',
+                    'a.doctor_id',
+                    'a.appointment_date',
+                    'a.status',
+                    'a.created_at',
+                    'a.updated_at',
+                    'd.name as doctor_name',
+                    'd.specialization as doctor_specialization',
+                    'd.department as doctor_department',
+                ])
+                ->where('a.patient_id', $patientId)
+                ->where('a.appointment_date', '<', now())
+                ->orderByDesc('a.appointment_date')
+                ->limit($normalizedLimit);
+
+            if ($hasTypeColumn) {
+                $query->addSelect('a.appointment_type');
+            } else {
+                $query->selectRaw("'in-person' AS appointment_type");
+            }
+
+            return $query->get()->all();
+        }
+
+        $this->ensureAppointmentProcedures();
+
+        return DB::select(
+            'EXEC sp_get_patient_recent_history @patient_id = ?, @limit = ?',
+            [$patientId, $normalizedLimit],
+        );
+    }
+
     private function patientExists(int $patientId): bool
     {
         $row = DB::table('patients')
@@ -301,6 +391,73 @@ BEGIN
     FROM appointments a
     JOIN doctors d ON d.id = a.doctor_id
     WHERE a.patient_id = @patient_id
+    ORDER BY a.appointment_date DESC;
+END;
+SQL);
+
+        DB::unprepared(<<<'SQL'
+CREATE OR ALTER PROCEDURE sp_get_patient_upcoming_appointments
+    @patient_id BIGINT,
+    @limit INT = 5
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @limit IS NULL OR @limit < 1
+    BEGIN
+        SET @limit = 5;
+    END
+
+    SELECT TOP (@limit)
+        a.id,
+        a.patient_id,
+        a.doctor_id,
+        a.appointment_date,
+        ISNULL(a.appointment_type, 'in-person') AS appointment_type,
+        a.status,
+        a.created_at,
+        a.updated_at,
+        d.name AS doctor_name,
+        d.specialization AS doctor_specialization,
+        d.department AS doctor_department
+    FROM appointments a
+    JOIN doctors d ON d.id = a.doctor_id
+    WHERE a.patient_id = @patient_id
+      AND a.appointment_date >= GETDATE()
+      AND a.status <> 'cancelled'
+    ORDER BY a.appointment_date ASC;
+END;
+SQL);
+
+        DB::unprepared(<<<'SQL'
+CREATE OR ALTER PROCEDURE sp_get_patient_recent_history
+    @patient_id BIGINT,
+    @limit INT = 5
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @limit IS NULL OR @limit < 1
+    BEGIN
+        SET @limit = 5;
+    END
+
+    SELECT TOP (@limit)
+        a.id,
+        a.patient_id,
+        a.doctor_id,
+        a.appointment_date,
+        ISNULL(a.appointment_type, 'in-person') AS appointment_type,
+        a.status,
+        a.created_at,
+        a.updated_at,
+        d.name AS doctor_name,
+        d.specialization AS doctor_specialization,
+        d.department AS doctor_department
+    FROM appointments a
+    JOIN doctors d ON d.id = a.doctor_id
+    WHERE a.patient_id = @patient_id
+      AND a.appointment_date < GETDATE()
     ORDER BY a.appointment_date DESC;
 END;
 SQL);

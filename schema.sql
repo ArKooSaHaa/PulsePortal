@@ -29,10 +29,14 @@ IF OBJECT_ID('sp_get_appointments', 'P') IS NOT NULL DROP PROCEDURE sp_get_appoi
 IF OBJECT_ID('sp_paginate_doctors', 'P') IS NOT NULL DROP PROCEDURE sp_paginate_doctors;
 IF OBJECT_ID('sp_get_doctors_for_booking', 'P') IS NOT NULL DROP PROCEDURE sp_get_doctors_for_booking;
 IF OBJECT_ID('sp_get_patient_appointments', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_appointments;
+IF OBJECT_ID('sp_get_patient_upcoming_appointments', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_upcoming_appointments;
+IF OBJECT_ID('sp_get_patient_recent_history', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_recent_history;
 IF OBJECT_ID('sp_get_doctor_appointments', 'P') IS NOT NULL DROP PROCEDURE sp_get_doctor_appointments;
 IF OBJECT_ID('sp_update_doctor_appointment_status', 'P') IS NOT NULL DROP PROCEDURE sp_update_doctor_appointment_status;
 IF OBJECT_ID('sp_get_admin_appointments', 'P') IS NOT NULL DROP PROCEDURE sp_get_admin_appointments;
 IF OBJECT_ID('sp_update_admin_appointment_status', 'P') IS NOT NULL DROP PROCEDURE sp_update_admin_appointment_status;
+IF OBJECT_ID('sp_get_admin_dashboard_stats', 'P') IS NOT NULL DROP PROCEDURE sp_get_admin_dashboard_stats;
+IF OBJECT_ID('sp_get_admin_recent_appointments', 'P') IS NOT NULL DROP PROCEDURE sp_get_admin_recent_appointments;
 GO
 
 --------------------------------------------------
@@ -370,6 +374,69 @@ BEGIN
 END;
 GO
 
+-- GET UPCOMING APPOINTMENTS FOR A PATIENT
+CREATE PROCEDURE sp_get_patient_upcoming_appointments
+	@patient_id BIGINT,
+	@limit INT = 5
+AS
+BEGIN
+	IF @limit IS NULL OR @limit < 1
+	BEGIN
+		SET @limit = 5;
+	END
+
+	SELECT TOP (@limit)
+		a.id,
+		a.patient_id,
+		a.doctor_id,
+		a.appointment_date,
+		ISNULL(a.appointment_type, 'in-person') AS appointment_type,
+		a.status,
+		a.created_at,
+		a.updated_at,
+		d.name AS doctor_name,
+		d.specialization AS doctor_specialization,
+		d.department AS doctor_department
+	FROM appointments a
+	JOIN doctors d ON d.id = a.doctor_id
+	WHERE a.patient_id = @patient_id
+	  AND a.appointment_date >= GETDATE()
+	  AND a.status <> 'cancelled'
+	ORDER BY a.appointment_date ASC;
+END;
+GO
+
+-- GET RECENT HISTORY FOR A PATIENT
+CREATE PROCEDURE sp_get_patient_recent_history
+	@patient_id BIGINT,
+	@limit INT = 5
+AS
+BEGIN
+	IF @limit IS NULL OR @limit < 1
+	BEGIN
+		SET @limit = 5;
+	END
+
+	SELECT TOP (@limit)
+		a.id,
+		a.patient_id,
+		a.doctor_id,
+		a.appointment_date,
+		ISNULL(a.appointment_type, 'in-person') AS appointment_type,
+		a.status,
+		a.created_at,
+		a.updated_at,
+		d.name AS doctor_name,
+		d.specialization AS doctor_specialization,
+		d.department AS doctor_department
+	FROM appointments a
+	JOIN doctors d ON d.id = a.doctor_id
+	WHERE a.patient_id = @patient_id
+	  AND a.appointment_date < GETDATE()
+	ORDER BY a.appointment_date DESC;
+END;
+GO
+
 -- GET APPOINTMENTS FOR A DOCTOR
 CREATE PROCEDURE sp_get_doctor_appointments
 	@doctor_id BIGINT,
@@ -506,6 +573,57 @@ BEGIN
 	WHERE a.id = @appointment_id
 	  AND p.deleted_at IS NULL
 	  AND d.deleted_at IS NULL;
+END;
+GO
+
+-- GET ADMIN DASHBOARD STATS
+CREATE PROCEDURE sp_get_admin_dashboard_stats
+AS
+BEGIN
+	SELECT
+		ISNULL(SUM(CASE WHEN CAST(a.appointment_date AS DATE) = CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END), 0) AS appointments_today,
+		ISNULL(SUM(CASE WHEN a.appointment_date > GETDATE() THEN 1 ELSE 0 END), 0) AS upcoming_appointments,
+		COUNT(*) AS total_appointments,
+		(SELECT COUNT(*) FROM doctors WHERE deleted_at IS NULL) AS total_doctors,
+		(SELECT COUNT(*) FROM patients WHERE deleted_at IS NULL) AS total_patients
+	FROM appointments a
+	JOIN patients p ON p.id = a.patient_id
+	JOIN doctors d ON d.id = a.doctor_id
+	WHERE p.deleted_at IS NULL
+	  AND d.deleted_at IS NULL;
+END;
+GO
+
+-- GET RECENT APPOINTMENTS FOR ADMIN DASHBOARD
+CREATE PROCEDURE sp_get_admin_recent_appointments
+	@limit INT = 5
+AS
+BEGIN
+	IF @limit IS NULL OR @limit < 1
+	BEGIN
+		SET @limit = 5;
+	END
+
+	SELECT TOP (@limit)
+		a.id,
+		a.patient_id,
+		a.doctor_id,
+		a.appointment_date,
+		ISNULL(a.appointment_type, 'in-person') AS appointment_type,
+		a.status,
+		a.created_at,
+		a.updated_at,
+		p.name AS patient_name,
+		p.email AS patient_email,
+		d.name AS doctor_name,
+		d.department AS doctor_department,
+		d.specialization AS doctor_specialization
+	FROM appointments a
+	JOIN patients p ON p.id = a.patient_id
+	JOIN doctors d ON d.id = a.doctor_id
+	WHERE p.deleted_at IS NULL
+	  AND d.deleted_at IS NULL
+	ORDER BY a.appointment_date DESC;
 END;
 GO
 

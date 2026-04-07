@@ -14,6 +14,14 @@ const normalizeAppointment = (item) => ({
     status: item.status || "pending",
 });
 
+const normalizeStats = (item) => ({
+    appointmentsToday: Number(item.appointments_today || 0),
+    upcomingAppointments: Number(item.upcoming_appointments || 0),
+    totalAppointments: Number(item.total_appointments || 0),
+    totalDoctors: Number(item.total_doctors || 0),
+    totalPatients: Number(item.total_patients || 0),
+});
+
 const adminAppointmentService = {
     getAppointments: async ({ status = "" } = {}) => {
         const response = await api.get("/admin/appointments", {
@@ -35,6 +43,21 @@ const adminAppointmentService = {
         );
 
         return normalizeAppointment(response.data?.appointment || {});
+    },
+
+    getDashboardSummary: async ({ limit = 5 } = {}) => {
+        const response = await api.get("/admin/dashboard-summary", {
+            params: {
+                limit,
+            },
+        });
+
+        return {
+            stats: normalizeStats(response.data?.stats || {}),
+            recentAppointments: (response.data?.recent_appointments || []).map(
+                normalizeAppointment,
+            ),
+        };
     },
 };
 

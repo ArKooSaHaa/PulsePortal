@@ -71,4 +71,32 @@ class AdminAppointmentController extends Controller
             'appointment' => $appointment,
         ]);
     }
+
+    public function dashboardSummary(Request $request): JsonResponse
+    {
+        $admin = $request->user();
+
+        if (! $admin || ($admin->role ?? null) !== 'admin') {
+            return response()->json([
+                'message' => 'Only admins can access dashboard summary.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'limit' => ['nullable', 'integer', 'min:1', 'max:20'],
+        ]);
+
+        try {
+            $summary = $this->appointments->getDashboardSummary((int) ($validated['limit'] ?? 5));
+        } catch (RuntimeException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+
+        return response()->json([
+            'stats' => $summary['stats'],
+            'recent_appointments' => $summary['recent_appointments'],
+        ]);
+    }
 }

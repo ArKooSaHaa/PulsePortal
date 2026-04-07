@@ -48,6 +48,54 @@ class PatientAppointmentController extends Controller
         ]);
     }
 
+    public function upcoming(Request $request): JsonResponse
+    {
+        $patient = $request->user();
+
+        if (! $patient || ($patient->role ?? null) !== 'patient') {
+            return response()->json([
+                'message' => 'Only patients can access upcoming appointments.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'limit' => ['nullable', 'integer', 'min:1', 'max:20'],
+        ]);
+
+        $appointments = $this->appointments->listPatientUpcomingAppointments(
+            (int) $patient->id,
+            (int) ($validated['limit'] ?? 5),
+        );
+
+        return response()->json([
+            'appointments' => $appointments,
+        ]);
+    }
+
+    public function history(Request $request): JsonResponse
+    {
+        $patient = $request->user();
+
+        if (! $patient || ($patient->role ?? null) !== 'patient') {
+            return response()->json([
+                'message' => 'Only patients can access appointment history.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'limit' => ['nullable', 'integer', 'min:1', 'max:20'],
+        ]);
+
+        $appointments = $this->appointments->listPatientRecentHistory(
+            (int) $patient->id,
+            (int) ($validated['limit'] ?? 5),
+        );
+
+        return response()->json([
+            'appointments' => $appointments,
+        ]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $patient = $request->user();

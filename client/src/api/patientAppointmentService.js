@@ -99,6 +99,30 @@ const patientAppointmentService = {
 
         return appointments.map(normalizeAppointment);
     },
+
+    getUpcomingAppointments: async ({ limit = 5 } = {}) => {
+        const response = await api.get("/patient/appointments/upcoming", {
+            params: {
+                limit,
+            },
+        });
+
+        const appointments = response.data?.appointments || [];
+
+        return appointments.map(normalizeAppointment);
+    },
+
+    getRecentHistory: async ({ limit = 5 } = {}) => {
+        const response = await api.get("/patient/appointments/history", {
+            params: {
+                limit,
+            },
+        });
+
+        const appointments = response.data?.appointments || [];
+
+        return appointments.map(normalizeAppointment);
+    },
 };
 
 export default patientAppointmentService;

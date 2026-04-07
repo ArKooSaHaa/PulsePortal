@@ -37,12 +37,15 @@ Route::middleware(['auth:api'])->group(function () {
 
     Route::get('/patient/doctors', [PatientAppointmentController::class, 'doctors']);
     Route::get('/patient/appointments', [PatientAppointmentController::class, 'index']);
+    Route::get('/patient/appointments/upcoming', [PatientAppointmentController::class, 'upcoming']);
+    Route::get('/patient/appointments/history', [PatientAppointmentController::class, 'history']);
     Route::post('/patient/appointments', [PatientAppointmentController::class, 'store']);
 });
 
 Route::middleware(['auth:admin'])->group(function () {
     Route::post('/admin/admins', [AdminController::class, 'store']);
     Route::post('/admin/doctors', [DoctorController::class, 'store']);
+    Route::get('/admin/dashboard-summary', [AdminAppointmentController::class, 'dashboardSummary']);
     Route::get('/admin/appointments', [AdminAppointmentController::class, 'index']);
     Route::patch('/admin/appointments/{appointmentId}/status', [AdminAppointmentController::class, 'updateStatus']);
 });
