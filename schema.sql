@@ -32,6 +32,9 @@ IF OBJECT_ID('sp_paginate_doctors', 'P') IS NOT NULL DROP PROCEDURE sp_paginate_
 IF OBJECT_ID('sp_get_doctors_for_booking', 'P') IS NOT NULL DROP PROCEDURE sp_get_doctors_for_booking;
 IF OBJECT_ID('sp_get_patient_appointments', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_appointments;
 IF OBJECT_ID('sp_get_patient_upcoming_appointments', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_upcoming_appointments;
+IF OBJECT_ID('sp_get_patient_room_admission_stats', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_room_admission_stats;
+IF OBJECT_ID('sp_get_patient_room_admissions', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_room_admissions;
+IF OBJECT_ID('sp_get_patient_room_admission_details', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_room_admission_details;
 IF OBJECT_ID('sp_get_patient_recent_history', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_recent_history;
 IF OBJECT_ID('sp_get_patient_appointment_summary', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_appointment_summary;
 IF OBJECT_ID('sp_get_patient_appointment_details', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_appointment_details;
@@ -716,6 +719,147 @@ BEGIN
 		CASE WHEN a.appointment_date >= GETDATE() THEN 0 ELSE 1 END,
 		CASE WHEN a.appointment_date >= GETDATE() THEN a.appointment_date END ASC,
 		CASE WHEN a.appointment_date < GETDATE() THEN a.appointment_date END DESC;
+END;
+GO
+
+-- GET ROOM ADMISSION STATS FOR A PATIENT
+CREATE PROCEDURE sp_get_patient_room_admission_stats
+	@patient_id BIGINT
+AS
+BEGIN
+	IF OBJECT_ID('room_admissions', 'U') IS NULL
+	BEGIN
+		SELECT
+			CAST(0 AS INT) AS active_room_admissions,
+			CAST(0 AS INT) AS total_room_admissions;
+		RETURN;
+	END
+
+	SELECT
+		ISNULL(SUM(CASE WHEN status = 'admitted' AND discharged_at IS NULL THEN 1 ELSE 0 END), 0) AS active_room_admissions,
+		COUNT(*) AS total_room_admissions
+	FROM room_admissions
+	WHERE patient_id = @patient_id;
+END;
+GO
+
+-- GET ROOM ADMISSIONS FOR A PATIENT
+CREATE PROCEDURE sp_get_patient_room_admissions
+	@patient_id BIGINT,
+	@limit INT = 5
+AS
+BEGIN
+	IF @limit IS NULL OR @limit < 1
+	BEGIN
+		SET @limit = 5;
+	END
+
+	IF OBJECT_ID('room_admissions', 'U') IS NULL
+	   OR OBJECT_ID('hospital_rooms', 'U') IS NULL
+	   OR OBJECT_ID('patients', 'U') IS NULL
+	BEGIN
+		SELECT TOP (0)
+			CAST(NULL AS BIGINT) AS id,
+			CAST(NULL AS BIGINT) AS room_id,
+			CAST(NULL AS BIGINT) AS patient_id,
+			CAST(NULL AS BIGINT) AS doctor_id,
+			CAST(NULL AS NVARCHAR(30)) AS status,
+			CAST(NULL AS NVARCHAR(500)) AS admission_reason,
+			CAST(NULL AS NVARCHAR(MAX)) AS admission_notes,
+			CAST(NULL AS NVARCHAR(MAX)) AS discharge_notes,
+			CAST(NULL AS DATETIME) AS admitted_at,
+			CAST(NULL AS DATETIME) AS expected_discharge_at,
+			CAST(NULL AS DATETIME) AS discharged_at,
+			CAST(NULL AS DATETIME) AS created_at,
+			CAST(NULL AS DATETIME) AS updated_at,
+			CAST(NULL AS NVARCHAR(50)) AS room_number,
+			CAST(NULL AS NVARCHAR(100)) AS room_type,
+			CAST(NULL AS INT) AS floor_number,
+			CAST(NULL AS NVARCHAR(255)) AS patient_name,
+			CAST(NULL AS NVARCHAR(255)) AS patient_email,
+			CAST(NULL AS NVARCHAR(255)) AS doctor_name,
+			CAST(NULL AS NVARCHAR(255)) AS doctor_department,
+			CAST(NULL AS NVARCHAR(255)) AS doctor_specialization;
+		RETURN;
+	END
+
+	SELECT TOP (@limit)
+		ra.id,
+		ra.room_id,
+		ra.patient_id,
+		ra.doctor_id,
+		ra.status,
+		ra.admission_reason,
+		ra.admission_notes,
+		ra.discharge_notes,
+		ra.admitted_at,
+		ra.expected_discharge_at,
+		ra.discharged_at,
+		ra.created_at,
+		ra.updated_at,
+		hr.room_number,
+		hr.room_type,
+		hr.floor_number,
+		p.name AS patient_name,
+		p.email AS patient_email,
+		d.name AS doctor_name,
+		d.department AS doctor_department,
+		d.specialization AS doctor_specialization
+	FROM room_admissions ra
+	JOIN hospital_rooms hr ON hr.id = ra.room_id
+	JOIN patients p ON p.id = ra.patient_id
+	LEFT JOIN doctors d ON d.id = ra.doctor_id
+	WHERE ra.patient_id = @patient_id
+	  AND p.deleted_at IS NULL
+	ORDER BY
+		CASE WHEN ra.status = 'admitted' AND ra.discharged_at IS NULL THEN 0 ELSE 1 END,
+		CASE WHEN ra.status = 'admitted' AND ra.discharged_at IS NULL THEN ra.admitted_at END DESC,
+		CASE WHEN ra.status <> 'admitted' OR ra.discharged_at IS NOT NULL THEN ISNULL(ra.discharged_at, ra.updated_at) END DESC;
+END;
+GO
+
+-- GET ROOM ADMISSION DETAILS FOR A PATIENT
+CREATE PROCEDURE sp_get_patient_room_admission_details
+	@patient_id BIGINT,
+	@admission_id BIGINT
+AS
+BEGIN
+	IF OBJECT_ID('room_admissions', 'U') IS NULL
+	   OR OBJECT_ID('hospital_rooms', 'U') IS NULL
+	   OR OBJECT_ID('patients', 'U') IS NULL
+	BEGIN
+		RETURN;
+	END
+
+	SELECT TOP 1
+		ra.id,
+		ra.room_id,
+		ra.patient_id,
+		ra.doctor_id,
+		ra.status,
+		ra.admission_reason,
+		ra.admission_notes,
+		ra.discharge_notes,
+		ra.admitted_at,
+		ra.expected_discharge_at,
+		ra.discharged_at,
+		ra.created_at,
+		ra.updated_at,
+		hr.room_number,
+		hr.room_type,
+		hr.floor_number,
+		p.name AS patient_name,
+		p.email AS patient_email,
+		d.name AS doctor_name,
+		d.department AS doctor_department,
+		d.specialization AS doctor_specialization
+	FROM room_admissions ra
+	JOIN hospital_rooms hr ON hr.id = ra.room_id
+	JOIN patients p ON p.id = ra.patient_id
+	LEFT JOIN doctors d ON d.id = ra.doctor_id
+	WHERE ra.id = @admission_id
+	  AND ra.patient_id = @patient_id
+	  AND p.deleted_at IS NULL;
 END;
 GO
 

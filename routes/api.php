@@ -39,6 +39,8 @@ Route::middleware(['auth:api'])->group(function () {
     Route::get('/patient/doctors', [PatientAppointmentController::class, 'doctors']);
     Route::get('/patient/appointments', [PatientAppointmentController::class, 'index']);
     Route::get('/patient/appointments/upcoming', [PatientAppointmentController::class, 'upcoming']);
+    Route::get('/patient/room-admissions/summary', [PatientAppointmentController::class, 'roomAdmissionsSummary']);
+    Route::get('/patient/room-admissions/{admissionId}', [PatientAppointmentController::class, 'roomAdmissionDetails']);
     Route::get('/patient/appointments/history', [PatientAppointmentController::class, 'history']);
     Route::get('/patient/appointments/{appointmentId}/summary', [PatientAppointmentController::class, 'summary']);
     Route::post('/patient/appointments', [PatientAppointmentController::class, 'store']);

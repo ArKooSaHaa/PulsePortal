@@ -5,6 +5,7 @@ import {
     CalendarPlus,
     CalendarCheck,
     Bot,
+    BedDouble,
     MapPin,
     ChevronRight,
     Stethoscope,
@@ -141,6 +142,40 @@ function formatTimeLabel(value) {
     });
 }
 
+function formatDateTimeLabel(value, fallback = "Not set") {
+    if (!value) {
+        return fallback;
+    }
+
+    const parsed = new Date(value);
+
+    if (Number.isNaN(parsed.getTime())) {
+        return fallback;
+    }
+
+    return parsed.toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+}
+
+function toRoomAdmissionStatusLabel(status) {
+    const key = String(status || "admitted").toLowerCase();
+    return key.charAt(0).toUpperCase() + key.slice(1);
+}
+
+function toRoomAdmissionStatusClass(status) {
+    const key = String(status || "admitted").toLowerCase();
+
+    if (key === "discharged") {
+        return "bg-slate-100 text-slate-600 border border-slate-200";
+    }
+
+    return "bg-emerald-50 text-emerald-600 border border-emerald-100";
+}
+
 function getHistoryIcon(specialization = "") {
     const key = String(specialization).toLowerCase();
 
@@ -247,6 +282,13 @@ export default function PatientDashboard() {
     const [upcomingAppointments, setUpcomingAppointments] = useState([]);
     const [loadingUpcoming, setLoadingUpcoming] = useState(true);
     const [upcomingError, setUpcomingError] = useState("");
+    const [roomAdmissionStats, setRoomAdmissionStats] = useState({
+        activeRoomAdmissions: 0,
+        totalRoomAdmissions: 0,
+    });
+    const [roomAdmissions, setRoomAdmissions] = useState([]);
+    const [loadingRoomAdmissions, setLoadingRoomAdmissions] = useState(true);
+    const [roomAdmissionsError, setRoomAdmissionsError] = useState("");
     const [cancelingAppointmentId, setCancelingAppointmentId] = useState(null);
     const [actionMessage, setActionMessage] = useState("");
     const [detailsModalOpen, setDetailsModalOpen] = useState(false);
@@ -316,6 +358,71 @@ export default function PatientDashboard() {
         };
 
         void loadUpcoming();
+
+        const intervalId = window.setInterval(refreshSilently, AUTO_REFRESH_MS);
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "visible") {
+                refreshSilently();
+            }
+        };
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+
+        return () => {
+            cancelled = true;
+            window.clearInterval(intervalId);
+            document.removeEventListener(
+                "visibilitychange",
+                handleVisibilityChange,
+            );
+        };
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const loadRoomAdmissions = async ({ showLoading = true } = {}) => {
+            if (showLoading) {
+                setLoadingRoomAdmissions(true);
+            }
+
+            setRoomAdmissionsError("");
+
+            try {
+                const summary =
+                    await patientAppointmentService.getRoomAdmissionsSummary({
+                        limit: 4,
+                    });
+
+                if (!cancelled) {
+                    setRoomAdmissionStats(summary.stats);
+                    setRoomAdmissions(summary.roomAdmissions);
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setRoomAdmissionStats({
+                        activeRoomAdmissions: 0,
+                        totalRoomAdmissions: 0,
+                    });
+                    setRoomAdmissions([]);
+                    setRoomAdmissionsError(
+                        err.response?.data?.message ||
+                            "Unable to load room admission details right now.",
+                    );
+                }
+            } finally {
+                if (!cancelled && showLoading) {
+                    setLoadingRoomAdmissions(false);
+                }
+            }
+        };
+
+        const refreshSilently = () => {
+            void loadRoomAdmissions({ showLoading: false });
+        };
+
+        void loadRoomAdmissions();
 
         const intervalId = window.setInterval(refreshSilently, AUTO_REFRESH_MS);
 
@@ -616,6 +723,113 @@ export default function PatientDashboard() {
                                     canceling={cancelingAppointmentId === appt.id}
                                 />
                             ))
+                        )}
+                    </div>
+                </motion.section>
+
+                <motion.section
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: 0.2 }}
+                >
+                    <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-lg font-bold text-slate-800">
+                            Room Admission Details
+                        </h2>
+                        <div className="inline-flex items-center gap-2 text-xs text-slate-500">
+                            <BedDouble size={14} className="text-[#127fec]" />
+                            DB Synced
+                        </div>
+                    </div>
+
+                    <div className="bg-white/90 rounded-2xl shadow-sm border border-slate-100 p-4 sm:p-5">
+                        <div className="grid grid-cols-2 gap-3 mb-4">
+                            <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                                <p className="text-[11px] uppercase tracking-widest text-slate-400 font-semibold">
+                                    Active Admissions
+                                </p>
+                                <p className="text-2xl font-bold text-slate-800 mt-1">
+                                    {loadingRoomAdmissions
+                                        ? "..."
+                                        : roomAdmissionStats.activeRoomAdmissions}
+                                </p>
+                            </div>
+
+                            <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                                <p className="text-[11px] uppercase tracking-widest text-slate-400 font-semibold">
+                                    Total Admissions
+                                </p>
+                                <p className="text-2xl font-bold text-slate-800 mt-1">
+                                    {loadingRoomAdmissions
+                                        ? "..."
+                                        : roomAdmissionStats.totalRoomAdmissions}
+                                </p>
+                            </div>
+                        </div>
+
+                        {loadingRoomAdmissions ? (
+                            <p className="text-sm text-slate-500">
+                                Loading room admission details...
+                            </p>
+                        ) : roomAdmissionsError ? (
+                            <p className="text-sm text-red-500">
+                                {roomAdmissionsError}
+                            </p>
+                        ) : roomAdmissions.length === 0 ? (
+                            <p className="text-sm text-slate-500">
+                                You are currently not admitted in any room.
+                            </p>
+                        ) : (
+                            <div className="space-y-3">
+                                {roomAdmissions.map((item) => (
+                                    <button
+                                        key={item.id}
+                                        type="button"
+                                        onClick={() => navigate(`/patient/room-admissions/${item.id}`)}
+                                        className="w-full text-left rounded-xl border border-slate-100 bg-slate-50 p-4 transition hover:border-[#127fec]/40 hover:bg-white"
+                                    >
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <p className="text-sm font-semibold text-slate-800">
+                                                Room {item.roomNumber} · {item.roomType} · Floor {item.floorNumber}
+                                            </p>
+                                            <span
+                                                className={`text-[11px] px-2.5 py-1 rounded-full font-semibold ${toRoomAdmissionStatusClass(item.status)}`}
+                                            >
+                                                {toRoomAdmissionStatusLabel(item.status)}
+                                            </span>
+                                        </div>
+
+                                        <p className="text-xs text-slate-500 mt-1">
+                                            Admitted: {formatDateTimeLabel(item.admittedAt)}
+                                        </p>
+                                        <p className="text-xs text-slate-500 mt-1">
+                                            Expected discharge: {formatDateTimeLabel(item.expectedDischargeAt, "Not assigned")}
+                                        </p>
+
+                                        {item.doctorName ? (
+                                            <p className="text-xs text-slate-600 mt-2">
+                                                Assigned Doctor: {item.doctorName}
+                                                {item.doctorDepartment
+                                                    ? ` (${item.doctorDepartment})`
+                                                    : ""}
+                                            </p>
+                                        ) : (
+                                            <p className="text-xs text-slate-500 mt-2">
+                                                Assigned Doctor: Not assigned
+                                            </p>
+                                        )}
+
+                                        {item.admissionReason ? (
+                                            <p className="text-xs text-slate-600 mt-2 line-clamp-2">
+                                                Reason: {item.admissionReason}
+                                            </p>
+                                        ) : null}
+                                        <p className="text-xs font-semibold text-[#127fec] mt-2">
+                                            View full details
+                                        </p>
+                                    </button>
+                                ))}
+                            </div>
                         )}
                     </div>
                 </motion.section>

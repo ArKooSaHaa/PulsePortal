@@ -162,6 +162,31 @@ const normalizeAppointment = (item) => ({
     summaryNote: item.summary_note || "",
 });
 
+const normalizeRoomAdmission = (item) => ({
+    id: Number(item.id),
+    roomId: Number(item.room_id),
+    roomNumber: item.room_number || "",
+    roomType: item.room_type || "General",
+    floorNumber: Number(item.floor_number || 0),
+    patientId: Number(item.patient_id),
+    doctorId: Number(item.doctor_id),
+    doctorName: item.doctor_name || "",
+    doctorDepartment: item.doctor_department || "",
+    doctorSpecialization: item.doctor_specialization || "",
+    status: item.status || "admitted",
+    admittedAt: item.admitted_at,
+    expectedDischargeAt: item.expected_discharge_at,
+    dischargedAt: item.discharged_at,
+    admissionReason: item.admission_reason || "",
+    admissionNotes: item.admission_notes || "",
+    dischargeNotes: item.discharge_notes || "",
+});
+
+const normalizeRoomAdmissionStats = (item) => ({
+    activeRoomAdmissions: Number(item.active_room_admissions || 0),
+    totalRoomAdmissions: Number(item.total_room_admissions || 0),
+});
+
 const patientAppointmentService = {
     getDoctors: async ({ search = "", department = "" } = {}) => {
         const response = await api.get("/patient/doctors", {
@@ -202,6 +227,26 @@ const patientAppointmentService = {
         const appointments = response.data?.appointments || [];
 
         return appointments.map(normalizeAppointment);
+    },
+
+    getRoomAdmissionsSummary: async ({ limit = 5 } = {}) => {
+        const response = await api.get("/patient/room-admissions/summary", {
+            params: {
+                limit,
+            },
+        });
+
+        return {
+            stats: normalizeRoomAdmissionStats(response.data?.stats || {}),
+            roomAdmissions: (response.data?.room_admissions || []).map(
+                normalizeRoomAdmission,
+            ),
+        };
+    },
+
+    getRoomAdmissionDetails: async (admissionId) => {
+        const response = await api.get(`/patient/room-admissions/${admissionId}`);
+        return normalizeRoomAdmission(response.data?.room_admission || {});
     },
 
     getRecentHistory: async ({ limit = 5 } = {}) => {

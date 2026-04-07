@@ -72,6 +72,63 @@ class PatientAppointmentController extends Controller
         ]);
     }
 
+    public function roomAdmissionsSummary(Request $request): JsonResponse
+    {
+        $patient = $request->user();
+
+        if (! $patient || ($patient->role ?? null) !== 'patient') {
+            return response()->json([
+                'message' => 'Only patients can access room admission details.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'limit' => ['nullable', 'integer', 'min:1', 'max:20'],
+        ]);
+
+        try {
+            $summary = $this->appointments->getPatientRoomAdmissionsSummary(
+                (int) $patient->id,
+                (int) ($validated['limit'] ?? 5),
+            );
+        } catch (RuntimeException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+
+        return response()->json([
+            'stats' => $summary['stats'],
+            'room_admissions' => $summary['room_admissions'],
+        ]);
+    }
+
+    public function roomAdmissionDetails(Request $request, int $admissionId): JsonResponse
+    {
+        $patient = $request->user();
+
+        if (! $patient || ($patient->role ?? null) !== 'patient') {
+            return response()->json([
+                'message' => 'Only patients can access room admission details.',
+            ], 403);
+        }
+
+        try {
+            $admission = $this->appointments->getPatientRoomAdmissionDetails(
+                (int) $patient->id,
+                $admissionId,
+            );
+        } catch (RuntimeException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 404);
+        }
+
+        return response()->json([
+            'room_admission' => $admission,
+        ]);
+    }
+
     public function history(Request $request): JsonResponse
     {
         $patient = $request->user();

@@ -13,6 +13,7 @@ import authService from "./api/authService";
 import PatientDashboard from "./pages/patient/PatientDashboard";
 import PatientAppointments from "./pages/patient/PatientAppointments";
 import BookAppointment from "./pages/patient/BookAppointment";
+import PatientRoomAdmissionDetails from "./pages/patient/PatientRoomAdmissionDetails";
 import ProfilePage from "./pages/ProfilePage";
 // Doctor pages
 import DoctorDashboard from "./pages/doctor/DoctorDashboard";
@@ -107,6 +108,10 @@ function App() {
                         <Route
                             path="book-appointment"
                             element={<BookAppointment />}
+                        />
+                        <Route
+                            path="room-admissions/:admissionId"
+                            element={<PatientRoomAdmissionDetails />}
                         />
                         <Route path="profile" element={<ProfilePage />} />
                     </Route>
