@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
   CalendarDays,
   Users,
@@ -20,6 +21,8 @@ const cardVariants = {
 };
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
+
   const stats = [
     {
       title: "Appointments Today",
@@ -190,6 +193,7 @@ export default function AdminDashboard() {
           <div className="flex items-center gap-2">
              
              <button className="px-4 py-2 text-sm text-white rounded-lg hover:opacity-90 transition-all"
+               onClick={() => navigate("/admin/all-appointments")}
                style={{ background: "linear-gradient(to right, #0a5bbf, #127fec)" }}
              >
                 View All
