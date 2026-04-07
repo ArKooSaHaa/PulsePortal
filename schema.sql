@@ -42,12 +42,22 @@ IF OBJECT_ID('sp_get_admin_appointments', 'P') IS NOT NULL DROP PROCEDURE sp_get
 IF OBJECT_ID('sp_update_admin_appointment_status', 'P') IS NOT NULL DROP PROCEDURE sp_update_admin_appointment_status;
 IF OBJECT_ID('sp_get_admin_dashboard_stats', 'P') IS NOT NULL DROP PROCEDURE sp_get_admin_dashboard_stats;
 IF OBJECT_ID('sp_get_admin_recent_appointments', 'P') IS NOT NULL DROP PROCEDURE sp_get_admin_recent_appointments;
+IF OBJECT_ID('sp_get_admin_room_admissions', 'P') IS NOT NULL DROP PROCEDURE sp_get_admin_room_admissions;
+IF OBJECT_ID('sp_get_admin_room_lookup_patients', 'P') IS NOT NULL DROP PROCEDURE sp_get_admin_room_lookup_patients;
+IF OBJECT_ID('sp_get_admin_room_lookup_doctors', 'P') IS NOT NULL DROP PROCEDURE sp_get_admin_room_lookup_doctors;
+IF OBJECT_ID('sp_get_admin_available_rooms', 'P') IS NOT NULL DROP PROCEDURE sp_get_admin_available_rooms;
+IF OBJECT_ID('sp_create_room_admission', 'P') IS NOT NULL DROP PROCEDURE sp_create_room_admission;
+IF OBJECT_ID('sp_discharge_room_admission', 'P') IS NOT NULL DROP PROCEDURE sp_discharge_room_admission;
+IF OBJECT_ID('sp_get_admin_room_dashboard_stats', 'P') IS NOT NULL DROP PROCEDURE sp_get_admin_room_dashboard_stats;
+IF OBJECT_ID('sp_get_admin_recent_room_admissions', 'P') IS NOT NULL DROP PROCEDURE sp_get_admin_recent_room_admissions;
 GO
 
 --------------------------------------------------
 -- DROP TABLES (SAFE ORDER)
 --------------------------------------------------
 IF OBJECT_ID('appointments', 'U') IS NOT NULL DROP TABLE appointments;
+IF OBJECT_ID('room_admissions', 'U') IS NOT NULL DROP TABLE room_admissions;
+IF OBJECT_ID('hospital_rooms', 'U') IS NOT NULL DROP TABLE hospital_rooms;
 IF OBJECT_ID('doctors', 'U') IS NOT NULL DROP TABLE doctors;
 IF OBJECT_ID('admins', 'U') IS NOT NULL DROP TABLE admins;
 IF OBJECT_ID('patients', 'U') IS NOT NULL DROP TABLE patients;
@@ -140,6 +150,54 @@ CREATE INDEX idx_appointments_patient ON appointments(patient_id);
 CREATE INDEX idx_appointments_doctor ON appointments(doctor_id);
 
 --------------------------------------------------
+-- HOSPITAL ROOMS TABLE
+--------------------------------------------------
+CREATE TABLE hospital_rooms (
+	id BIGINT IDENTITY(1,1) PRIMARY KEY,
+
+	room_number NVARCHAR(50) NOT NULL UNIQUE,
+	room_type NVARCHAR(100) NOT NULL DEFAULT 'General',
+	floor_number INT NOT NULL DEFAULT 1,
+	status NVARCHAR(30) NOT NULL DEFAULT 'available',
+
+	created_at DATETIME DEFAULT GETDATE(),
+	updated_at DATETIME DEFAULT GETDATE()
+);
+
+CREATE INDEX idx_hospital_rooms_status ON hospital_rooms(status);
+
+--------------------------------------------------
+-- ROOM ADMISSIONS TABLE
+--------------------------------------------------
+CREATE TABLE room_admissions (
+	id BIGINT IDENTITY(1,1) PRIMARY KEY,
+
+	room_id BIGINT NOT NULL,
+	patient_id BIGINT NOT NULL,
+	doctor_id BIGINT NULL,
+
+	status NVARCHAR(30) NOT NULL DEFAULT 'admitted',
+	admission_reason NVARCHAR(500) NULL,
+	admission_notes NVARCHAR(MAX) NULL,
+	discharge_notes NVARCHAR(MAX) NULL,
+
+	admitted_at DATETIME NOT NULL,
+	expected_discharge_at DATETIME NULL,
+	discharged_at DATETIME NULL,
+
+	created_at DATETIME DEFAULT GETDATE(),
+	updated_at DATETIME DEFAULT GETDATE(),
+
+	FOREIGN KEY (room_id) REFERENCES hospital_rooms(id),
+	FOREIGN KEY (patient_id) REFERENCES patients(id),
+	FOREIGN KEY (doctor_id) REFERENCES doctors(id)
+);
+
+CREATE INDEX idx_room_admissions_status ON room_admissions(status);
+CREATE INDEX idx_room_admissions_room ON room_admissions(room_id);
+CREATE INDEX idx_room_admissions_patient ON room_admissions(patient_id);
+
+--------------------------------------------------
 -- SEED DATA
 --------------------------------------------------
 INSERT INTO patients (name, email, password)
@@ -155,6 +213,21 @@ INSERT INTO doctors (name, email, password, specialization, department)
 VALUES
 ('Dr. Smith', 'smith@example.com', '$2y$10$QiNZtIxBqjFg.iki0nTo0uZS3bkSepwr8bcSJcVET72Knx6qgXhiq', 'Cardiology', 'Heart'),
 ('Dr. Ali', 'ali@example.com', '$2y$10$QiNZtIxBqjFg.iki0nTo0uZS3bkSepwr8bcSJcVET72Knx6qgXhiq', 'Neurology', 'Brain');
+
+INSERT INTO hospital_rooms (room_number, room_type, floor_number, status)
+VALUES
+('101', 'Emergency', 1, 'available'),
+('102', 'Emergency', 1, 'available'),
+('103', 'General', 1, 'available'),
+('104', 'General', 1, 'available'),
+('105', 'General', 1, 'available'),
+('201', 'General', 2, 'available'),
+('202', 'General', 2, 'available'),
+('203', 'General', 2, 'available'),
+('204', 'General', 2, 'available'),
+('301', 'ICU', 3, 'available'),
+('302', 'ICU', 3, 'available'),
+('303', 'ICU', 3, 'maintenance');
 
 --------------------------------------------------
 -- STORED PROCEDURES (CRUD + AUTH)
@@ -994,5 +1067,365 @@ BEGIN
 	FROM doctors
 	ORDER BY id
 	OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
+END;
+GO
+
+-- GET ROOM ADMISSIONS FOR ADMIN
+CREATE PROCEDURE sp_get_admin_room_admissions
+	@status NVARCHAR(30) = NULL
+AS
+BEGIN
+	SELECT
+		ra.id,
+		ra.room_id,
+		ra.patient_id,
+		ra.doctor_id,
+		ra.status,
+		ra.admission_reason,
+		ra.admission_notes,
+		ra.discharge_notes,
+		ra.admitted_at,
+		ra.expected_discharge_at,
+		ra.discharged_at,
+		ra.created_at,
+		ra.updated_at,
+		hr.room_number,
+		hr.room_type,
+		hr.floor_number,
+		p.name AS patient_name,
+		p.email AS patient_email,
+		d.name AS doctor_name,
+		d.department AS doctor_department
+	FROM room_admissions ra
+	JOIN hospital_rooms hr ON hr.id = ra.room_id
+	JOIN patients p ON p.id = ra.patient_id
+	LEFT JOIN doctors d ON d.id = ra.doctor_id
+	WHERE p.deleted_at IS NULL
+	  AND (
+			@status IS NULL
+			OR LTRIM(RTRIM(@status)) = ''
+			OR ra.status = @status
+	  )
+	ORDER BY
+		CASE WHEN ra.status = 'admitted' THEN 0 ELSE 1 END,
+		ra.admitted_at DESC;
+END;
+GO
+
+-- LOOKUP PATIENTS FOR ROOM ADMISSION
+CREATE PROCEDURE sp_get_admin_room_lookup_patients
+AS
+BEGIN
+	SELECT
+		id,
+		name,
+		email
+	FROM patients
+	WHERE deleted_at IS NULL
+	ORDER BY name ASC;
+END;
+GO
+
+-- LOOKUP DOCTORS FOR ROOM ADMISSION
+CREATE PROCEDURE sp_get_admin_room_lookup_doctors
+AS
+BEGIN
+	SELECT
+		id,
+		name,
+		department,
+		specialization
+	FROM doctors
+	WHERE deleted_at IS NULL
+	ORDER BY name ASC;
+END;
+GO
+
+-- AVAILABLE ROOMS FOR ADMISSION
+CREATE PROCEDURE sp_get_admin_available_rooms
+AS
+BEGIN
+	SELECT
+		hr.id,
+		hr.room_number,
+		hr.room_type,
+		hr.floor_number,
+		hr.status
+	FROM hospital_rooms hr
+	WHERE hr.status = 'available'
+	  AND NOT EXISTS (
+			SELECT 1
+			FROM room_admissions ra
+			WHERE ra.room_id = hr.id
+			  AND ra.status = 'admitted'
+			  AND ra.discharged_at IS NULL
+	  )
+	ORDER BY hr.floor_number ASC, hr.room_number ASC;
+END;
+GO
+
+-- CREATE ROOM ADMISSION
+CREATE PROCEDURE sp_create_room_admission
+	@patient_id BIGINT,
+	@room_id BIGINT,
+	@doctor_id BIGINT = NULL,
+	@admission_reason NVARCHAR(500) = NULL,
+	@admission_notes NVARCHAR(MAX) = NULL,
+	@admitted_at DATETIME = NULL,
+	@expected_discharge_at DATETIME = NULL
+AS
+BEGIN
+	IF NOT EXISTS (
+		SELECT 1
+		FROM patients
+		WHERE id = @patient_id
+		  AND deleted_at IS NULL
+	)
+	BEGIN
+		RAISERROR('Patient account not found.', 16, 1);
+		RETURN;
+	END
+
+	IF @doctor_id IS NOT NULL
+	   AND NOT EXISTS (
+			SELECT 1
+			FROM doctors
+			WHERE id = @doctor_id
+			  AND deleted_at IS NULL
+	   )
+	BEGIN
+		RAISERROR('Selected doctor was not found.', 16, 1);
+		RETURN;
+	END
+
+	IF NOT EXISTS (
+		SELECT 1
+		FROM hospital_rooms
+		WHERE id = @room_id
+		  AND status = 'available'
+	)
+	BEGIN
+		RAISERROR('Selected room is not available for admission.', 16, 1);
+		RETURN;
+	END
+
+	IF EXISTS (
+		SELECT 1
+		FROM room_admissions
+		WHERE patient_id = @patient_id
+		  AND status = 'admitted'
+		  AND discharged_at IS NULL
+	)
+	BEGIN
+		RAISERROR('This patient already has an active room admission.', 16, 1);
+		RETURN;
+	END
+
+	IF EXISTS (
+		SELECT 1
+		FROM room_admissions
+		WHERE room_id = @room_id
+		  AND status = 'admitted'
+		  AND discharged_at IS NULL
+	)
+	BEGIN
+		RAISERROR('This room is currently occupied.', 16, 1);
+		RETURN;
+	END
+
+	IF @admitted_at IS NULL
+	BEGIN
+		SET @admitted_at = GETDATE();
+	END
+
+	INSERT INTO room_admissions (
+		room_id,
+		patient_id,
+		doctor_id,
+		status,
+		admission_reason,
+		admission_notes,
+		admitted_at,
+		expected_discharge_at,
+		created_at,
+		updated_at
+	)
+	VALUES (
+		@room_id,
+		@patient_id,
+		@doctor_id,
+		'admitted',
+		@admission_reason,
+		@admission_notes,
+		@admitted_at,
+		@expected_discharge_at,
+		GETDATE(),
+		GETDATE()
+	);
+
+	DECLARE @admission_id BIGINT = SCOPE_IDENTITY();
+
+	SELECT TOP 1
+		ra.id,
+		ra.room_id,
+		ra.patient_id,
+		ra.doctor_id,
+		ra.status,
+		ra.admission_reason,
+		ra.admission_notes,
+		ra.discharge_notes,
+		ra.admitted_at,
+		ra.expected_discharge_at,
+		ra.discharged_at,
+		ra.created_at,
+		ra.updated_at,
+		hr.room_number,
+		hr.room_type,
+		hr.floor_number,
+		p.name AS patient_name,
+		p.email AS patient_email,
+		d.name AS doctor_name,
+		d.department AS doctor_department
+	FROM room_admissions ra
+	JOIN hospital_rooms hr ON hr.id = ra.room_id
+	JOIN patients p ON p.id = ra.patient_id
+	LEFT JOIN doctors d ON d.id = ra.doctor_id
+	WHERE ra.id = @admission_id
+	  AND p.deleted_at IS NULL;
+END;
+GO
+
+-- DISCHARGE ROOM ADMISSION
+CREATE PROCEDURE sp_discharge_room_admission
+	@admission_id BIGINT,
+	@discharge_notes NVARCHAR(MAX) = NULL
+AS
+BEGIN
+	IF NOT EXISTS (
+		SELECT 1
+		FROM room_admissions
+		WHERE id = @admission_id
+	)
+	BEGIN
+		RETURN;
+	END
+
+	IF EXISTS (
+		SELECT 1
+		FROM room_admissions
+		WHERE id = @admission_id
+		  AND status <> 'admitted'
+	)
+	BEGIN
+		RAISERROR('Only admitted records can be discharged.', 16, 1);
+		RETURN;
+	END
+
+	UPDATE room_admissions
+	SET status = 'discharged',
+		discharged_at = GETDATE(),
+		discharge_notes = @discharge_notes,
+		updated_at = GETDATE()
+	WHERE id = @admission_id;
+
+	SELECT TOP 1
+		ra.id,
+		ra.room_id,
+		ra.patient_id,
+		ra.doctor_id,
+		ra.status,
+		ra.admission_reason,
+		ra.admission_notes,
+		ra.discharge_notes,
+		ra.admitted_at,
+		ra.expected_discharge_at,
+		ra.discharged_at,
+		ra.created_at,
+		ra.updated_at,
+		hr.room_number,
+		hr.room_type,
+		hr.floor_number,
+		p.name AS patient_name,
+		p.email AS patient_email,
+		d.name AS doctor_name,
+		d.department AS doctor_department
+	FROM room_admissions ra
+	JOIN hospital_rooms hr ON hr.id = ra.room_id
+	JOIN patients p ON p.id = ra.patient_id
+	LEFT JOIN doctors d ON d.id = ra.doctor_id
+	WHERE ra.id = @admission_id
+	  AND p.deleted_at IS NULL;
+END;
+GO
+
+-- ADMIN ROOM DASHBOARD STATS
+CREATE PROCEDURE sp_get_admin_room_dashboard_stats
+AS
+BEGIN
+	DECLARE @total_rooms INT = (
+		SELECT COUNT(*)
+		FROM hospital_rooms
+		WHERE status IN ('available', 'maintenance')
+	);
+
+	DECLARE @occupied_rooms INT = (
+		SELECT COUNT(DISTINCT room_id)
+		FROM room_admissions
+		WHERE status = 'admitted'
+		  AND discharged_at IS NULL
+	);
+
+	IF @occupied_rooms IS NULL
+	BEGIN
+		SET @occupied_rooms = 0;
+	END
+
+	SELECT
+		@total_rooms AS total_rooms,
+		@occupied_rooms AS occupied_rooms,
+		CASE WHEN @total_rooms - @occupied_rooms < 0 THEN 0 ELSE @total_rooms - @occupied_rooms END AS available_rooms,
+		(SELECT COUNT(*) FROM room_admissions WHERE status = 'admitted' AND discharged_at IS NULL) AS active_admissions,
+		(SELECT COUNT(*) FROM room_admissions WHERE status = 'discharged') AS discharged_admissions,
+		(SELECT COUNT(*) FROM room_admissions) AS total_admissions;
+END;
+GO
+
+-- RECENT ROOM ADMISSIONS FOR ADMIN DASHBOARD
+CREATE PROCEDURE sp_get_admin_recent_room_admissions
+	@limit INT = 5
+AS
+BEGIN
+	IF @limit IS NULL OR @limit < 1
+	BEGIN
+		SET @limit = 5;
+	END
+
+	SELECT TOP (@limit)
+		ra.id,
+		ra.room_id,
+		ra.patient_id,
+		ra.doctor_id,
+		ra.status,
+		ra.admission_reason,
+		ra.admission_notes,
+		ra.discharge_notes,
+		ra.admitted_at,
+		ra.expected_discharge_at,
+		ra.discharged_at,
+		ra.created_at,
+		ra.updated_at,
+		hr.room_number,
+		hr.room_type,
+		hr.floor_number,
+		p.name AS patient_name,
+		p.email AS patient_email,
+		d.name AS doctor_name,
+		d.department AS doctor_department
+	FROM room_admissions ra
+	JOIN hospital_rooms hr ON hr.id = ra.room_id
+	JOIN patients p ON p.id = ra.patient_id
+	LEFT JOIN doctors d ON d.id = ra.doctor_id
+	WHERE p.deleted_at IS NULL
+	ORDER BY ra.admitted_at DESC;
 END;
 GO

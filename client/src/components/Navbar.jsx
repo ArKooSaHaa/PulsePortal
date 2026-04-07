@@ -35,7 +35,10 @@ const normalizeAdminRole = (role) => {
 };
 
 const getAdminLinks = (adminRole) => {
-    const links = [{ name: "Appointments", path: "all-appointments" }];
+    const links = [
+        { name: "Admit Room", path: "room-admissions" },
+        { name: "Appointments", path: "all-appointments" },
+    ];
 
     if (["super", "manager"].includes(adminRole)) {
         links.unshift({ name: "Add Doctor", path: "add-doctor" });

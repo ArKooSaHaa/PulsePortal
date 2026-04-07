@@ -265,6 +265,12 @@ export default function AdminDashboard() {
 
           <div className="flex items-center gap-2">
             <button
+              className="px-4 py-2 text-sm border border-[#127fec] text-[#127fec] rounded-lg hover:bg-[#127fec]/10 transition-all"
+              onClick={() => navigate("/admin/room-admissions")}
+            >
+              Admit Room
+            </button>
+            <button
               className="px-4 py-2 text-sm text-white rounded-lg hover:opacity-90 transition-all"
               onClick={() => navigate("/admin/all-appointments")}
               style={{ background: "linear-gradient(to right, #0a5bbf, #127fec)" }}

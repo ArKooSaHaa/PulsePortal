@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdminAppointmentController;
+use App\Http\Controllers\AdminRoomAdmissionController;
 use App\Http\Controllers\DoctorController;
 use App\Http\Controllers\DoctorAppointmentController;
 use App\Http\Controllers\PatientAppointmentController;
@@ -51,6 +52,12 @@ Route::middleware(['auth:admin'])->group(function () {
     Route::get('/admin/dashboard-summary', [AdminAppointmentController::class, 'dashboardSummary']);
     Route::get('/admin/appointments', [AdminAppointmentController::class, 'index']);
     Route::patch('/admin/appointments/{appointmentId}/status', [AdminAppointmentController::class, 'updateStatus']);
+
+    Route::get('/admin/room-admissions/dashboard-summary', [AdminRoomAdmissionController::class, 'dashboardSummary']);
+    Route::get('/admin/room-admissions/lookups', [AdminRoomAdmissionController::class, 'lookups']);
+    Route::get('/admin/room-admissions', [AdminRoomAdmissionController::class, 'index']);
+    Route::post('/admin/room-admissions', [AdminRoomAdmissionController::class, 'store']);
+    Route::patch('/admin/room-admissions/{admissionId}/discharge', [AdminRoomAdmissionController::class, 'discharge']);
 });
 
 Route::middleware(['auth:doctor'])->group(function () {

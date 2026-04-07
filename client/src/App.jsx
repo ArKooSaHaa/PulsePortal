@@ -24,6 +24,7 @@ import AddDoctor from "./pages/admin/AddDoctor";
 import AddAdmin from "./pages/admin/AddAdmin";
 import AdminProfile from "./pages/admin/AdminProfile";
 import AdminAppointments from "./pages/admin/AdminAppointments";
+import AdminRoomAdmissions from "./pages/admin/AdminRoomAdmissions";
 
 function normalizeAdminRole(role) {
     const value = String(role || "")
@@ -153,6 +154,10 @@ function App() {
                         <Route
                             path="all-appointments"
                             element={<AdminAppointments />}
+                        />
+                        <Route
+                            path="room-admissions"
+                            element={<AdminRoomAdmissions />}
                         />
                         <Route path="profile" element={<AdminProfile />} />
                     </Route>
