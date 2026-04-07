@@ -21,6 +21,7 @@ IF OBJECT_ID('sp_get_doctor_by_email', 'P') IS NOT NULL DROP PROCEDURE sp_get_do
 IF OBJECT_ID('sp_get_admin_by_email', 'P') IS NOT NULL DROP PROCEDURE sp_get_admin_by_email;
 IF OBJECT_ID('sp_email_exists', 'P') IS NOT NULL DROP PROCEDURE sp_email_exists;
 IF OBJECT_ID('sp_get_doctors', 'P') IS NOT NULL DROP PROCEDURE sp_get_doctors;
+IF OBJECT_ID('sp_create_doctor', 'P') IS NOT NULL DROP PROCEDURE sp_create_doctor;
 IF OBJECT_ID('sp_search_doctors', 'P') IS NOT NULL DROP PROCEDURE sp_search_doctors;
 IF OBJECT_ID('sp_update_doctor', 'P') IS NOT NULL DROP PROCEDURE sp_update_doctor;
 IF OBJECT_ID('sp_delete_patient', 'P') IS NOT NULL DROP PROCEDURE sp_delete_patient;
@@ -31,6 +32,8 @@ IF OBJECT_ID('sp_get_doctors_for_booking', 'P') IS NOT NULL DROP PROCEDURE sp_ge
 IF OBJECT_ID('sp_get_patient_appointments', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_appointments;
 IF OBJECT_ID('sp_get_patient_upcoming_appointments', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_upcoming_appointments;
 IF OBJECT_ID('sp_get_patient_recent_history', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_recent_history;
+IF OBJECT_ID('sp_get_patient_appointment_details', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_appointment_details;
+IF OBJECT_ID('sp_cancel_patient_appointment', 'P') IS NOT NULL DROP PROCEDURE sp_cancel_patient_appointment;
 IF OBJECT_ID('sp_get_doctor_appointments', 'P') IS NOT NULL DROP PROCEDURE sp_get_doctor_appointments;
 IF OBJECT_ID('sp_update_doctor_appointment_status', 'P') IS NOT NULL DROP PROCEDURE sp_update_doctor_appointment_status;
 IF OBJECT_ID('sp_get_admin_appointments', 'P') IS NOT NULL DROP PROCEDURE sp_get_admin_appointments;
@@ -249,7 +252,8 @@ BEGIN
 		specialization,
 		photo_path
 	FROM doctors
-	WHERE deleted_at IS NULL
+	WHERE role = 'doctor'
+	  AND deleted_at IS NULL
 	  AND (
 			@department IS NULL
 			OR LTRIM(RTRIM(@department)) = ''
@@ -263,6 +267,68 @@ BEGIN
 			OR department LIKE '%' + @search + '%'
 	  )
 	ORDER BY name ASC;
+END;
+GO
+
+-- CREATE DOCTOR
+CREATE PROCEDURE sp_create_doctor
+	@name NVARCHAR(255),
+	@email NVARCHAR(255),
+	@password NVARCHAR(255),
+	@phone NVARCHAR(50) = NULL,
+	@department NVARCHAR(255) = NULL,
+	@specialization NVARCHAR(255) = NULL,
+	@license_number NVARCHAR(100) = NULL,
+	@available_days NVARCHAR(MAX) = NULL,
+	@photo_path NVARCHAR(255) = NULL
+AS
+BEGIN
+	INSERT INTO doctors (
+		name,
+		email,
+		password,
+		phone,
+		role,
+		department,
+		specialization,
+		license_number,
+		available_days,
+		photo_path,
+		created_at,
+		updated_at
+	)
+	VALUES (
+		@name,
+		@email,
+		@password,
+		@phone,
+		'doctor',
+		@department,
+		@specialization,
+		@license_number,
+		@available_days,
+		@photo_path,
+		GETDATE(),
+		GETDATE()
+	);
+
+	DECLARE @doctor_id BIGINT = SCOPE_IDENTITY();
+
+	SELECT TOP 1
+		id,
+		name,
+		email,
+		phone,
+		role,
+		department,
+		specialization,
+		license_number,
+		available_days,
+		photo_path,
+		created_at,
+		updated_at
+	FROM doctors
+	WHERE id = @doctor_id;
 END;
 GO
 
@@ -434,6 +500,73 @@ BEGIN
 	WHERE a.patient_id = @patient_id
 	  AND a.appointment_date < GETDATE()
 	ORDER BY a.appointment_date DESC;
+END;
+GO
+
+-- GET APPOINTMENT DETAILS FOR A PATIENT
+CREATE PROCEDURE sp_get_patient_appointment_details
+	@patient_id BIGINT,
+	@appointment_id BIGINT
+AS
+BEGIN
+	SELECT TOP 1
+		a.id,
+		a.patient_id,
+		a.doctor_id,
+		a.appointment_date,
+		ISNULL(a.appointment_type, 'in-person') AS appointment_type,
+		a.status,
+		a.created_at,
+		a.updated_at,
+		d.name AS doctor_name,
+		d.specialization AS doctor_specialization,
+		d.department AS doctor_department
+	FROM appointments a
+	JOIN doctors d ON d.id = a.doctor_id
+	WHERE a.patient_id = @patient_id
+	  AND a.id = @appointment_id;
+END;
+GO
+
+-- CANCEL APPOINTMENT FOR A PATIENT
+CREATE PROCEDURE sp_cancel_patient_appointment
+	@patient_id BIGINT,
+	@appointment_id BIGINT
+AS
+BEGIN
+	IF NOT EXISTS (
+		SELECT 1
+		FROM appointments
+		WHERE id = @appointment_id
+		  AND patient_id = @patient_id
+	)
+	BEGIN
+		RETURN;
+	END
+
+	UPDATE appointments
+	SET status = 'cancelled',
+		updated_at = GETDATE()
+	WHERE id = @appointment_id
+	  AND patient_id = @patient_id
+	  AND status <> 'cancelled';
+
+	SELECT TOP 1
+		a.id,
+		a.patient_id,
+		a.doctor_id,
+		a.appointment_date,
+		ISNULL(a.appointment_type, 'in-person') AS appointment_type,
+		a.status,
+		a.created_at,
+		a.updated_at,
+		d.name AS doctor_name,
+		d.specialization AS doctor_specialization,
+		d.department AS doctor_department
+	FROM appointments a
+	JOIN doctors d ON d.id = a.doctor_id
+	WHERE a.patient_id = @patient_id
+	  AND a.id = @appointment_id;
 END;
 GO
 

@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Doctor;
+use App\Services\DatabaseFirstDoctorRegistrationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use RuntimeException;
 
 class DoctorController extends Controller
 {
-    public function __construct()
+    public function __construct(private readonly DatabaseFirstDoctorRegistrationService $doctorRegistration)
     {
         $this->middleware('auth:admin');
     }
@@ -33,18 +34,23 @@ class DoctorController extends Controller
             $photoPath = $request->file('photo')->store('doctors', 'public');
         }
 
-        $doctor = Doctor::create([
-            'name' => $validated['name'],
-            'email' => strtolower(trim($validated['email'])),
-            'password' => $validated['password'],
-            'phone' => $validated['phone'] ?? null,
-            'role' => 'doctor',
-            'department' => $validated['department'] ?? null,
-            'specialization' => $validated['specialization'] ?? null,
-            'license_number' => $validated['license_number'] ?? null,
-            'available_days' => $validated['available_days'] ?? [],
-            'photo_path' => $photoPath,
-        ]);
+        try {
+            $doctor = $this->doctorRegistration->createDoctor(
+                (string) $validated['name'],
+                (string) $validated['email'],
+                (string) $validated['password'],
+                $validated['phone'] ?? null,
+                $validated['department'] ?? null,
+                $validated['specialization'] ?? null,
+                $validated['license_number'] ?? null,
+                $validated['available_days'] ?? [],
+                $photoPath,
+            );
+        } catch (RuntimeException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        }
 
         return response()->json([
             'message' => 'Doctor account created successfully.',

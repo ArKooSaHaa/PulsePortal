@@ -96,6 +96,59 @@ class PatientAppointmentController extends Controller
         ]);
     }
 
+    public function show(Request $request, int $appointmentId): JsonResponse
+    {
+        $patient = $request->user();
+
+        if (! $patient || ($patient->role ?? null) !== 'patient') {
+            return response()->json([
+                'message' => 'Only patients can access appointment details.',
+            ], 403);
+        }
+
+        try {
+            $appointment = $this->appointments->getPatientAppointmentDetails(
+                (int) $patient->id,
+                $appointmentId,
+            );
+        } catch (RuntimeException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 404);
+        }
+
+        return response()->json([
+            'appointment' => $appointment,
+        ]);
+    }
+
+    public function cancel(Request $request, int $appointmentId): JsonResponse
+    {
+        $patient = $request->user();
+
+        if (! $patient || ($patient->role ?? null) !== 'patient') {
+            return response()->json([
+                'message' => 'Only patients can cancel appointments.',
+            ], 403);
+        }
+
+        try {
+            $appointment = $this->appointments->cancelPatientAppointment(
+                (int) $patient->id,
+                $appointmentId,
+            );
+        } catch (RuntimeException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 404);
+        }
+
+        return response()->json([
+            'message' => 'Appointment cancelled successfully.',
+            'appointment' => $appointment,
+        ]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $patient = $request->user();

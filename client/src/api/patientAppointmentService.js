@@ -123,6 +123,20 @@ const patientAppointmentService = {
 
         return appointments.map(normalizeAppointment);
     },
+
+    getAppointmentDetails: async (appointmentId) => {
+        const response = await api.get(`/patient/appointments/${appointmentId}`);
+
+        return normalizeAppointment(response.data?.appointment || {});
+    },
+
+    cancelAppointment: async (appointmentId) => {
+        const response = await api.patch(
+            `/patient/appointments/${appointmentId}/cancel`,
+        );
+
+        return normalizeAppointment(response.data?.appointment || {});
+    },
 };
 
 export default patientAppointmentService;

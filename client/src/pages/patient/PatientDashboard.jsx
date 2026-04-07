@@ -130,7 +130,7 @@ function getHistoryIcon(specialization = "") {
     return Stethoscope;
 }
 
-function AppointmentCard({ appt }) {
+function AppointmentCard({ appt, onViewDetails, onCancel, canceling }) {
     const statusKey = String(appt.status || "pending").toLowerCase();
     const statusCls = STATUS_STYLES[statusKey] || STATUS_STYLES.confirmed;
     const accentColor =
@@ -188,6 +188,7 @@ function AppointmentCard({ appt }) {
                         <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.97 }}
+                            onClick={() => onViewDetails(appt.id)}
                             className="px-4 py-1 rounded-full text-sm font-semibold text-white shadow-sm focus:outline-none"
                             style={{
                                 background:
@@ -199,9 +200,11 @@ function AppointmentCard({ appt }) {
                         <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.97 }}
+                            onClick={() => onCancel(appt.id)}
+                            disabled={canceling}
                             className="flex items-center gap-1.5 px-4 py-1 rounded-full text-sm font-semibold text-red-500 bg-red-50 hover:bg-red-100 border border-red-100 transition-colors focus:outline-none"
                         >
-                            Cancel
+                            {canceling ? "Cancelling..." : "Cancel"}
                         </motion.button>
                     </div>
                 </div>
@@ -215,6 +218,12 @@ export default function PatientDashboard() {
     const [upcomingAppointments, setUpcomingAppointments] = useState([]);
     const [loadingUpcoming, setLoadingUpcoming] = useState(true);
     const [upcomingError, setUpcomingError] = useState("");
+    const [cancelingAppointmentId, setCancelingAppointmentId] = useState(null);
+    const [actionMessage, setActionMessage] = useState("");
+    const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+    const [detailsLoading, setDetailsLoading] = useState(false);
+    const [detailsError, setDetailsError] = useState("");
+    const [detailsAppointment, setDetailsAppointment] = useState(null);
     const [historyRows, setHistoryRows] = useState([]);
     const [loadingHistory, setLoadingHistory] = useState(true);
     const [historyError, setHistoryError] = useState("");
@@ -271,6 +280,82 @@ export default function PatientDashboard() {
             cancelled = true;
         };
     }, []);
+
+    const handleViewDetails = async (appointmentId) => {
+        setDetailsModalOpen(true);
+        setDetailsLoading(true);
+        setDetailsError("");
+
+        try {
+            const details = await patientAppointmentService.getAppointmentDetails(
+                appointmentId,
+            );
+
+            setDetailsAppointment({
+                id: details.id,
+                doctor: details.doctorName,
+                specialty: details.doctorSpecialization || "General Physician",
+                date: formatDateLabel(details.appointmentDate),
+                time: formatTimeLabel(details.appointmentDate),
+                location: toLocationLabel(details),
+                status: details.status,
+                statusLabel: toStatusLabel(details.status),
+                type: toTypeLabel(details.appointmentType),
+            });
+        } catch (err) {
+            setDetailsAppointment(null);
+            setDetailsError(
+                err.response?.data?.message ||
+                    "Unable to load appointment details right now.",
+            );
+        } finally {
+            setDetailsLoading(false);
+        }
+    };
+
+    const handleCancelAppointment = async (appointmentId) => {
+        const confirmed = window.confirm(
+            "Are you sure you want to cancel this appointment?",
+        );
+
+        if (!confirmed || cancelingAppointmentId === appointmentId) {
+            return;
+        }
+
+        setActionMessage("");
+        setCancelingAppointmentId(appointmentId);
+
+        try {
+            const cancelled = await patientAppointmentService.cancelAppointment(
+                appointmentId,
+            );
+
+            setUpcomingAppointments((current) =>
+                current.filter((item) => item.id !== appointmentId),
+            );
+
+            if (detailsAppointment?.id === appointmentId) {
+                setDetailsAppointment((prev) =>
+                    prev
+                        ? {
+                              ...prev,
+                              status: cancelled.status,
+                              statusLabel: toStatusLabel(cancelled.status),
+                          }
+                        : prev,
+                );
+            }
+
+            setActionMessage("Appointment cancelled successfully.");
+        } catch (err) {
+            setActionMessage(
+                err.response?.data?.message ||
+                    "Could not cancel appointment right now.",
+            );
+        } finally {
+            setCancelingAppointmentId(null);
+        }
+    };
 
     useEffect(() => {
         let cancelled = false;
@@ -389,6 +474,11 @@ export default function PatientDashboard() {
                         Upcoming Appointments
                     </h2>
                     <div className="flex flex-col gap-4">
+                        {actionMessage && (
+                            <div className="bg-white/90 rounded-2xl shadow-sm border border-slate-100 p-4 text-sm text-slate-600">
+                                {actionMessage}
+                            </div>
+                        )}
                         {loadingUpcoming ? (
                             <div className="bg-white/90 rounded-2xl shadow-sm border border-slate-100 p-5 text-sm text-slate-500">
                                 Loading upcoming appointments...
@@ -403,7 +493,13 @@ export default function PatientDashboard() {
                             </div>
                         ) : (
                             upcomingAppointments.map((appt) => (
-                                <AppointmentCard key={appt.id} appt={appt} />
+                                <AppointmentCard
+                                    key={appt.id}
+                                    appt={appt}
+                                    onViewDetails={handleViewDetails}
+                                    onCancel={handleCancelAppointment}
+                                    canceling={cancelingAppointmentId === appt.id}
+                                />
                             ))
                         )}
                     </div>
@@ -471,6 +567,78 @@ export default function PatientDashboard() {
                 </motion.section>
 
                 <AnimatePresence>
+                    {detailsModalOpen && (
+                        <>
+                            <motion.div
+                                key="details-backdrop"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                onClick={() => setDetailsModalOpen(false)}
+                                className="fixed inset-0 bg-black/25 backdrop-blur-sm z-40"
+                            />
+
+                            <motion.div
+                                key="details-modal"
+                                initial={{ opacity: 0, y: 30, scale: 0.98 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: 20, scale: 0.98 }}
+                                transition={{ duration: 0.2 }}
+                                className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white border border-slate-100 shadow-xl p-5"
+                            >
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-lg font-bold text-slate-800">
+                                        Appointment Details
+                                    </h3>
+                                    <button
+                                        onClick={() => setDetailsModalOpen(false)}
+                                        className="text-sm text-slate-500 hover:text-slate-700"
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+
+                                {detailsLoading ? (
+                                    <p className="text-sm text-slate-500">
+                                        Loading details...
+                                    </p>
+                                ) : detailsError ? (
+                                    <p className="text-sm text-red-500">
+                                        {detailsError}
+                                    </p>
+                                ) : detailsAppointment ? (
+                                    <div className="space-y-2 text-sm">
+                                        <p className="text-slate-800 font-semibold">
+                                            {detailsAppointment.doctor}
+                                        </p>
+                                        <p className="text-slate-500">
+                                            {detailsAppointment.specialty}
+                                        </p>
+                                        <p className="text-slate-700">
+                                            Status: {detailsAppointment.statusLabel}
+                                        </p>
+                                        <p className="text-slate-700">
+                                            Type: {detailsAppointment.type}
+                                        </p>
+                                        <p className="text-slate-700">
+                                            Date: {detailsAppointment.date}
+                                        </p>
+                                        <p className="text-slate-700">
+                                            Time: {detailsAppointment.time}
+                                        </p>
+                                        <p className="text-slate-700">
+                                            Location: {detailsAppointment.location}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-slate-500">
+                                        No details found.
+                                    </p>
+                                )}
+                            </motion.div>
+                        </>
+                    )}
+
                     {isChatOpen && (
                         <>
                             <motion.div
