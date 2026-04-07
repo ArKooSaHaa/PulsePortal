@@ -17,6 +17,7 @@ import ProfilePage from "./pages/ProfilePage";
 // Doctor pages
 import DoctorDashboard from "./pages/doctor/DoctorDashboard";
 import DoctorProfile from "./pages/doctor/DoctorProfile";
+import DoctorAppointments from "./pages/doctor/DoctorAppointments";
 // Admin pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AddDoctor from "./pages/admin/AddDoctor";
@@ -81,6 +82,10 @@ function App() {
                 >
                     <Route element={<RoleLayout />}>
                         <Route index element={<DoctorDashboard />} />
+                        <Route
+                            path="doc-appointments"
+                            element={<DoctorAppointments />}
+                        />
                         <Route path="profile" element={<DoctorProfile />} />
                     </Route>
                 </Route>

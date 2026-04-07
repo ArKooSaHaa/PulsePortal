@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\DoctorController;
+use App\Http\Controllers\DoctorAppointmentController;
 use App\Http\Controllers\PatientAppointmentController;
 use Illuminate\Support\Facades\Route;
 
@@ -41,4 +42,9 @@ Route::middleware(['auth:api'])->group(function () {
 Route::middleware(['auth:admin'])->group(function () {
     Route::post('/admin/admins', [AdminController::class, 'store']);
     Route::post('/admin/doctors', [DoctorController::class, 'store']);
+});
+
+Route::middleware(['auth:doctor'])->group(function () {
+    Route::get('/doctor/appointments', [DoctorAppointmentController::class, 'index']);
+    Route::patch('/doctor/appointments/{appointmentId}/status', [DoctorAppointmentController::class, 'updateStatus']);
 });

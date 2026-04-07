@@ -1,12 +1,14 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Calendar,
   Users,
-  ClipboardList,
   Plus,
   TrendingUp,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import authService from "../../api/authService";
+import doctorAppointmentService from "../../api/doctorAppointmentService";
 
 const cardVariant = {
   hidden: { opacity: 0, y: 30 },
@@ -22,6 +24,110 @@ const cardVariant = {
 };
 
 export default function DoctorDashboard() {
+  const navigate = useNavigate();
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadAppointments = async () => {
+      setLoading(true);
+      setError("");
+
+      try {
+        const rows = await doctorAppointmentService.getMyAppointments();
+        if (!cancelled) {
+          setAppointments(rows);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setAppointments([]);
+          setError(
+            err.response?.data?.message ||
+              "Unable to load doctor appointment data right now.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadAppointments();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const user = authService.getCurrentUser();
+  const doctorDisplayName = user?.name ? `Dr. ${user.name}` : "Doctor";
+
+  const todayKey = new Date().toDateString();
+
+  const appointmentsToday = useMemo(
+    () =>
+      appointments.filter((item) => {
+        const date = new Date(item.appointmentDate);
+        return !Number.isNaN(date.getTime()) && date.toDateString() === todayKey;
+      }),
+    [appointments, todayKey],
+  );
+
+  const upcomingAppointments = useMemo(
+    () => appointments.filter((item) => new Date(item.appointmentDate) > new Date()),
+    [appointments],
+  );
+
+  const scheduleRows = useMemo(
+    () =>
+      [...appointmentsToday]
+        .sort(
+          (a, b) =>
+            new Date(a.appointmentDate).getTime() -
+            new Date(b.appointmentDate).getTime(),
+        )
+        .slice(0, 6),
+    [appointmentsToday],
+  );
+
+  const completionRate = useMemo(() => {
+    if (!appointments.length) {
+      return 0;
+    }
+
+    const completed = appointments.filter(
+      (item) => String(item.status).toLowerCase() === "completed",
+    ).length;
+
+    return Math.round((completed / appointments.length) * 100);
+  }, [appointments]);
+
+  const formatTime = (value) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return "--:--";
+    }
+
+    return date.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const toVisitTypeLabel = (value) => {
+    const type = String(value || "in-person").toLowerCase();
+    return type === "online" ? "Online" : "In-Person";
+  };
+
+  const toStatusLabel = (value) => {
+    const status = String(value || "pending").toLowerCase();
+    return status.charAt(0).toUpperCase() + status.slice(1);
+  };
+
   return (
     <div className="min-h-screen bg-[#eff6ff] px-4 sm:px-8 lg:px-12 py-8">
       
@@ -33,25 +139,32 @@ export default function DoctorDashboard() {
       >
         <div>
           <h1 className="text-3xl font-bold text-slate-800">
-            Good Morning, Dr. Smith
+            Good Morning, {doctorDisplayName}
           </h1>
           <p className="text-slate-500 mt-1">
-            You have <span className="text-[#0a5bbf] font-semibold">8 appointments</span> scheduled for today.
+            You have <span className="text-[#0a5bbf] font-semibold">{appointmentsToday.length} appointments</span> scheduled for today.
           </p>
         </div>
 
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
+          onClick={() => navigate("/doctor/doc-appointments")}
           className="flex items-center gap-2 px-5 py-3 rounded-full text-white font-semibold shadow-md"
           style={{
             background: "linear-gradient(135deg, #127fec, #0a5bbf)",
           }}
         >
           <Plus size={18} />
-          New Appointment
+          Manage Appointments
         </motion.button>
       </motion.div>
+
+      {error && (
+        <div className="mb-6 rounded-xl border border-red-100 bg-white p-4 text-red-500 text-sm">
+          {error}
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-3 gap-6">
         
@@ -63,12 +176,12 @@ export default function DoctorDashboard() {
             {[
               {
                 title: "Appointments Today",
-                value: 8,
+                value: loading ? "..." : appointmentsToday.length,
                 icon: <Calendar size={22} />,
               },
               {
                 title: "Upcoming",
-                value: 12,
+                value: loading ? "..." : upcomingAppointments.length,
                 icon: <Users size={22} />,
               },
               
@@ -122,67 +235,46 @@ export default function DoctorDashboard() {
 
   {/* Data Rows */}
   <div className="space-y-3">
-    {[
-      {
-        time: "09:00 AM",
-        name: "Sarah Johnson",
-        type: "Post-Op Checkup",
-        status: "Checked In",
-      },
-      {
-        time: "10:30 AM",
-        name: "Michael Chen",
-        type: "Consultation",
-        status: "Scheduled",
-      },
-      {
-        time: "01:00 PM",
-        name: "Emily Davis",
-        type: "Routine Exam",
-        status: "Pending",
-      },
-      {
-        time: "02:45 PM",
-        name: "James Wilson",
-        type: "Follow-up",
-        status: "Scheduled",
-      },
-    ].map((item, i) => (
+    {loading ? (
+      <div className="text-sm text-slate-500 py-4">Loading today schedule...</div>
+    ) : scheduleRows.length === 0 ? (
+      <div className="text-sm text-slate-500 py-4">No appointments scheduled for today.</div>
+    ) : scheduleRows.map((item) => (
       <motion.div
-        key={i}
+        key={item.id}
         whileHover={{ backgroundColor: "#f8fafc" }}
         className="grid grid-cols-4 items-center p-4 rounded-xl border border-slate-100 transition"
       >
         <div className="font-medium text-slate-700">
-          {item.time}
+          {formatTime(item.appointmentDate)}
         </div>
 
        
            {/* Patient with Avatar */}
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white flex items-center justify-center text-sm font-semibold">
-            {item.name.charAt(0)}
+            {(item.patientName || "P").charAt(0)}
           </div>
           <span className="text-slate-600 font-medium">
-            {item.name}
+            {item.patientName}
           </span>
         </div>
 
         <div className="text-slate-500 text-sm">
-          {item.type}
+          {toVisitTypeLabel(item.appointmentType)}
         </div>
         
         <div>
           <span
             className={`text-xs px-3 py-1 rounded-full font-medium ${
-              item.status === "Checked In"
+              String(item.status).toLowerCase() === "completed"
                 ? "bg-green-100 text-green-600"
-                : item.status === "Pending"
+                : String(item.status).toLowerCase() === "pending"
                 ? "bg-yellow-100 text-yellow-600"
                 : "bg-blue-100 text-blue-600"
             }`}
           >
-            {item.status}
+            {toStatusLabel(item.status)}
           </span>
         </div>
       </motion.div>
@@ -208,9 +300,9 @@ export default function DoctorDashboard() {
               <p className="font-medium">Weekly Efficiency</p>
               <TrendingUp size={20} />
             </div>
-            <h2 className="text-4xl font-bold">94%</h2>
+            <h2 className="text-4xl font-bold">{loading ? "--" : `${completionRate}%`}</h2>
             <p className="text-sm opacity-90 mt-2">
-              You are in the top 5% of efficiency this week.
+              Completion rate based on your appointment history.
             </p>
           </motion.div>
         </div>
