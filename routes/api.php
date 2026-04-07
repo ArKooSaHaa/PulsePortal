@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\DoctorController;
+use App\Http\Controllers\PatientAppointmentController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -31,6 +32,10 @@ Route::middleware(['auth:api'])->group(function () {
     Route::get('/dashboard', [AuthController::class, 'dashboard']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/refresh', [AuthController::class, 'refresh']);
+
+    Route::get('/patient/doctors', [PatientAppointmentController::class, 'doctors']);
+    Route::get('/patient/appointments', [PatientAppointmentController::class, 'index']);
+    Route::post('/patient/appointments', [PatientAppointmentController::class, 'store']);
 });
 
 Route::middleware(['auth:admin'])->group(function () {

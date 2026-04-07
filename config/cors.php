@@ -15,16 +15,19 @@ return [
     |
     */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
+    'paths' => ['api', 'api/*', 'sanctum/csrf-cookie'],
 
     'allowed_methods' => ['*'],
 
     // Local development (Vite/React) may run on different ports (5173, 5174, etc.).
-    // Allow only loopback origins, across any port.
+    // Allow loopback and private-network origins, across any port.
     'allowed_origins' => [],
 
     'allowed_origins_patterns' => [
-        '#^http://(localhost|127\.0\.0\.1)(:\d+)?$#',
+        '#^https?://(localhost|127\.0\.0\.1)(:\d+)?$#',
+        '#^https?://192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$#',
+        '#^https?://10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$#',
+        '#^https?://172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}(:\d+)?$#',
     ],
 
     'allowed_headers' => ['*'],

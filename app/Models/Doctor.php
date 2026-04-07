@@ -3,12 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
 
 class Doctor extends Authenticatable implements JWTSubject
 {
     use HasFactory;
+    use SoftDeletes;
 
     protected $fillable = [
         'name',

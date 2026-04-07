@@ -2,17 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Admin;
-use App\Models\Doctor;
-use App\Models\Patient;
+use App\Services\DatabaseFirstAuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Tymon\JWTAuth\Facades\JWTAuth;
 
 class AuthController extends Controller
 {
-    public function __construct()
+    public function __construct(private readonly DatabaseFirstAuthService $databaseAuth)
     {
         $this->middleware('auth:api')->except(['register', 'login']);
     }
@@ -21,16 +18,26 @@ class AuthController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:patients,email'],
+            'email' => ['required', 'string', 'email', 'max:255'],
             'password' => ['required', 'string', 'min:6'],
         ]);
 
-        $patient = Patient::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'role' => 'patient',
-        ]);
+        $email = strtolower(trim($validated['email']));
+
+        if ($this->databaseAuth->emailExists($email)) {
+            return response()->json([
+                'message' => 'The email has already been taken.',
+                'errors' => [
+                    'email' => ['The email has already been taken.'],
+                ],
+            ], 422);
+        }
+
+        $patient = $this->databaseAuth->registerPatient(
+            $validated['name'],
+            $email,
+            $validated['password'],
+        );
 
         $token = JWTAuth::fromUser($patient);
 
@@ -50,69 +57,22 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        $email = strtolower(trim($validated['email']));
-        $credentials = [
-            'email' => $email,
-            'password' => $validated['password'],
-        ];
+        $authResult = $this->databaseAuth->login(
+            $validated['email'],
+            $validated['password'],
+        );
 
-        // If the email exists in admins, authenticate against the admin guard.
-        if (Admin::where('email', $email)->exists()) {
-            $token = auth('admin')->attempt($credentials);
-
-            if (! $token) {
-                return response()->json([
-                    'message' => 'Invalid email or password.',
-                ], 401);
-            }
-
-            /** @var \App\Models\Admin $admin */
-            $admin = auth('admin')->user();
-
-            return response()->json([
-                'access_token' => $token,
-                'token_type' => 'bearer',
-                'expires_in' => JWTAuth::factory()->getTTL() * 60,
-                'user' => $admin,
-            ], 200);
-        }
-
-        // If the email exists in doctors, authenticate against the doctor guard.
-        if (Doctor::where('email', $email)->exists()) {
-            $token = auth('doctor')->attempt($credentials);
-
-            if (! $token) {
-                return response()->json([
-                    'message' => 'Invalid email or password.',
-                ], 401);
-            }
-
-            /** @var \App\Models\Doctor $doctor */
-            $doctor = auth('doctor')->user();
-
-            return response()->json([
-                'access_token' => $token,
-                'token_type' => 'bearer',
-                'expires_in' => JWTAuth::factory()->getTTL() * 60,
-                'user' => $doctor,
-            ], 200);
-        }
-
-        // Default: patient login
-        if (! $token = auth('api')->attempt($credentials)) {
+        if (! $authResult) {
             return response()->json([
                 'message' => 'Invalid email or password.',
             ], 401);
         }
 
-        /** @var \App\Models\Patient $patient */
-        $patient = auth('api')->user();
-
         return response()->json([
-            'access_token' => $token,
+            'access_token' => $authResult['token'],
             'token_type' => 'bearer',
             'expires_in' => JWTAuth::factory()->getTTL() * 60,
-            'user' => $patient,
+            'user' => $authResult['user'],
         ], 200);
     }
 

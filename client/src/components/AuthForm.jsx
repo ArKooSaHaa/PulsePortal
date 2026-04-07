@@ -229,8 +229,17 @@ export default function AuthForm({ activeRole, onRoleChange }) {
                 )[0][0];
                 setError(firstError);
             } else {
+                const status = err.response?.status;
+                const requestUrl =
+                    err.config?.baseURL && err.config?.url
+                        ? `${err.config.baseURL}${err.config.url}`
+                        : err.config?.url || "the API endpoint";
                 const msg =
                     err.response?.data?.message ||
+                    (typeof err.response?.data === "string"
+                        ? `Request failed (${status || "unknown"}) at ${requestUrl}.`
+                        : null) ||
+                    err.message ||
                     "Something went wrong. Please try again.";
                 setError(msg);
             }

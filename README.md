@@ -158,6 +158,57 @@ The objective of Pulse Portal is to develop an intelligent healthcare support sy
 
 ## Setup
 
+### Database-First Setup (SQL Server)
+
+Use this flow when your project requirement is database-first.
+
+**1. Configure SQL Server in `.env`**
+
+```env
+DB_CONNECTION=sqlsrv
+DB_HOST=127.0.0.1
+DB_PORT=1433
+DB_DATABASE=laravel_db
+DB_USERNAME=SA
+DB_PASSWORD=StrongPass@123
+DB_ENCRYPT=optional
+DB_TRUST_SERVER_CERTIFICATE=true
+```
+
+**2. Run `schema.sql` directly in SQL Server**
+
+- This creates tables, indexes, seed data, and stored procedures.
+- In this mode, prefer `schema.sql` as the source of truth.
+
+**3. Generate app and JWT keys**
+
+```bash
+php artisan key:generate
+php artisan jwt:secret
+```
+
+**4. Run backend and frontend**
+
+```bash
+# Terminal 1 (backend)
+php artisan serve --host=127.0.0.1 --port=8000
+
+# Terminal 2 (frontend)
+cd client
+npm install
+npm run dev -- --host 127.0.0.1 --port 5173
+```
+
+**5. Database-first test accounts (password: `password123`)**
+
+- `admin@example.com`
+- `smith@example.com`
+- `ali@example.com`
+- `john@example.com`
+- `jane@example.com`
+
+### Laravel Migration/Seeder Setup (Alternative)
+
 **1. Clone the repository and switch to the dev branch**
 
 ```bash

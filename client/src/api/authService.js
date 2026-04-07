@@ -1,4 +1,4 @@
-import api from "./axios";
+import api, { getResolvedApiBaseUrl } from "./axios";
 
 const SESSION_USER_KEY = "user";
 const SESSION_TOKEN_KEY = "token";
@@ -10,8 +10,9 @@ const saveSessionUser = (user) => {
 
 const normalizeApiError = (err) => {
     if (!err.response) {
+        const baseUrl = getResolvedApiBaseUrl();
         const networkError = new Error(
-            "Network error. Please check your connection and backend server.",
+            `Network error while reaching ${baseUrl || "the API server"}. Check backend URL, CORS, and server status.`,
         );
         networkError.response = { data: { message: networkError.message } };
         throw networkError;

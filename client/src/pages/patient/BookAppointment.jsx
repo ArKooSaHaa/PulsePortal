@@ -1,60 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import AIChatPanel from "../../components/AIChatPanel";
 import { Star, CheckCircle2, ChevronLeft, ChevronRight, Bot, Sparkles, Search, CalendarDays, Clock, UserCheck, ArrowRight, Video, MapPin } from "lucide-react";
-
-const DOCTORS = [
-    {
-        id: 1,
-        name: "Dr. Sarah Ahmed",
-        specialty: "Senior Cardiologist",
-        department: "Cardiology",
-        clinic: "Heart Center",
-        rating: 4.9,
-        fee: 60,
-        avatar: "SA",
-        color: "#e0f2fe",
-        accent: "#0284c7",
-    },
-    {
-        id: 2,
-        name: "Dr. Michael Chen",
-        specialty: "Neurologist",
-        department: "Neurology",
-        clinic: "Brain & Nerve Clinic",
-        rating: 4.8,
-        fee: 55,
-        avatar: "MC",
-        color: "#ede9fe",
-        accent: "#7c3aed",
-    },
-    {
-        id: 3,
-        name: "Dr. Elena Rodriguez",
-        specialty: "Pediatrician",
-        department: "Pediatrics",
-        clinic: "Family Care",
-        rating: 5.0,
-        fee: 45,
-        avatar: "ER",
-        color: "#dcfce7",
-        accent: "#16a34a",
-    },
-    {
-        id: 4,
-        name: "Dr. James Patel",
-        specialty: "General Physician",
-        department: "General",
-        clinic: "General Practice",
-        rating: 4.7,
-        fee: 40,
-        avatar: "JP",
-        color: "#fff7ed",
-        accent: "#ea580c",
-    },
-];
-
-const DEPARTMENTS = ["All", "Cardiology", "Neurology", "Pediatrics", "General"];
+import patientAppointmentService from "../../api/patientAppointmentService";
 
 const TIME_SLOTS = [
     { id: 1, time: "09:00 AM", available: true },
@@ -312,29 +260,134 @@ function formatDate(year, month, day) {
     return `${day} ${MONTH_NAMES[month]} ${year}`;
 }
 
+function toAppointmentIso(selectedDate, selectedTime) {
+    if (!selectedDate || !selectedTime) {
+        return null;
+    }
+
+    const [clock, period] = selectedTime.split(" ");
+    const [hourText, minuteText] = clock.split(":");
+
+    let hours = Number(hourText);
+    const minutes = Number(minuteText);
+
+    if (period === "PM" && hours < 12) {
+        hours += 12;
+    }
+
+    if (period === "AM" && hours === 12) {
+        hours = 0;
+    }
+
+    const appointmentDate = new Date(
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+        hours,
+        minutes,
+        0,
+    );
+
+    return appointmentDate.toISOString();
+}
+
 
 export default function BookAppointment() {
     const [search, setSearch] = useState("");
     const [dept, setDept] = useState("All");
+    const [doctors, setDoctors] = useState([]);
+    const [departments, setDepartments] = useState(["All"]);
+    const [loadingDoctors, setLoadingDoctors] = useState(true);
+    const [doctorsError, setDoctorsError] = useState("");
     const [selectedDoctor, setSelectedDoctor] = useState(null);
     const [selectedType, setSelectedType] = useState(null);
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedTime, setSelectedTime] = useState(null);
+    const [bookingError, setBookingError] = useState("");
+    const [isConfirming, setIsConfirming] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [confirmed, setConfirmed] = useState(false);
 
-    const filteredDoctors = DOCTORS.filter((d) => {
-        const matchSearch =
-            d.name.toLowerCase().includes(search.toLowerCase()) ||
-            d.specialty.toLowerCase().includes(search.toLowerCase());
-        const matchDept = dept === "All" || d.department === dept;
-        return matchSearch && matchDept;
-    });
+    useEffect(() => {
+        let cancelled = false;
+
+        const timer = setTimeout(async () => {
+            setLoadingDoctors(true);
+            setDoctorsError("");
+
+            try {
+                const result = await patientAppointmentService.getDoctors({
+                    search: search.trim(),
+                    department: dept === "All" ? "" : dept,
+                });
+
+                if (cancelled) {
+                    return;
+                }
+
+                setDoctors(result);
+
+                if (!search.trim() && dept === "All") {
+                    const uniqueDepartments = Array.from(
+                        new Set(
+                            result
+                                .map((doctor) => doctor.department)
+                                .filter(Boolean),
+                        ),
+                    );
+                    setDepartments(["All", ...uniqueDepartments]);
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setDoctors([]);
+                    setDoctorsError(
+                        err.response?.data?.message ||
+                            "Unable to load doctors right now.",
+                    );
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoadingDoctors(false);
+                }
+            }
+        }, 250);
+
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
+    }, [search, dept]);
+
+    const filteredDoctors = doctors;
 
     const canConfirm = selectedDoctor && selectedType && selectedDate && selectedTime;
 
-    const handleConfirm = () => {
-        if (canConfirm) setConfirmed(true);
+    const handleConfirm = async () => {
+        if (!canConfirm || isConfirming) {
+            return;
+        }
+
+        setBookingError("");
+        setIsConfirming(true);
+
+        const appointmentIso = toAppointmentIso(selectedDate, selectedTime);
+
+        try {
+            await patientAppointmentService.createAppointment({
+                doctorId: selectedDoctor.id,
+                appointmentType: selectedType,
+                appointmentDate: appointmentIso,
+            });
+
+            setConfirmed(true);
+        } catch (err) {
+            setBookingError(
+                err.response?.data?.message ||
+                    "Could not book the appointment. Please try again.",
+            );
+        } finally {
+            setIsConfirming(false);
+        }
     };
 
     const dateLabel = selectedDate
@@ -390,6 +443,7 @@ export default function BookAppointment() {
                             setSelectedType(null);
                             setSelectedDate(null);
                             setSelectedTime(null);
+                            setBookingError("");
                         }}
                         className="w-full py-3 rounded-xl text-sm font-bold text-white shadow-lg"
                         style={{ background: "linear-gradient(135deg, #0a5bbf, #127fec)" }}
@@ -459,7 +513,7 @@ export default function BookAppointment() {
                                     onChange={(e) => setDept(e.target.value)}
                                     className="px-5 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-[#127fec] transition-all text-slate-700 font-medium cursor-pointer"
                                 >
-                                    {DEPARTMENTS.map((d) => (
+                                    {departments.map((d) => (
                                         <option key={d} value={d}>{d === "All" ? "All Departments" : d}</option>
                                     ))}
                                 </select>
@@ -468,7 +522,25 @@ export default function BookAppointment() {
                             {/* Doctor list */}
                             <div className="flex flex-col gap-2">
                                 <AnimatePresence>
-                                    {filteredDoctors.length === 0 ? (
+                                    {loadingDoctors ? (
+                                        <motion.div
+                                            key="loading-doctors"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            className="text-center py-8 text-sm text-slate-400"
+                                        >
+                                            Loading doctors...
+                                        </motion.div>
+                                    ) : doctorsError ? (
+                                        <motion.div
+                                            key="doctors-error"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            className="text-center py-8 text-sm text-red-500"
+                                        >
+                                            {doctorsError}
+                                        </motion.div>
+                                    ) : filteredDoctors.length === 0 ? (
                                         <motion.div
                                             initial={{ opacity: 0 }}
                                             animate={{ opacity: 1 }}
@@ -691,20 +763,28 @@ export default function BookAppointment() {
                                 )}
                             </AnimatePresence>
 
+                            {bookingError && (
+                                <p className="text-xs text-red-500 mb-3 text-center">
+                                    {bookingError}
+                                </p>
+                            )}
+
                             {/* Confirm button */}
                             <motion.button
-                                whileHover={canConfirm ? { scale: 1.02 } : {}}
-                                whileTap={canConfirm ? { scale: 0.97 } : {}}
+                                whileHover={canConfirm && !isConfirming ? { scale: 1.02 } : {}}
+                                whileTap={canConfirm && !isConfirming ? { scale: 0.97 } : {}}
                                 onClick={handleConfirm}
-                                disabled={!canConfirm}
+                                disabled={!canConfirm || isConfirming}
                                 className={`w-full py-3.5 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300
-                                    ${canConfirm
+                                    ${canConfirm && !isConfirming
                                         ? "text-white shadow-lg shadow-blue-200 cursor-pointer"
                                         : "text-slate-400 bg-slate-100 cursor-not-allowed"
                                     }`}
-                                style={canConfirm ? { background: "linear-gradient(135deg, #0a5bbf, #127fec)" } : {}}
+                                style={canConfirm && !isConfirming ? { background: "linear-gradient(135deg, #0a5bbf, #127fec)" } : {}}
                             >
-                                {canConfirm ? (
+                                {isConfirming ? (
+                                    "Booking..."
+                                ) : canConfirm ? (
                                     <>Confirm Booking <ArrowRight size={16} /></>
                                 ) : (
                                     "Complete all steps above"
