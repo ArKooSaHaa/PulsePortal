@@ -6,6 +6,7 @@ use App\Http\Controllers\AdminAppointmentController;
 use App\Http\Controllers\AdminRoomAdmissionController;
 use App\Http\Controllers\DoctorController;
 use App\Http\Controllers\DoctorAppointmentController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PatientAppointmentController;
 use Illuminate\Support\Facades\Route;
 
@@ -37,6 +38,7 @@ Route::middleware(['auth:api'])->group(function () {
     Route::post('/refresh', [AuthController::class, 'refresh']);
 
     Route::get('/patient/doctors', [PatientAppointmentController::class, 'doctors']);
+    Route::get('/patient/notifications', [NotificationController::class, 'patientNotifications']);
     Route::get('/patient/appointments', [PatientAppointmentController::class, 'index']);
     Route::get('/patient/appointments/upcoming', [PatientAppointmentController::class, 'upcoming']);
     Route::get('/patient/room-admissions/summary', [PatientAppointmentController::class, 'roomAdmissionsSummary']);
@@ -49,6 +51,7 @@ Route::middleware(['auth:api'])->group(function () {
 });
 
 Route::middleware(['auth:admin'])->group(function () {
+    Route::get('/admin/notifications', [NotificationController::class, 'adminNotifications']);
     Route::post('/admin/admins', [AdminController::class, 'store']);
     Route::post('/admin/doctors', [DoctorController::class, 'store']);
     Route::get('/admin/dashboard-summary', [AdminAppointmentController::class, 'dashboardSummary']);
@@ -63,6 +66,7 @@ Route::middleware(['auth:admin'])->group(function () {
 });
 
 Route::middleware(['auth:doctor'])->group(function () {
+    Route::get('/doctor/notifications', [NotificationController::class, 'doctorNotifications']);
     Route::get('/doctor/appointments', [DoctorAppointmentController::class, 'index']);
     Route::get('/doctor/room-admissions/summary', [DoctorAppointmentController::class, 'roomAdmissionsSummary']);
     Route::get('/doctor/room-admissions/{admissionId}', [DoctorAppointmentController::class, 'roomAdmissionDetails']);

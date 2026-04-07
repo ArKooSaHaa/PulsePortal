@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { HeartPulse, LogOut, User, Menu, X, Bell } from "lucide-react";
 import demoImage from "../assets/demo.jpg";
 import authService from "../api/authService";
+import notificationService from "../api/notificationService";
 
 const NAV_LINKS = {
     patient: [
@@ -13,6 +14,8 @@ const NAV_LINKS = {
     doctor: [{ name: "Appointments", path: "doc-appointments" }],
     admin: [{ name: "Appointments", path: "all-appointments" }],
 };
+
+const NOTIFICATION_REFRESH_MS = 15000;
 
 const normalizeAdminRole = (role) => {
     const value = String(role || "")
@@ -88,6 +91,25 @@ function NavLink({ to, children, isActive }) {
     );
 }
 
+function formatNotificationTime(value) {
+    if (!value) {
+        return "";
+    }
+
+    const parsed = new Date(value);
+
+    if (Number.isNaN(parsed.getTime())) {
+        return "";
+    }
+
+    return parsed.toLocaleString([], {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+}
+
 export default function Navbar() {
     const location = useLocation();
     const navigate = useNavigate();
@@ -97,8 +119,12 @@ export default function Navbar() {
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isNotifOpen, setIsNotifOpen] = useState(false);
+    const [notifications, setNotifications] = useState([]);
+    const [loadingNotifications, setLoadingNotifications] = useState(false);
+    const [notificationError, setNotificationError] = useState("");
     const dropdownRef = useRef(null);
-    const notifRef = useRef(null);
+    const desktopNotifRef = useRef(null);
+    const mobileNotifRef = useRef(null);
     const mobileMenuRef = useRef(null);
 
     const currentUser = authService.getCurrentUser();
@@ -108,11 +134,78 @@ export default function Navbar() {
             ? getAdminLinks(normalizedAdminRole)
             : NAV_LINKS[role] || [];
     const dashboardPath = `/${role}`;
+    const canLoadNotifications = ["patient", "doctor", "admin"].includes(role);
 
     const handleLogout = async () => {
         await authService.logout();
         navigate("/auth");
     };
+
+    useEffect(() => {
+        let cancelled = false;
+
+        if (!canLoadNotifications) {
+            setNotifications([]);
+            setNotificationError("");
+            setLoadingNotifications(false);
+            return () => {
+                cancelled = true;
+            };
+        }
+
+        const loadNotifications = async ({ showLoading = true } = {}) => {
+            if (showLoading) {
+                setLoadingNotifications(true);
+            }
+
+            setNotificationError("");
+
+            try {
+                const rows = await notificationService.getNotifications(role, {
+                    limit: 8,
+                });
+
+                if (!cancelled) {
+                    setNotifications(rows);
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setNotifications([]);
+                    setNotificationError(
+                        err.response?.data?.message ||
+                            "Unable to load notifications right now.",
+                    );
+                }
+            } finally {
+                if (!cancelled && showLoading) {
+                    setLoadingNotifications(false);
+                }
+            }
+        };
+
+        void loadNotifications();
+
+        const intervalId = window.setInterval(() => {
+            void loadNotifications({ showLoading: false });
+        }, NOTIFICATION_REFRESH_MS);
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "visible") {
+                void loadNotifications({ showLoading: false });
+            }
+        };
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+
+        return () => {
+            cancelled = true;
+            window.clearInterval(intervalId);
+            document.removeEventListener(
+                "visibilitychange",
+                handleVisibilityChange,
+            );
+        };
+    }, [canLoadNotifications, role]);
 
     useEffect(() => {
         function handleClickOutside(event) {
@@ -122,9 +215,16 @@ export default function Navbar() {
             ) {
                 setIsProfileOpen(false);
             }
-            if (notifRef.current && !notifRef.current.contains(event.target)) {
+
+            const clickedDesktopNotif =
+                desktopNotifRef.current?.contains(event.target) ?? false;
+            const clickedMobileNotif =
+                mobileNotifRef.current?.contains(event.target) ?? false;
+
+            if (!clickedDesktopNotif && !clickedMobileNotif) {
                 setIsNotifOpen(false);
             }
+
             if (
                 mobileMenuRef.current &&
                 !mobileMenuRef.current.contains(event.target)
@@ -137,6 +237,89 @@ export default function Navbar() {
             document.removeEventListener("mousedown", handleClickOutside);
         };
     }, []);
+
+    const unreadCount = notifications.length;
+
+    const renderNotificationDropdown = (widthClass) => (
+        <AnimatePresence>
+            {isNotifOpen && (
+                <motion.div
+                    initial={{
+                        opacity: 0,
+                        y: 10,
+                        scale: 0.95,
+                    }}
+                    animate={{
+                        opacity: 1,
+                        y: 0,
+                        scale: 1,
+                    }}
+                    exit={{
+                        opacity: 0,
+                        y: 10,
+                        scale: 0.95,
+                    }}
+                    className={`absolute right-0 top-full mt-2 ${widthClass} rounded-xl border border-slate-200 bg-white shadow-xl p-3 z-50`}
+                >
+                    <div className="flex items-center justify-between px-2 mb-2">
+                        <p className="text-md font-bold tracking-wider">
+                            Notifications
+                        </p>
+                        {unreadCount > 0 && (
+                            <span className="text-xs font-semibold text-[#127fec] bg-[#127fec]/10 px-2 py-0.5 rounded-full">
+                                {unreadCount}
+                            </span>
+                        )}
+                    </div>
+
+                    {loadingNotifications ? (
+                        <p className="px-3 py-2.5 text-sm text-slate-500">
+                            Loading notifications...
+                        </p>
+                    ) : notificationError ? (
+                        <p className="px-3 py-2.5 text-sm text-red-500">
+                            {notificationError}
+                        </p>
+                    ) : notifications.length === 0 ? (
+                        <p className="px-3 py-2.5 text-sm text-slate-500">
+                            No notifications right now.
+                        </p>
+                    ) : (
+                        <div className="flex flex-col gap-1 max-h-80 overflow-y-auto">
+                            {notifications.map((item) => (
+                                <motion.button
+                                    key={item.id}
+                                    whileHover={{
+                                        backgroundColor: "rgba(18, 127, 236, 0.12)",
+                                    }}
+                                    onClick={() => {
+                                        setIsNotifOpen(false);
+
+                                        if (item.targetPath) {
+                                            navigate(item.targetPath);
+                                        }
+                                    }}
+                                    className="text-left w-full px-3 py-2.5 rounded-lg transition-colors"
+                                >
+                                    <p className="text-[12px] font-semibold text-slate-700">
+                                        {item.title}
+                                    </p>
+                                    <p className="text-sm text-slate-600 mt-0.5">
+                                        {item.message}
+                                    </p>
+                                    {item.createdAt && (
+                                        <p className="text-[11px] text-slate-400 mt-1">
+                                            {formatNotificationTime(item.createdAt)}
+                                        </p>
+                                    )}
+                                </motion.button>
+                            ))}
+                        </div>
+                    )}
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
 
     return (
         <header className="sticky top-0 z-50 w-full">
@@ -185,7 +368,7 @@ export default function Navbar() {
                             ))}
 
                             {/* Notification Button */}
-                            <div className="relative" ref={notifRef}>
+                            <div className="relative" ref={desktopNotifRef}>
                                 <motion.button
                                     onClick={() => setIsNotifOpen(!isNotifOpen)}
                                     whileHover={{ scale: 1.08 }}
@@ -193,54 +376,12 @@ export default function Navbar() {
                                     className="relative p-2 rounded-full text-slate-600 hover:text-[#127fec] hover:bg-[#127fec]/10 transition-colors focus:outline-none"
                                 >
                                     <Bell size={20} />
-                                    <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+                                    {unreadCount > 0 && (
+                                        <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+                                    )}
                                 </motion.button>
 
-                                {/* Notification Dropdown */}
-                                <AnimatePresence>
-                                    {isNotifOpen && (
-                                        <motion.div
-                                            initial={{
-                                                opacity: 0,
-                                                y: 10,
-                                                scale: 0.95,
-                                            }}
-                                            animate={{
-                                                opacity: 1,
-                                                y: 0,
-                                                scale: 1,
-                                            }}
-                                            exit={{
-                                                opacity: 0,
-                                                y: 10,
-                                                scale: 0.95,
-                                            }}
-                                            className="absolute right-0 top-full mt-2 w-72 rounded-xl border border-slate-200 bg-white shadow-xl p-3 z-50"
-                                        >
-                                            <p className="text-md font-bold tracking-wider px-2 mb-2">
-                                                Notifications
-                                            </p>
-                                            <div className="flex flex-col gap-1">
-                                                {[
-                                                    "Notificatoin 1.",
-                                                    "Notification 2.",
-                                                    "Notification 3.",
-                                                ].map((note, i) => (
-                                                    <motion.div
-                                                        key={i}
-                                                        whileHover={{
-                                                            backgroundColor:
-                                                                "rgba(18, 127, 236, 0.15)",
-                                                        }}
-                                                        className="px-3 py-2.5 rounded-lg text-sm text-slate-700 cursor-pointer transition-colors"
-                                                    >
-                                                        {note}
-                                                    </motion.div>
-                                                ))}
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
+                                {renderNotificationDropdown("w-80")}
                             </div>
                         </div>
 
@@ -248,7 +389,7 @@ export default function Navbar() {
 
                         {/* Profile Section */}
                         <div className="flex items-center gap-1">
-                            <div className="lg:hidden relative" ref={notifRef}>
+                            <div className="lg:hidden relative" ref={mobileNotifRef}>
                                 <motion.button
                                     onClick={() => setIsNotifOpen(!isNotifOpen)}
                                     whileHover={{ scale: 1.08 }}
@@ -256,53 +397,12 @@ export default function Navbar() {
                                     className="relative p-2 rounded-full text-slate-600 hover:text-[#127fec] hover:bg-[#127fec]/10 transition-colors focus:outline-none"
                                 >
                                     <Bell size={20} />
-                                    <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+                                    {unreadCount > 0 && (
+                                        <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+                                    )}
                                 </motion.button>
 
-                                <AnimatePresence>
-                                    {isNotifOpen && (
-                                        <motion.div
-                                            initial={{
-                                                opacity: 0,
-                                                y: 10,
-                                                scale: 0.95,
-                                            }}
-                                            animate={{
-                                                opacity: 1,
-                                                y: 0,
-                                                scale: 1,
-                                            }}
-                                            exit={{
-                                                opacity: 0,
-                                                y: 10,
-                                                scale: 0.95,
-                                            }}
-                                            className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-slate-200 bg-white shadow-xl p-3 z-50"
-                                        >
-                                            <p className="text-md font-bold tracking-wider px-2 mb-2">
-                                                Notifications
-                                            </p>
-                                            <div className="flex flex-col gap-1">
-                                                {[
-                                                    "Notificatoin 1.",
-                                                    "Notification 2.",
-                                                    "Notification 3.",
-                                                ].map((note, i) => (
-                                                    <motion.div
-                                                        key={i}
-                                                        whileHover={{
-                                                            backgroundColor:
-                                                                "rgba(18, 127, 236, 0.15)",
-                                                        }}
-                                                        className="px-3 py-2.5 rounded-lg text-sm text-slate-700 cursor-pointer transition-colors"
-                                                    >
-                                                        {note}
-                                                    </motion.div>
-                                                ))}
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
+                                {renderNotificationDropdown("w-72")}
                             </div>
 
                             {/* Mobile Menu Button */}

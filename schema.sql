@@ -32,6 +32,7 @@ IF OBJECT_ID('sp_paginate_doctors', 'P') IS NOT NULL DROP PROCEDURE sp_paginate_
 IF OBJECT_ID('sp_get_doctors_for_booking', 'P') IS NOT NULL DROP PROCEDURE sp_get_doctors_for_booking;
 IF OBJECT_ID('sp_get_patient_appointments', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_appointments;
 IF OBJECT_ID('sp_get_patient_upcoming_appointments', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_upcoming_appointments;
+IF OBJECT_ID('sp_get_patient_notifications', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_notifications;
 IF OBJECT_ID('sp_get_patient_room_admission_stats', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_room_admission_stats;
 IF OBJECT_ID('sp_get_patient_room_admissions', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_room_admissions;
 IF OBJECT_ID('sp_get_patient_room_admission_details', 'P') IS NOT NULL DROP PROCEDURE sp_get_patient_room_admission_details;
@@ -44,6 +45,8 @@ IF OBJECT_ID('sp_update_doctor_appointment_status', 'P') IS NOT NULL DROP PROCED
 IF OBJECT_ID('sp_get_doctor_room_admission_stats', 'P') IS NOT NULL DROP PROCEDURE sp_get_doctor_room_admission_stats;
 IF OBJECT_ID('sp_get_doctor_room_admissions', 'P') IS NOT NULL DROP PROCEDURE sp_get_doctor_room_admissions;
 IF OBJECT_ID('sp_get_doctor_room_admission_details', 'P') IS NOT NULL DROP PROCEDURE sp_get_doctor_room_admission_details;
+IF OBJECT_ID('sp_get_doctor_notifications', 'P') IS NOT NULL DROP PROCEDURE sp_get_doctor_notifications;
+IF OBJECT_ID('sp_get_admin_notifications', 'P') IS NOT NULL DROP PROCEDURE sp_get_admin_notifications;
 IF OBJECT_ID('sp_get_admin_appointments', 'P') IS NOT NULL DROP PROCEDURE sp_get_admin_appointments;
 IF OBJECT_ID('sp_update_admin_appointment_status', 'P') IS NOT NULL DROP PROCEDURE sp_update_admin_appointment_status;
 IF OBJECT_ID('sp_get_admin_dashboard_stats', 'P') IS NOT NULL DROP PROCEDURE sp_get_admin_dashboard_stats;
@@ -723,6 +726,85 @@ END;
 GO
 
 -- GET ROOM ADMISSION STATS FOR A PATIENT
+CREATE PROCEDURE sp_get_patient_notifications
+	@patient_id BIGINT,
+	@limit INT = 8
+AS
+BEGIN
+	IF @limit IS NULL OR @limit < 1
+	BEGIN
+		SET @limit = 8;
+	END
+
+	DECLARE @notifications TABLE (
+		notification_key NVARCHAR(120),
+		notification_type NVARCHAR(30),
+		title NVARCHAR(100),
+		message NVARCHAR(500),
+		created_at DATETIME,
+		target_path NVARCHAR(255)
+	);
+
+	IF OBJECT_ID('appointments', 'U') IS NOT NULL
+	   AND OBJECT_ID('doctors', 'U') IS NOT NULL
+	BEGIN
+		INSERT INTO @notifications (notification_key, notification_type, title, message, created_at, target_path)
+		SELECT
+			CONCAT('patient-appointment-', CAST(a.id AS NVARCHAR(50))),
+			'appointment',
+			'Appointment Update',
+			CASE LOWER(ISNULL(a.status, 'pending'))
+				WHEN 'confirmed' THEN CONCAT('Your appointment with ', ISNULL(d.name, 'the doctor'), ' is confirmed.')
+				WHEN 'completed' THEN CONCAT('Your appointment with ', ISNULL(d.name, 'the doctor'), ' has been completed.')
+				WHEN 'cancelled' THEN CONCAT('Your appointment with ', ISNULL(d.name, 'the doctor'), ' was cancelled.')
+				ELSE CONCAT('Your appointment request with ', ISNULL(d.name, 'the doctor'), ' is pending.')
+			END,
+			ISNULL(a.updated_at, ISNULL(a.created_at, a.appointment_date)),
+			'/patient/appointments'
+		FROM appointments a
+		JOIN doctors d ON d.id = a.doctor_id
+		WHERE a.patient_id = @patient_id;
+	END
+
+	IF OBJECT_ID('room_admissions', 'U') IS NOT NULL
+	   AND OBJECT_ID('hospital_rooms', 'U') IS NOT NULL
+	   AND OBJECT_ID('patients', 'U') IS NOT NULL
+	BEGIN
+		INSERT INTO @notifications (notification_key, notification_type, title, message, created_at, target_path)
+		SELECT
+			CONCAT('patient-room-', CAST(ra.id AS NVARCHAR(50))),
+			'room_admission',
+			'Room Admission Update',
+			CASE
+				WHEN LOWER(ISNULL(ra.status, 'admitted')) = 'discharged' OR ra.discharged_at IS NOT NULL
+					THEN CONCAT('You have been discharged from Room ', ISNULL(hr.room_number, '-'), '.')
+				WHEN d.name IS NULL OR LTRIM(RTRIM(d.name)) = ''
+					THEN CONCAT('You are admitted in Room ', ISNULL(hr.room_number, '-'), '.')
+				ELSE CONCAT('You are admitted in Room ', ISNULL(hr.room_number, '-'), ' under ', d.name, '.')
+			END,
+			ISNULL(ra.updated_at, ISNULL(ra.created_at, ISNULL(ra.admitted_at, ra.discharged_at))),
+			CONCAT('/patient/room-admissions/', CAST(ra.id AS NVARCHAR(50)))
+		FROM room_admissions ra
+		JOIN hospital_rooms hr ON hr.id = ra.room_id
+		JOIN patients p ON p.id = ra.patient_id
+		LEFT JOIN doctors d ON d.id = ra.doctor_id
+		WHERE ra.patient_id = @patient_id
+		  AND p.deleted_at IS NULL;
+	END
+
+	SELECT TOP (@limit)
+		notification_key,
+		notification_type,
+		title,
+		message,
+		created_at,
+		target_path
+	FROM @notifications
+	ORDER BY created_at DESC;
+END;
+GO
+
+-- GET ROOM ADMISSION STATS FOR A PATIENT
 CREATE PROCEDURE sp_get_patient_room_admission_stats
 	@patient_id BIGINT
 AS
@@ -1066,6 +1148,84 @@ END;
 GO
 
 -- GET ROOM ADMISSION STATS FOR A DOCTOR
+CREATE PROCEDURE sp_get_doctor_notifications
+	@doctor_id BIGINT,
+	@limit INT = 8
+AS
+BEGIN
+	IF @limit IS NULL OR @limit < 1
+	BEGIN
+		SET @limit = 8;
+	END
+
+	DECLARE @notifications TABLE (
+		notification_key NVARCHAR(120),
+		notification_type NVARCHAR(30),
+		title NVARCHAR(100),
+		message NVARCHAR(500),
+		created_at DATETIME,
+		target_path NVARCHAR(255)
+	);
+
+	IF OBJECT_ID('appointments', 'U') IS NOT NULL
+	   AND OBJECT_ID('patients', 'U') IS NOT NULL
+	BEGIN
+		INSERT INTO @notifications (notification_key, notification_type, title, message, created_at, target_path)
+		SELECT
+			CONCAT('doctor-appointment-', CAST(a.id AS NVARCHAR(50))),
+			'appointment',
+			'Appointment Update',
+			CASE LOWER(ISNULL(a.status, 'pending'))
+				WHEN 'pending' THEN CONCAT('New appointment request from ', ISNULL(p.name, 'a patient'), '.')
+				WHEN 'confirmed' THEN CONCAT('Appointment with ', ISNULL(p.name, 'a patient'), ' is confirmed.')
+				WHEN 'completed' THEN CONCAT('Appointment with ', ISNULL(p.name, 'a patient'), ' marked completed.')
+				WHEN 'cancelled' THEN CONCAT('Appointment with ', ISNULL(p.name, 'a patient'), ' was cancelled.')
+				ELSE CONCAT('Appointment update received for ', ISNULL(p.name, 'a patient'), '.')
+			END,
+			ISNULL(a.updated_at, ISNULL(a.created_at, a.appointment_date)),
+			'/doctor/doc-appointments'
+		FROM appointments a
+		JOIN patients p ON p.id = a.patient_id
+		WHERE a.doctor_id = @doctor_id
+		  AND p.deleted_at IS NULL;
+	END
+
+	IF OBJECT_ID('room_admissions', 'U') IS NOT NULL
+	   AND OBJECT_ID('hospital_rooms', 'U') IS NOT NULL
+	   AND OBJECT_ID('patients', 'U') IS NOT NULL
+	BEGIN
+		INSERT INTO @notifications (notification_key, notification_type, title, message, created_at, target_path)
+		SELECT
+			CONCAT('doctor-room-', CAST(ra.id AS NVARCHAR(50))),
+			'room_admission',
+			'Room Admission Update',
+			CASE
+				WHEN LOWER(ISNULL(ra.status, 'admitted')) = 'discharged' OR ra.discharged_at IS NOT NULL
+					THEN CONCAT(ISNULL(p.name, 'Patient'), ' has been discharged from Room ', ISNULL(hr.room_number, '-'), '.')
+				ELSE CONCAT(ISNULL(p.name, 'Patient'), ' has been admitted to Room ', ISNULL(hr.room_number, '-'), '.')
+			END,
+			ISNULL(ra.updated_at, ISNULL(ra.created_at, ISNULL(ra.admitted_at, ra.discharged_at))),
+			CONCAT('/doctor/room-admissions/', CAST(ra.id AS NVARCHAR(50)))
+		FROM room_admissions ra
+		JOIN hospital_rooms hr ON hr.id = ra.room_id
+		JOIN patients p ON p.id = ra.patient_id
+		WHERE ra.doctor_id = @doctor_id
+		  AND p.deleted_at IS NULL;
+	END
+
+	SELECT TOP (@limit)
+		notification_key,
+		notification_type,
+		title,
+		message,
+		created_at,
+		target_path
+	FROM @notifications
+	ORDER BY created_at DESC;
+END;
+GO
+
+-- GET ROOM ADMISSION STATS FOR A DOCTOR
 CREATE PROCEDURE sp_get_doctor_room_admission_stats
 	@doctor_id BIGINT
 AS
@@ -1195,6 +1355,85 @@ BEGIN
 	WHERE ra.id = @admission_id
 	  AND ra.doctor_id = @doctor_id
 	  AND p.deleted_at IS NULL;
+END;
+GO
+
+-- GET NOTIFICATIONS FOR ADMIN
+CREATE PROCEDURE sp_get_admin_notifications
+	@admin_id BIGINT,
+	@limit INT = 8
+AS
+BEGIN
+	IF @limit IS NULL OR @limit < 1
+	BEGIN
+		SET @limit = 8;
+	END
+
+	DECLARE @notifications TABLE (
+		notification_key NVARCHAR(120),
+		notification_type NVARCHAR(30),
+		title NVARCHAR(100),
+		message NVARCHAR(500),
+		created_at DATETIME,
+		target_path NVARCHAR(255)
+	);
+
+	IF OBJECT_ID('appointments', 'U') IS NOT NULL
+	   AND OBJECT_ID('patients', 'U') IS NOT NULL
+	   AND OBJECT_ID('doctors', 'U') IS NOT NULL
+	BEGIN
+		INSERT INTO @notifications (notification_key, notification_type, title, message, created_at, target_path)
+		SELECT
+			CONCAT('admin-appointment-', CAST(a.id AS NVARCHAR(50))),
+			'appointment',
+			'Appointment Queue',
+			CASE LOWER(ISNULL(a.status, 'pending'))
+				WHEN 'pending' THEN CONCAT('Pending appointment: ', ISNULL(p.name, 'Patient'), ' with ', ISNULL(d.name, 'Doctor'), '.')
+				WHEN 'confirmed' THEN CONCAT('Confirmed appointment: ', ISNULL(p.name, 'Patient'), ' with ', ISNULL(d.name, 'Doctor'), '.')
+				WHEN 'completed' THEN CONCAT('Completed appointment: ', ISNULL(p.name, 'Patient'), ' with ', ISNULL(d.name, 'Doctor'), '.')
+				WHEN 'cancelled' THEN CONCAT('Cancelled appointment: ', ISNULL(p.name, 'Patient'), ' with ', ISNULL(d.name, 'Doctor'), '.')
+				ELSE CONCAT('Appointment update: ', ISNULL(p.name, 'Patient'), ' with ', ISNULL(d.name, 'Doctor'), '.')
+			END,
+			ISNULL(a.updated_at, ISNULL(a.created_at, a.appointment_date)),
+			'/admin/all-appointments'
+		FROM appointments a
+		JOIN patients p ON p.id = a.patient_id
+		JOIN doctors d ON d.id = a.doctor_id
+		WHERE p.deleted_at IS NULL
+		  AND d.deleted_at IS NULL;
+	END
+
+	IF OBJECT_ID('room_admissions', 'U') IS NOT NULL
+	   AND OBJECT_ID('hospital_rooms', 'U') IS NOT NULL
+	   AND OBJECT_ID('patients', 'U') IS NOT NULL
+	BEGIN
+		INSERT INTO @notifications (notification_key, notification_type, title, message, created_at, target_path)
+		SELECT
+			CONCAT('admin-room-', CAST(ra.id AS NVARCHAR(50))),
+			'room_admission',
+			'Room Admission Queue',
+			CASE
+				WHEN LOWER(ISNULL(ra.status, 'admitted')) = 'discharged' OR ra.discharged_at IS NOT NULL
+					THEN CONCAT('Discharged: ', ISNULL(p.name, 'Patient'), ' from Room ', ISNULL(hr.room_number, '-'), '.')
+				ELSE CONCAT('Active admission: ', ISNULL(p.name, 'Patient'), ' in Room ', ISNULL(hr.room_number, '-'), '.')
+			END,
+			ISNULL(ra.updated_at, ISNULL(ra.created_at, ISNULL(ra.admitted_at, ra.discharged_at))),
+			'/admin/room-admissions'
+		FROM room_admissions ra
+		JOIN hospital_rooms hr ON hr.id = ra.room_id
+		JOIN patients p ON p.id = ra.patient_id
+		WHERE p.deleted_at IS NULL;
+	END
+
+	SELECT TOP (@limit)
+		notification_key,
+		notification_type,
+		title,
+		message,
+		created_at,
+		target_path
+	FROM @notifications
+	ORDER BY created_at DESC;
 END;
 GO
 
