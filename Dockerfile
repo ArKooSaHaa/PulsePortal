@@ -7,7 +7,6 @@ COPY . /var/www/html
 WORKDIR /var/www/html
 
 # Install dependencies using composer
-# We set COMPOSER_ALLOW_SUPERUSER=1 to allow running as root in Docker
 ENV COMPOSER_ALLOW_SUPERUSER=1
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
@@ -19,14 +18,16 @@ ENV SKIP_COMPOSER 1
 ENV APP_ENV production
 ENV APP_DEBUG false
 
+# --- THE FIX: Override the default Nginx site config with our Laravel-aware one ---
+COPY conf/nginx/nginx-site.conf /etc/nginx/sites-available/default.conf
+
 # Set permissions for storage and bootstrap/cache
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Expose port 80
-EXPOSE 80
-
-# Use the image's built-in script feature instead of overriding ENTRYPOINT
-# The image will run scripts in /var/www/html/scripts/ when RUN_SCRIPTS=1
+# Copy deployment script to the image's startup scripts folder
 RUN mkdir -p /var/www/html/scripts
 COPY render-deploy.sh /var/www/html/scripts/run.sh
 RUN chmod +x /var/www/html/scripts/run.sh
+
+# Expose port 80
+EXPOSE 80
