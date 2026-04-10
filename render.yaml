@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: pulse-portal-backend
+    runtime: docker
+    plan: free # or your preferred plan
+    region: singapore # or your preferred region
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: DB_CONNECTION
+        value: mysql # Change to pgsql if using Render Postgres
+      - fromGroup: pulse-portal-secrets
+
+envVarGroups:
+  - name: pulse-portal-secrets
+    envVars:
+      - key: APP_KEY
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+      - key: GOOGLE_CLIENT_ID
+      - key: GOOGLE_CLIENT_SECRET
+      - key: GOOGLE_REDIRECT_URI
