@@ -1,26 +1,21 @@
-# Git
-.git
+/node_modules
+/vendor
+/.git
+/.env
+/storage/*.key
+/.phpunit.result.cache
+/docker
+/client
+Dockerfile
+docker-compose.yml
+.dockerignore
+README.md
+README.pdf
+schema.sql
+phpunit.xml
+.editorconfig
+.gitattributes
 .gitignore
-
-# Node
-client/node_modules
-client/dist
-client/.vite
-
-# Laravel
-vendor
-storage/logs
-storage/framework
-bootstrap/cache
-
-# Environment
-.env
-.env.local
-.env.*.local
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Docker
-docker-compose.override.yml
+package-lock.json
+package.json
+vite.config.js
