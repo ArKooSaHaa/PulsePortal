@@ -30,41 +30,39 @@ class DatabaseSeeder extends Seeder
 
         // Doctor
         $doctorUser = User::create([
-            'name'     => 'Dr. Sarah Khan',
+            'name'     => 'Dr. Maliha Khanam',
             'email'    => 'doctor@pulseportal.com',
             'password' => Hash::make('password123'),
             'role'     => 'doctor',
         ]);
         $doctor = Doctor::create([
             'user_id'          => $doctorUser->id,
-            'specialization'   => 'Cardiology',
-            'bio'              => 'Senior Cardiologist with 10+ years experience.',
+            'specialization'   => 'Dentist',
+            'bio'              => 'Senior Dentist with 4.5+ years experience.',
             'phone'            => '01711000001',
-            'consultation_fee' => 800.00,
+            'consultation_fee' => 1200.00,
             'is_available'     => true,
             'availability'     => [
-                'mon' => ['09:00', '17:00'],
-                'tue' => ['09:00', '17:00'],
-                'wed' => ['09:00', '17:00'],
-                'thu' => ['09:00', '17:00'],
+                'sat' => ['09:00', '13:00'],
+                'tue' => ['14:00', '18:00'],
                 'fri' => ['09:00', '13:00'],
             ],
         ]);
 
         // Patient
         $patientUser = User::create([
-            'name'     => 'Rahim Uddin',
+            'name'     => 'Shahadat Hasan',
             'email'    => 'patient@pulseportal.com',
             'password' => Hash::make('password123'),
             'role'     => 'patient',
         ]);
         $patient = Patient::create([
             'user_id'           => $patientUser->id,
-            'dob'               => '1990-05-15',
-            'blood_group'       => 'O+',
+            'dob'               => '2001-12-26',
+            'blood_group'       => 'A+',
             'medical_history'   => 'Mild hypertension diagnosed 2022.',
             'phone'             => '01811000002',
-            'address'           => 'Mirpur-10, Dhaka',
+            'address'           => 'Mirpur-2, Dhaka',
             'emergency_contact' => 'Karim Uddin',
             'emergency_phone'   => '01911000003',
         ]);
