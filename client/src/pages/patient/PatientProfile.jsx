@@ -111,7 +111,11 @@ export default function PatientProfile() {
     async function saveEdit() {
         setEditLoading(true);
         try {
-            await authService.editProfile(draft);
+            const payload = { ...draft };
+            if (!payload.password) {
+                delete payload.password;
+            }
+            await authService.editProfile(payload);
             setProfile({ ...draft });
             setIsEdit(false);
         } catch (error) {

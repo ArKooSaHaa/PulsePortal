@@ -200,9 +200,14 @@ export default function DoctorDashboard() {
 
                                         <div className="flex items-center gap-2">
                                             <span
-                                                className={`text-xs px-3 py-1 rounded-full font-medium capitalize "bg-blue-100 text-blue-600"`}
-                                            >
-                                                {item.status}
+                                                    className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${
+                                                        item.status === "confirmed" ? "bg-blue-100 text-blue-600" :
+                                                        item.status === "completed" ? "bg-green-100 text-green-600" :
+                                                        item.status === "cancelled" ? "bg-red-100 text-red-600" :
+                                                        "bg-yellow-100 text-yellow-600"
+                                                    }`}
+                                                >
+                                                    {item.status}
                                             </span>
                                         </div>
                                     </motion.div>
