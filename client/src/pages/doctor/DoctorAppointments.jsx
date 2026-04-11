@@ -1,22 +1,38 @@
 import React, { useEffect, useState } from "react";
 import appointmentService from "../../api/appointmentService";
+import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function DoctorAppointments() {
     const [appointments, setAppointments] = useState([]);
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 5;
 
+    // useEffect(() => {
+    //     appointmentService
+    //         .getDoctorAppointments()
+    //         .then(setAppointments)
+    //         .finally(() => setLoading(false));
+    // }, []);
     useEffect(() => {
-        appointmentService
-            .getDoctorAppointments()
-            .then(setAppointments)
-            .finally(() => setLoading(false));
-    }, []);
+    appointmentService
+        .getDoctorAppointments()
+        .then((data) =>
+            setAppointments(
+                data.map((item) => ({
+                    ...item,
+                    type: item.type?.trim()?.toLowerCase(),
+                    status: item.status?.trim()?.toLowerCase(),
+                }))
+            )
+        )
+        .finally(() => setLoading(false));
+}, []);
 
     // Reset page when data changes
     useEffect(() => {
@@ -58,11 +74,12 @@ export default function DoctorAppointments() {
                 </div>
 
                 {/* Table Header */}
-                <div className="grid grid-cols-4 text-xs font-semibold text-slate-500 uppercase border-b border-slate-200 pb-3 mb-4">
+                <div className="grid grid-cols-5 text-xs font-semibold text-slate-500 uppercase border-b border-slate-200 pb-3 mb-4">
                     <div>Date & Time</div>
                     <div>Patient</div>
                     <div>Type</div>
                     <div>Status</div>
+                    <div>Action</div>
                 </div>
 
                 {/* Content */}
@@ -86,7 +103,7 @@ export default function DoctorAppointments() {
                                     scale: 1.01,
                                     backgroundColor: "#f8fafc",
                                 }}
-                                className="grid grid-cols-4 items-center p-4 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition"
+                                className="grid grid-cols-5 items-center p-4 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition"
                             >
                                 {/* Date */}
                                 <div>
@@ -148,6 +165,21 @@ export default function DoctorAppointments() {
                                         {item.status}
                                     </span>
                                 </div>
+                                {/* Action */}
+<div>
+    {item.type === "online" && item.status === "confirmed" ? (
+        <button
+            onClick={() =>
+                navigate(`/doctor/consultation/${item.id}`)
+            }
+            className="px-4 py-1 rounded-full border text-sm hover:bg-green-100"
+        >
+            Start
+        </button>
+    ) : (
+        <span className="text-xs text-slate-400">—</span>
+    )}
+</div>
                             </motion.div>
                         ))
                     )}
