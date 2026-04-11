@@ -1,10 +1,11 @@
 import {
-    BrowserRouter,
     Routes,
     Route,
     Outlet,
     Navigate,
+    useNavigate,
 } from "react-router-dom";
+import api from "./api/axios";
 import Navbar from "./components/Navbar";
 import AuthPage from "./pages/AuthPage";
 import GoogleCallback from "./pages/GoogleCallback";
@@ -32,7 +33,7 @@ function ProtectedRoute({ expectedRole }) {
     return <Outlet />;
 }
 
-function AppContent() {
+function App() {
     const navigate = useNavigate();
 
     // Hook up the global interceptor auth error handler to React Router's navigate
@@ -43,8 +44,7 @@ function AppContent() {
     };
 
     return (
-        <BrowserRouter>
-            <NotificationProvider>
+        <NotificationProvider>
                 <Routes>
                     <Route path="/" element={<HomePage />} />
                     <Route path="/auth" element={<AuthPage />} />
@@ -87,7 +87,6 @@ function AppContent() {
                     </Route>
                 </Routes>
             </NotificationProvider>
-        </BrowserRouter>
     );
 }
 
