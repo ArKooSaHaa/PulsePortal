@@ -2,6 +2,8 @@
 
 namespace App\Events;
 
+use Illuminate\Support\Facades\Log;
+
 use App\Models\Admin;
 use App\Models\Appointment;
 use Illuminate\Broadcasting\InteractsWithSockets;
@@ -19,21 +21,20 @@ class AppointmentRequested implements ShouldBroadcastNow
 
     public function __construct(Appointment $appointment)
     {
-        $this->appointment = $appointment->load(['patient.user', 'doctor']);
+        // Fully load relationships needed for both logic and broadcasting
+        $this->appointment = $appointment->load(['patient.user', 'doctor.user']);
 
-        // Find all admins whose department matches the doctor's department
         $department = $this->appointment->doctor->department;
 
-        if ($department) {
-            $this->adminUserIds = Admin::where('department', $department)
-                ->pluck('user_id')
-                ->toArray();
-        } else {
-            // Fallback: notify all Super Admins if doctor has no department
-            $this->adminUserIds = Admin::where('admin_role', 'Super Admin')
-                ->pluck('user_id')
-                ->toArray();
-        }
+        // Notify matching department admins AND all Super Admins
+        $this->adminUserIds = Admin::where(function($q) use ($department) {
+            $q->where('admin_role', 'Super Admin');
+            if ($department) {
+                $q->orWhere('department', $department);
+            }
+        })->pluck('user_id')->unique()->toArray();
+
+        Log::info("AppointmentRequested event created for Dept: {$department}. Targeted User IDs: " . implode(', ', $this->adminUserIds));
     }
 
     public function broadcastOn(): array

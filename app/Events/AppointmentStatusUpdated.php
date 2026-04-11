@@ -2,6 +2,8 @@
 
 namespace App\Events;
 
+use Illuminate\Support\Facades\Log;
+
 use App\Models\Appointment;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
@@ -18,7 +20,8 @@ class AppointmentStatusUpdated implements ShouldBroadcastNow
 
     public function __construct(Appointment $appointment)
     {
-        $this->appointment = $appointment->load(['doctor.user']);
+        $this->appointment = $appointment->load(['doctor.user', 'patient']);
+        Log::info("AppointmentStatusUpdated event created for Patient User ID: " . $this->appointment->patient->user_id);
     }
 
     public function broadcastOn(): array
