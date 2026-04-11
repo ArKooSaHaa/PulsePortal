@@ -50,7 +50,7 @@ class AppointmentBookingTest extends TestCase
             ->postJson('/api/patient/appointments', [
                 'doctor_id' => $this->doctor->id,
                 'appointment_date' => '2026-05-20',
-                'appointment_time' => '10:00 AM',
+                'appointment_time' => '10:00',
                 'type' => 'in_person',
                 'symptoms' => 'I have a mild chest pain.'
             ]);
@@ -78,7 +78,7 @@ class AppointmentBookingTest extends TestCase
             ->postJson('/api/patient/appointments', [
                 'doctor_id' => $this->doctor->id,
                 'appointment_date' => '2026-05-20',
-                'appointment_time' => '10:00 AM'
+                'appointment_time' => '10:00'
             ]);
 
         $response->assertStatus(404)
@@ -91,7 +91,7 @@ class AppointmentBookingTest extends TestCase
             'patient_id' => $this->patient->id,
             'doctor_id' => $this->doctor->id,
             'appointment_date' => '2026-05-20',
-            'appointment_time' => '10:00 AM',
+            'appointment_time' => '10:00',
             'type' => 'in_person',
             'symptoms' => 'Regular checkup',
             'status' => 'pending'
