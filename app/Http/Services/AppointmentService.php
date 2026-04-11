@@ -4,6 +4,7 @@ namespace App\Http\Services;
 
 use App\Models\Admin;
 use App\Models\Appointment;
+use App\Models\Notification;
 use Illuminate\Support\Facades\Mail;
 use App\Events\AppointmentRequested;
 use App\Mail\PatientAppointmentDetails;
@@ -24,9 +25,34 @@ class AppointmentService
             'status'           => 'pending',
         ]);
 
-        broadcast(new AppointmentRequested($appointment))->toOthers();
-        
+        // Load relationships needed for event + notification creation
         $appointment->load(['patient.user', 'doctor.user']);
+
+        // Real-time broadcast
+        broadcast(new AppointmentRequested($appointment))->toOthers();
+
+        // Persist notification for every targeted admin
+        $department = $appointment->doctor->department;
+        $adminUserIds = Admin::where(function($q) use ($department) {
+            $q->where('admin_role', 'Super Admin');
+            if ($department) {
+                $q->orWhere('department', $department);
+            }
+        })->pluck('user_id')->unique();
+
+        $patientName = $appointment->patient->user->name;
+        foreach ($adminUserIds as $adminUserId) {
+            Notification::create([
+                'user_id'        => $adminUserId,
+                'type'           => 'request',
+                'title'          => 'New Appointment Request',
+                'message'        => "New appointment request from {$patientName}",
+                'appointment_id' => $appointment->id,
+                'link'           => '/admin/all-appointments',
+                'is_read'        => false,
+            ]);
+        }
+
         Mail::to($appointment->patient->user->email)->send(new PatientAppointmentDetails($appointment));
 
         return $appointment;
@@ -90,16 +116,45 @@ class AppointmentService
 
         $appointment->update(['status' => $status]);
 
+        // Reload for relationships
+        $appointment->load(['patient.user', 'doctor.user']);
+
         // Notify the patient via WebSocket
         broadcast(new AppointmentStatusUpdated($appointment))->toOthers();
 
+        // Persist notification for the patient
+        $doctorName  = $appointment->doctor->user->name;
+        $patientUserId = $appointment->patient->user_id;
+        Notification::create([
+            'user_id'        => $patientUserId,
+            'type'           => 'status',
+            'title'          => 'Appointment Updated',
+            'message'        => "Your appointment with Dr. {$doctorName} has been {$status}",
+            'appointment_id' => $appointment->id,
+            'link'           => '/patient/appointments',
+            'is_read'        => false,
+        ]);
+
         // Notify the patient via email for major status changes
         if (in_array($status, ['confirmed', 'cancelled'])) {
-            $appointment->load(['patient.user', 'doctor.user']);
             Mail::to($appointment->patient->user->email)->send(new PatientAppointmentDetails($appointment));
 
             if ($status === 'confirmed') {
                 broadcast(new AppointmentConfirmedForDoctor($appointment))->toOthers();
+
+                // Persist notification for the doctor
+                $patientName  = $appointment->patient->user->name;
+                $appointDate  = $appointment->appointment_date->format('Y-m-d');
+                $appointTime  = $appointment->appointment_time;
+                Notification::create([
+                    'user_id'        => $appointment->doctor->user_id,
+                    'type'           => 'confirmed_doctor',
+                    'title'          => 'New Appointment Confirmed',
+                    'message'        => "You have a new appointment from {$patientName} on {$appointDate} at {$appointTime}",
+                    'appointment_id' => $appointment->id,
+                    'link'           => '/doctor/appointments',
+                    'is_read'        => false,
+                ]);
             }
         }
 
@@ -179,8 +234,21 @@ PROMPT;
         if (!$appointment) return null;
 
         $appointment->update(['status' => 'cancelled']);
+        $appointment->load(['patient.user', 'doctor.user']);
 
         broadcast(new AppointmentStatusUpdated($appointment))->toOthers();
+
+        // Persist cancellation notification for the patient
+        $doctorName = $appointment->doctor->user->name;
+        Notification::create([
+            'user_id'        => $appointment->patient->user_id,
+            'type'           => 'status',
+            'title'          => 'Appointment Cancelled',
+            'message'        => "Your appointment with Dr. {$doctorName} has been cancelled",
+            'appointment_id' => $appointment->id,
+            'link'           => '/patient/appointments',
+            'is_read'        => false,
+        ]);
 
         return $appointment;
     }

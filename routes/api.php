@@ -8,6 +8,7 @@ use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\DoctorController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AiController;
+use App\Http\Controllers\NotificationController;
 
 // ── Auth routes ───────────────────────────────────────────────
 Route::prefix('auth')->group(function () {
@@ -25,6 +26,11 @@ Route::prefix('auth')->group(function () {
 Route::middleware('auth:api')->group(function () {
     Route::get('profile', [ProfileController::class, 'show']);
     Route::put('profile', [ProfileController::class, 'update']);
+
+    // Notification routes
+    Route::get('notifications',             [NotificationController::class, 'index']);
+    Route::post('notifications/mark-read',  [NotificationController::class, 'markAllRead']);
+    Route::delete('notifications/{id}',     [NotificationController::class, 'destroy']);
 
     // Patient routes
     Route::prefix('patient')->group(function () {

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getEcho } from '../utils/echo';
+import notificationService from '../api/notificationService';
 
 const NotificationContext = createContext();
 
@@ -11,34 +12,73 @@ export const NotificationProvider = ({ children }) => {
     const channelRef = useRef(null);
     const tokenRef = useRef(null);
 
-    // Build a notification object with a role-aware navigation link
-    const buildNotification = useCallback((data, type) => {
-        const user = (() => {
-            try { return JSON.parse(localStorage.getItem('user')); } catch { return null; }
-        })();
+    // ─── Helpers ──────────────────────────────────────────────────────────────
 
+    const getCurrentUser = () => {
+        try { return JSON.parse(localStorage.getItem('user')); } catch { return null; }
+    };
+
+    /** Build a role-aware nav link from a notification type */
+    const getLinkForType = (type, role) => {
+        if (role === 'admin') return '/admin/all-appointments';
+        if (type === 'confirmed_doctor') return '/doctor/appointments';
+        return '/patient/appointments';
+    };
+
+    /** Map a DB notification row to our UI shape */
+    const dbRowToNotif = (row) => ({
+        id:             row.id,
+        title:          row.title,
+        message:        row.message,
+        time:           row.time,           // "2 minutes ago" from diffForHumans
+        type:           row.type,
+        appointmentId:  row.appointment_id,
+        link:           row.link,
+        is_read:        row.is_read,
+    });
+
+    /** Build a notification object from a real-time WebSocket payload */
+    const buildRealtimeNotif = useCallback((data, type) => {
+        const user = getCurrentUser();
         const role = user?.role || 'patient';
-
-        let link = `/${role}/appointments`;
-        if (role === 'admin') link = '/admin/all-appointments';
+        const link = getLinkForType(type, role);
 
         let title = 'Appointment Updated';
-        if (type === 'request') title = 'New Appointment Request';
-        if (type === 'confirmed_doctor') title = 'New Appointment Confirmed';
+        if (type === 'request')           title = 'New Appointment Request';
+        if (type === 'confirmed_doctor')  title = 'New Appointment Confirmed';
 
         return {
-            id: Date.now() + Math.random(),          // ensure uniqueness
+            id:            `rt_${Date.now()}_${Math.random()}`,  // temp ID until refresh
             title,
-            message: data.message,
-            time: new Date().toLocaleTimeString(),
+            message:        data.message,
+            time:           'just now',
             type,
-            appointmentId: data.id || null,
+            appointmentId:  data.id || null,
             link,
+            is_read:        false,
         };
     }, []);
 
-    const addNotification = useCallback((notif) => {
-        setNotifications(prev => [notif, ...prev].slice(0, 20));
+    // ─── Load stored notifications from API ───────────────────────────────────
+
+    const loadStoredNotifications = useCallback(async () => {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        try {
+            const rows = await notificationService.getNotifications();
+            const mapped = rows.map(dbRowToNotif);
+            setNotifications(mapped);
+            setUnreadCount(mapped.filter(n => !n.is_read).length);
+        } catch {
+            // Silently ignore – user may have just logged out
+        }
+    }, []);
+
+    // ─── Add a single real-time notification to the top of the list ───────────
+
+    const addRealtimeNotification = useCallback((notif) => {
+        setNotifications(prev => [notif, ...prev].slice(0, 30));
         setUnreadCount(prev => prev + 1);
 
         // Native browser notification (if user granted permission)
@@ -47,52 +87,72 @@ export const NotificationProvider = ({ children }) => {
         }
     }, []);
 
-    // Subscribe / re-subscribe whenever the stored token changes
+    // ─── WebSocket subscription ───────────────────────────────────────────────
+
     const subscribe = useCallback(() => {
-        const token = localStorage.getItem('token');
-        const userRaw = localStorage.getItem('user');
+        const token    = localStorage.getItem('token');
+        const userRaw  = localStorage.getItem('user');
 
-        if (!token || !userRaw) return;
-
-        // Don't re-subscribe with the same token
-        if (token === tokenRef.current && channelRef.current) return;
-
-        // Tear down existing subscription
-        if (channelRef.current) {
-            try {
-                channelRef.current.stopListening('.appointment.requested');
-                channelRef.current.stopListening('.appointment.status.updated');
-                channelRef.current.stopListening('.appointment.confirmed_for_doctor');
-            } catch (_) {}
-            channelRef.current = null;
+        // No credentials → clear state and tear down
+        if (!token || !userRaw) {
+            if (channelRef.current) {
+                try {
+                    channelRef.current.stopListening('.appointment.requested');
+                    channelRef.current.stopListening('.appointment.status.updated');
+                    channelRef.current.stopListening('.appointment.confirmed_for_doctor');
+                } catch (_) {}
+                channelRef.current = null;
+            }
+            if (tokenRef.current) {
+                // User just logged out – clear state
+                setNotifications([]);
+                setUnreadCount(0);
+                tokenRef.current = null;
+            }
+            return;
         }
 
-        const user = (() => { try { return JSON.parse(userRaw); } catch { return null; } })();
-        if (!user?.id) return;
+        // Token changed (new login) → reload from DB and re-subscribe
+        if (token !== tokenRef.current) {
+            // Tear down old channel first
+            if (channelRef.current) {
+                try {
+                    channelRef.current.stopListening('.appointment.requested');
+                    channelRef.current.stopListening('.appointment.status.updated');
+                    channelRef.current.stopListening('.appointment.confirmed_for_doctor');
+                } catch (_) {}
+                channelRef.current = null;
+            }
 
-        tokenRef.current = token;
-        const echo = getEcho(token);
-        const channel = echo.private(`user.${user.id}`);
-        channelRef.current = channel;
+            tokenRef.current = token;
 
-        channel.listen('.appointment.requested', (data) => {
-            addNotification(buildNotification(data, 'request'));
-        });
+            // Fetch persisted notifications from the database
+            loadStoredNotifications();
 
-        channel.listen('.appointment.status.updated', (data) => {
-            addNotification(buildNotification(data, 'status'));
-        });
+            const user = (() => { try { return JSON.parse(userRaw); } catch { return null; } })();
+            if (!user?.id) return;
 
-        channel.listen('.appointment.confirmed_for_doctor', (data) => {
-            addNotification(buildNotification(data, 'confirmed_doctor'));
-        });
-    }, [addNotification, buildNotification]);
+            const echo    = getEcho(token);
+            const channel = echo.private(`user.${user.id}`);
+            channelRef.current = channel;
 
-    // Run on mount, and re-check periodically to catch logins that happen after mount
+            channel.listen('.appointment.requested', (data) => {
+                addRealtimeNotification(buildRealtimeNotif(data, 'request'));
+            });
+
+            channel.listen('.appointment.status.updated', (data) => {
+                addRealtimeNotification(buildRealtimeNotif(data, 'status'));
+            });
+
+            channel.listen('.appointment.confirmed_for_doctor', (data) => {
+                addRealtimeNotification(buildRealtimeNotif(data, 'confirmed_doctor'));
+            });
+        }
+    }, [loadStoredNotifications, addRealtimeNotification, buildRealtimeNotif]);
+
+    // Poll every 2 s – lightweight, only acts when token changes
     useEffect(() => {
         subscribe();
-
-        // Poll every 2 s — lightweight, just checks if the token changed
         const interval = setInterval(subscribe, 2000);
 
         return () => {
@@ -107,7 +167,19 @@ export const NotificationProvider = ({ children }) => {
         };
     }, [subscribe]);
 
-    const markAsRead = useCallback(() => setUnreadCount(0), []);
+    // ─── Mark all as read ─────────────────────────────────────────────────────
+
+    const markAsRead = useCallback(async () => {
+        setUnreadCount(0);
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+        try {
+            await notificationService.markAllRead();
+        } catch {
+            // Best-effort — UI already updated
+        }
+    }, []);
+
+    // ─── Navigate on click ────────────────────────────────────────────────────
 
     const handleNotificationClick = useCallback((notif) => {
         if (notif.link) {
