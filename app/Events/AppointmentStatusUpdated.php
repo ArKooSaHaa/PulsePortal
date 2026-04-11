@@ -28,7 +28,7 @@ class AppointmentStatusUpdated implements ShouldBroadcastNow
     {
         // Broadcast to the patient's specific channel
         return [
-            new PrivateChannel('user.' . $this->appointment->patient->user_id),
+            new PrivateChannel("user.{$this->appointment->patient->user_id}"),
         ];
     }
 
