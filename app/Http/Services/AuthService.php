@@ -2,9 +2,11 @@
 
 namespace App\Http\Services;
 
+use App\Mail\PatientWelcomeMail;
 use App\Models\User;
 use App\Models\Patient;
 use Illuminate\Support\Facades\Hash;
+use Mail;
 
 class AuthService
 {
@@ -21,6 +23,8 @@ class AuthService
         Patient::create(['user_id' => $user->id]);
 
         $token = auth()->login($user);
+        
+        Mail::to($user->email)->queue(new PatientWelcomeMail($user->name));
 
         return [
             'token' => $token,
@@ -41,9 +45,16 @@ class AuthService
             return null;
         }
 
+        $user = auth()->user();
+
+        // Update last login timestamp for Admins only
+        if ($user->role === 'admin' && $user->admin) {
+            $user->admin->update(['last_login_at' => now()]);
+        }
+
         return [
             'token' => $token,
-            'user'  => $this->formatUser(auth()->user()),
+            'user'  => $this->formatUser($user),
         ];
     }
 
