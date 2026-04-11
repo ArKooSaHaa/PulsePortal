@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import adminService from "../../api/adminService";
 import authService from "../../api/authService";
 import { Loader2, CheckCircle, XCircle, Clock } from "lucide-react";
@@ -26,8 +27,27 @@ export default function AdminAppointments() {
     const [updatingId, setUpdatingId]       = useState(null);
     const [page, setPage]                   = useState(1);
     const PER_PAGE = 8;
+    const location = useLocation();
+    const highlightId = location.state?.highlight;
 
     const currentUser  = authService.getCurrentUser();
+
+    useEffect(() => {
+        if (appointments.length > 0 && highlightId) {
+            const sorted = [...appointments].sort((a, b) => {
+                if (a.status === "pending" && b.status !== "pending") return -1;
+                if (a.status !== "pending" && b.status === "pending") return 1;
+                const dateA = new Date(`${a.appointment_date}T${a.appointment_time}`);
+                const dateB = new Date(`${b.appointment_date}T${b.appointment_time}`);
+                return dateB - dateA;
+            });
+            const index = sorted.findIndex(a => a.id == highlightId);
+            if (index !== -1) {
+                setFilter("all");
+                setPage(Math.ceil((index + 1) / PER_PAGE));
+            }
+        }
+    }, [appointments, highlightId]);
     const isSuperAdmin = currentUser?.admin_role === "Super Admin";
     const department   = currentUser?.department;
 
@@ -42,9 +62,19 @@ export default function AdminAppointments() {
             .finally(() => setLoading(false));
     }, [isSuperAdmin]);
 
-    const filtered = filter === "all"
+    const filtered = (filter === "all"
         ? appointments
-        : appointments.filter((a) => a.status === filter);
+        : appointments.filter((a) => a.status === filter)
+    ).sort((a, b) => {
+        // Priority to pending status
+        if (a.status === "pending" && b.status !== "pending") return -1;
+        if (a.status !== "pending" && b.status === "pending") return 1;
+
+        // Secondary sort by date & time (most recent first)
+        const dateA = new Date(`${a.appointment_date}T${a.appointment_time}`);
+        const dateB = new Date(`${b.appointment_date}T${b.appointment_time}`);
+        return dateB - dateA;
+    });
 
     const totalPages = Math.ceil(filtered.length / PER_PAGE);
     const paginated  = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
@@ -138,7 +168,7 @@ export default function AdminAppointments() {
                                                 initial={{ opacity: 0 }}
                                                 animate={{ opacity: 1 }}
                                                 exit={{ opacity: 0 }}
-                                                className="border-b last:border-none hover:bg-gray-50 transition"
+                                                className={`border-b last:border-none transition ${highlightId == a.id ? 'bg-blue-50 ring-2 ring-[#127fec]/30' : 'hover:bg-gray-50'}`}
                                             >
                                                 <td className="py-4 px-4 font-medium text-gray-700">
                                                     {a.patient_name}

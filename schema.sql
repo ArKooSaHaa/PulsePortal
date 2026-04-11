@@ -8,6 +8,8 @@ FLUSH PRIVILEGES;
 
 USE pulse_portal;
  
+DROP TABLE IF EXISTS pulse_notifications;
+DROP TABLE IF EXISTS prescriptions;
 DROP TABLE IF EXISTS visit_notes;
 DROP TABLE IF EXISTS appointments;
 DROP TABLE IF EXISTS admins;
@@ -149,6 +151,25 @@ CREATE TABLE prescriptions (
     PRIMARY KEY (id),
     CONSTRAINT fk_prescriptions_appointment
         FOREIGN KEY (appointment_id) REFERENCES appointments (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ── TABLE 8: pulse_notifications ───────────────────────────
+-- Persistent notification storage.
+CREATE TABLE pulse_notifications (
+    id                 BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id            BIGINT UNSIGNED NOT NULL,
+    type               VARCHAR(255)    NOT NULL,
+    title              VARCHAR(255)    NOT NULL,
+    message            TEXT            NOT NULL,
+    appointment_id     BIGINT UNSIGNED NULL,
+    link               VARCHAR(255)    NULL,
+    is_read            TINYINT(1)      NOT NULL DEFAULT 0,
+    created_at         TIMESTAMP       NULL,
+    updated_at         TIMESTAMP       NULL,
+    PRIMARY KEY (id),
+    INDEX idx_notifications_user_read (user_id, is_read),
+    CONSTRAINT fk_pulse_notifications_user
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*
 CREATE TABLE users (
