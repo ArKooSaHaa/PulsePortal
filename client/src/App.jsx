@@ -13,6 +13,7 @@ import authService from "./api/authService";
 import { patientRoutes } from "./routes/patientRoutes";
 import { doctorRoutes } from "./routes/doctorRoutes";
 import { adminRoutes } from "./routes/adminRoutes";
+import { NotificationProvider } from "./context/NotificationContext";
 
 function RoleLayout() {
     return (
@@ -34,47 +35,49 @@ function ProtectedRoute({ expectedRole }) {
 function App() {
     return (
         <BrowserRouter>
-            <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/auth" element={<AuthPage />} />
-                <Route path="/auth/google/callback" element={<GoogleCallback />} />
+            <NotificationProvider>
+                <Routes>
+                    <Route path="/" element={<HomePage />} />
+                    <Route path="/auth" element={<AuthPage />} />
+                    <Route path="/auth/google/callback" element={<GoogleCallback />} />
 
-                {/* Patient */}
-                <Route
-                    path="/patient"
-                    element={<ProtectedRoute expectedRole="patient" />}
-                >
-                    <Route element={<RoleLayout />}>
-                        {patientRoutes.map((route, i) => (
-                            <Route key={i} {...route} />
-                        ))}
+                    {/* Patient */}
+                    <Route
+                        path="/patient"
+                        element={<ProtectedRoute expectedRole="patient" />}
+                    >
+                        <Route element={<RoleLayout />}>
+                            {patientRoutes.map((route, i) => (
+                                <Route key={i} {...route} />
+                            ))}
+                        </Route>
                     </Route>
-                </Route>
 
-                {/* Doctor */}
-                <Route
-                    path="/doctor"
-                    element={<ProtectedRoute expectedRole="doctor" />}
-                >
-                    <Route element={<RoleLayout />}>
-                        {doctorRoutes.map((route, i) => (
-                            <Route key={i} {...route} />
-                        ))}
+                    {/* Doctor */}
+                    <Route
+                        path="/doctor"
+                        element={<ProtectedRoute expectedRole="doctor" />}
+                    >
+                        <Route element={<RoleLayout />}>
+                            {doctorRoutes.map((route, i) => (
+                                <Route key={i} {...route} />
+                            ))}
+                        </Route>
                     </Route>
-                </Route>
 
-                {/* Admin */}
-                <Route
-                    path="/admin"
-                    element={<ProtectedRoute expectedRole="admin" />}
-                >
-                    <Route element={<RoleLayout />}>
-                        {adminRoutes.map((route, i) => (
-                            <Route key={i} {...route} />
-                        ))}
+                    {/* Admin */}
+                    <Route
+                        path="/admin"
+                        element={<ProtectedRoute expectedRole="admin" />}
+                    >
+                        <Route element={<RoleLayout />}>
+                            {adminRoutes.map((route, i) => (
+                                <Route key={i} {...route} />
+                            ))}
+                        </Route>
                     </Route>
-                </Route>
-            </Routes>
+                </Routes>
+            </NotificationProvider>
         </BrowserRouter>
     );
 }

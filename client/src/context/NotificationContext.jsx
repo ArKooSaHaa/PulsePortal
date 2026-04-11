@@ -1,63 +1,115 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import echo from '../utils/echo';
-import authService from '../api/authService';
+import React, { createContext, useContext, useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { getEcho } from '../utils/echo';
 
 const NotificationContext = createContext();
 
 export const NotificationProvider = ({ children }) => {
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
-    const user = authService.getCurrentUser();
+    const navigate = useNavigate();
+    const channelRef = useRef(null);
+    const tokenRef = useRef(null);
 
-    useEffect(() => {
-        if (!user || !user.id) return;
+    // Build a notification object with a role-aware navigation link
+    const buildNotification = useCallback((data, type) => {
+        const user = (() => {
+            try { return JSON.parse(localStorage.getItem('user')); } catch { return null; }
+        })();
 
-        const channel = echo.private(`user.${user.id}`);
+        const role = user?.role || 'patient';
 
-        // Listen for new appointment request (for doctors)
-        channel.listen('.appointment.requested', (data) => {
-            addNotification({
-                id: Date.now(),
-                title: 'New Appointment',
-                message: data.message,
-                time: new Date().toLocaleTimeString(),
-                type: 'request'
-            });
-        });
+        let link = `/${role}/appointments`;
+        if (role === 'admin') link = '/admin/all-appointments';
 
-        // Listen for status updates (for patients)
-        channel.listen('.appointment.status.updated', (data) => {
-            addNotification({
-                id: Date.now(),
-                title: 'Appointment Update',
-                message: data.message,
-                time: new Date().toLocaleTimeString(),
-                type: 'status'
-            });
-        });
-
-        return () => {
-            channel.stopListening('.appointment.requested');
-            channel.stopListening('.appointment.status.updated');
+        return {
+            id: Date.now() + Math.random(),          // ensure uniqueness
+            title: type === 'request' ? 'New Appointment Request' : 'Appointment Updated',
+            message: data.message,
+            time: new Date().toLocaleTimeString(),
+            type,
+            appointmentId: data.id || null,
+            link,
         };
-    }, [user?.id]);
+    }, []);
 
-    const addNotification = (notif) => {
-        setNotifications(prev => [notif, ...prev].slice(0, 10)); // Keep last 10
+    const addNotification = useCallback((notif) => {
+        setNotifications(prev => [notif, ...prev].slice(0, 20));
         setUnreadCount(prev => prev + 1);
-        
-        // Browser Notification (optional)
-        if (Notification.permission === 'granted') {
+
+        // Native browser notification (if user granted permission)
+        if (typeof window !== 'undefined' && Notification.permission === 'granted') {
             new Notification(notif.title, { body: notif.message });
         }
-    };
+    }, []);
 
-    const markAsRead = () => {
-        setUnreadCount(0);
-    };
+    // Subscribe / re-subscribe whenever the stored token changes
+    const subscribe = useCallback(() => {
+        const token = localStorage.getItem('token');
+        const userRaw = localStorage.getItem('user');
+
+        if (!token || !userRaw) return;
+
+        // Don't re-subscribe with the same token
+        if (token === tokenRef.current && channelRef.current) return;
+
+        // Tear down existing subscription
+        if (channelRef.current) {
+            try {
+                channelRef.current.stopListening('.appointment.requested');
+                channelRef.current.stopListening('.appointment.status.updated');
+            } catch (_) {}
+            channelRef.current = null;
+        }
+
+        const user = (() => { try { return JSON.parse(userRaw); } catch { return null; } })();
+        if (!user?.id) return;
+
+        tokenRef.current = token;
+        const echo = getEcho(token);
+        const channel = echo.private(`user.${user.id}`);
+        channelRef.current = channel;
+
+        channel.listen('.appointment.requested', (data) => {
+            addNotification(buildNotification(data, 'request'));
+        });
+
+        channel.listen('.appointment.status.updated', (data) => {
+            addNotification(buildNotification(data, 'status'));
+        });
+    }, [addNotification, buildNotification]);
+
+    // Run on mount, and re-check periodically to catch logins that happen after mount
+    useEffect(() => {
+        subscribe();
+
+        // Poll every 2 s — lightweight, just checks if the token changed
+        const interval = setInterval(subscribe, 2000);
+
+        return () => {
+            clearInterval(interval);
+            if (channelRef.current) {
+                try {
+                    channelRef.current.stopListening('.appointment.requested');
+                    channelRef.current.stopListening('.appointment.status.updated');
+                } catch (_) {}
+            }
+        };
+    }, [subscribe]);
+
+    const markAsRead = useCallback(() => setUnreadCount(0), []);
+
+    const handleNotificationClick = useCallback((notif) => {
+        if (notif.link) navigate(notif.link);
+    }, [navigate]);
 
     return (
-        <NotificationContext.Provider value={{ notifications, unreadCount, markAsRead }}>
+        <NotificationContext.Provider value={{
+            notifications,
+            unreadCount,
+            markAsRead,
+            handleNotificationClick,
+        }}>
             {children}
         </NotificationContext.Provider>
     );

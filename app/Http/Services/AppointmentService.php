@@ -15,11 +15,11 @@ class AppointmentService
     {
         $appointment = Appointment::create([
             'patient_id'       => $patientId,
-            'doctor_id'        => $validatedData['doctor_id'],
-            'appointment_date' => $validatedData['appointment_date'],
-            'appointment_time' => $validatedData['appointment_time'],
-            'type'             => $validatedData['type'],
-            'symptoms'         => $validatedData['symptoms'],
+            'doctor_id'        => $data['doctor_id'],
+            'appointment_date' => $data['appointment_date'],
+            'appointment_time' => $data['appointment_time'],
+            'type'             => $data['type'],
+            'symptoms'         => $data['symptoms'],
             'status'           => 'pending',
         ]);
 

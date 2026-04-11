@@ -15,6 +15,7 @@ class DoctorService
                 'id'             => $d->id,
                 'name'           => $d->user->name,
                 'specialization' => $d->specialization,
+                'department'     => $d->department,
                 'bio'            => $d->bio,
                 'fee'            => $d->consultation_fee,
                 'availability'   => $d->availability,
