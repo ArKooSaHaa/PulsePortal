@@ -19,7 +19,8 @@ ENV APP_ENV production
 ENV APP_DEBUG false
 
 # Set permissions for storage and bootstrap/cache
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+RUN chown -R nginx:nginx /var/www/html/storage /var/www/html/bootstrap/cache
+RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
 # Use ENTRYPOINT with our script (which ends by calling /start.sh)
 RUN chmod +x /var/www/html/render-deploy.sh
