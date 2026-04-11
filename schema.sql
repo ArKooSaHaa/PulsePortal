@@ -8,6 +8,8 @@ FLUSH PRIVILEGES;
 
 USE pulse_portal;
  
+DROP TABLE IF EXISTS pulse_notifications;
+DROP TABLE IF EXISTS prescriptions;
 DROP TABLE IF EXISTS visit_notes;
 DROP TABLE IF EXISTS appointments;
 DROP TABLE IF EXISTS admins;
@@ -85,7 +87,7 @@ CREATE TABLE admins (
     user_id            BIGINT UNSIGNED NOT NULL,
     created_at         TIMESTAMP       NULL,
     updated_at         TIMESTAMP       NULL,
-    admin_roles        VARCHAR(255)    NULL,
+    admin_role         VARCHAR(255)    NULL,
     department         VARCHAR(255)    NULL,
     PRIMARY KEY (id),
     UNIQUE KEY admins_user_id_unique (user_id),
@@ -142,10 +144,8 @@ CREATE TABLE patient_prescriptions (
     appointment_id     BIGINT UNSIGNED NOT NULL,
     disease_or_problem VARCHAR(255)    NULL,
     medication         VARCHAR(255)    NOT NULL,
-    dosage             VARCHAR(255)    NULL,
     instructions       TEXT            NULL,
     created_at         TIMESTAMP       NULL,
-    updated_at         TIMESTAMP       NULL,
     PRIMARY KEY (id),
     CONSTRAINT fk_pprescription_appointment
         FOREIGN KEY (appointment_id) 
@@ -169,6 +169,24 @@ CREATE TABLE consultations (
         REFERENCES appointments(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ── TABLE 8: pulse_notifications ───────────────────────────
+-- Persistent notification storage.
+CREATE TABLE pulse_notifications (
+    id                 BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id            BIGINT UNSIGNED NOT NULL,
+    type               VARCHAR(255)    NOT NULL,
+    title              VARCHAR(255)    NOT NULL,
+    message            TEXT            NOT NULL,
+    appointment_id     BIGINT UNSIGNED NULL,
+    link               VARCHAR(255)    NULL,
+    is_read            TINYINT(1)      NOT NULL DEFAULT 0,
+    created_at         TIMESTAMP       NULL,
+    updated_at         TIMESTAMP       NULL,
+    PRIMARY KEY (id),
+    INDEX idx_notifications_user_read (user_id, is_read),
+    CONSTRAINT fk_pulse_notifications_user
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*
 CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,

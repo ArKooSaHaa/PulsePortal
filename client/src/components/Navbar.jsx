@@ -60,7 +60,7 @@ export default function Navbar() {
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isNotifOpen, setIsNotifOpen] = useState(false);
-    const { notifications, unreadCount, markAsRead } = useNotifications();
+    const { notifications, unreadCount, markAsRead, handleNotificationClick } = useNotifications();
 
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const dropdownRef = useRef(null);
@@ -241,7 +241,7 @@ export default function Navbar() {
 
                         {/* Profile Section */}
                         <div className="flex items-center gap-1">
-                            <div className="lg:hidden relative" ref={notifRef}>
+                            <div className="lg:hidden relative">
                                 <motion.button
                                     onClick={() => {
                                         setIsNotifOpen(!isNotifOpen);
@@ -285,10 +285,14 @@ export default function Navbar() {
                                                     notifications.map((note) => (
                                                         <motion.div
                                                             key={note.id}
+                                                            onClick={() => {
+                                                                handleNotificationClick(note);
+                                                                setIsNotifOpen(false);
+                                                            }}
                                                             whileHover={{
                                                                 backgroundColor: "rgba(18, 127, 236, 0.15)",
                                                             }}
-                                                            className="px-3 py-2.5 rounded-lg text-sm border-b border-slate-50 last:border-0"
+                                                            className="px-3 py-2.5 rounded-lg text-sm border-b border-slate-50 last:border-0 cursor-pointer"
                                                         >
                                                             <div className="font-bold text-[#127fec]">{note.title}</div>
                                                             <div className="text-slate-700 leading-tight">{note.message}</div>

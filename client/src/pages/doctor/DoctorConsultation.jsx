@@ -43,6 +43,18 @@ export default function DoctorConsultation() {
         navigate("/doctor/appointments");
     };
 
+    //  Upload Prescription
+    const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setFileName(file.name);
+
+    navigate(`/doctor/prescription-preview/${appointment.id}`, {
+    state: { file }, // optional
+});
+};
+
     return (
         <div className="min-h-screen bg-[#f1f5f9] p-6 grid lg:grid-cols-4 gap-6">
             {/* LEFT SIDE */}
@@ -97,23 +109,42 @@ export default function DoctorConsultation() {
                     </div>
                 </div>
 
-                <div className="flex flex-col gap-3 mt-auto pt-6 border-t border-slate-100">
-                    <button
-                        onClick={() =>
-                            navigate(`/doctor/prescription-preview/${appointment.id}`, {
-                                state: { appointment },
-                            })
-                        }
-                        className="border-2 border-dashed border-[#127fec] text-[#127fec] p-4 rounded-xl text-center text-sm hover:bg-blue-50 w-full transition font-semibold"
-                    >
-                        Upload Prescription
-                    </button>
-                    
-                    <textarea
-                        placeholder="Write visit notes..."
-                        className="w-full border rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#127fec] h-32"
-                    ></textarea>
-                </div>
+                {/* Video Button */}
+                <button className="w-full bg-blue-50 hover:bg-blue-100 transition p-3 rounded-xl flex gap-2 items-center text-sm">
+                    <Video size={16}/> Video Call
+                </button>
+
+                {/* Files */}
+                <button className="w-full bg-slate-50 hover:bg-slate-100 transition p-3 rounded-xl flex gap-2 items-center text-sm">
+                    <FileText size={16}/> Files
+                </button>
+
+                {/* Upload Prescription */}
+                <button
+    onClick={() =>
+        navigate(`/doctor/prescription-preview/${appointment.id}`, {
+            state: { appointment },
+        })
+    }
+    className="border-2 border-dashed p-4 rounded-xl text-center text-sm hover:bg-slate-50 w-full"
+>
+    Upload Prescription
+</button>
+
+                {/* Show file name */}
+                {fileName && (
+                    <p className="text-xs text-slate-500 text-center">
+                        Selected: {fileName}
+                    </p>
+                )}
+
+                {/* Notes */}
+                <textarea
+                    placeholder="Write notes..."
+                    className="w-full border rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    rows={4}
+                ></textarea>
+
             </div>
         </div>
     );

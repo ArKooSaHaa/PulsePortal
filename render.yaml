@@ -13,9 +13,42 @@ services:
         value: stderr
       - key: DB_CONNECTION
         value: mysql
-      # Adding sync: false creates the empty UI fields in Render
-      - key: DATABASE_URL
+      - key: DB_HOST
+        value: pulse-portal-db-hrittika23-46ed.b.aivencloud.com
+      - key: DB_PORT
+        value: 14251
+      - key: DB_DATABASE
+        value: defaultdb
+      - key: DB_USERNAME
+        value: avnadmin
+      - key: DB_PASSWORD
         sync: false
+      - key: DB_SSL
+        value: true
+      - key: APP_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: SESSION_DRIVER
+        value: cookie
+      - key: CACHE_DRIVER
+        value: file
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: BROADCAST_DRIVER
+        value: pusher
+      - key: PUSHER_APP_ID
+        sync: false
+      - key: PUSHER_APP_KEY
+        sync: false
+      - key: PUSHER_APP_SECRET
+        sync: false
+      - key: PUSHER_APP_CLUSTER
+        sync: false
+      - key: PUSHER_SCHEME
+        value: https
+      - key: PUSHER_PORT
+        value: 443
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET

@@ -48,11 +48,16 @@ export default function AdminDashboard() {
     const PER_PAGE = 5;
 
     const user = authService.getCurrentUser();
+    const isSuperAdmin = user?.admin_role === "Super Admin";
 
     useEffect(() => {
+        const apptFetcher = isSuperAdmin
+            ? adminService.getAllAppointments
+            : adminService.getDepartmentAppointments;
+
         Promise.all([
             adminService.getStats(),
-            adminService.getAllAppointments(),
+            apptFetcher(),
         ])
             .then(([statsData, apptData]) => {
                 setStats(statsData);
@@ -60,7 +65,7 @@ export default function AdminDashboard() {
             })
             .catch(() => {})
             .finally(() => setLoading(false));
-    }, []);
+    }, [isSuperAdmin]);
 
     const totalPages = Math.ceil(appointments.length / PER_PAGE);
     // const paginated = appointments.slice(
@@ -70,8 +75,14 @@ export default function AdminDashboard() {
     //const recentAppointments = appointments.slice(0, 5);
     const recentAppointments = [...appointments]
     .sort((a, b) => {
-        return new Date(`${b.appointment_date}T${b.appointment_time}`) -
-               new Date(`${a.appointment_date}T${a.appointment_time}`);
+        // Priority to pending status
+        if (a.status === "pending" && b.status !== "pending") return -1;
+        if (a.status !== "pending" && b.status === "pending") return 1;
+
+        // Secondary sort by date & time (most recent first)
+        const dateA = new Date(`${a.appointment_date}T${a.appointment_time}`);
+        const dateB = new Date(`${b.appointment_date}T${b.appointment_time}`);
+        return dateB - dateA;
     })
     .slice(0, 5);
 

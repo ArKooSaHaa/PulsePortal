@@ -23,16 +23,16 @@ export default function HomePage() {
                 {/* LOGO */}
                 <div className="nav-logo">PulsePortal</div>
 
-                {/* NAV LINKS */}
+                {/* NAV LINKS
                 <div className="hidden md:flex items-center gap-8 text-sm font-medium">
                     <a href="#" className="nav-link">Find a Doctor</a>
                     <a href="#" className="nav-link">Appointments</a>
                     <a href="#" className="nav-link">Telehealth</a>
                     <a href="#" className="nav-link">Services</a>
-                </div>
+                </div> */}
 
                 {/* LOGIN BUTTON */}
-                <Link to="/auth" className="primary-btn">Patient Login</Link>
+                <Link to="/auth" className="primary-btn">Login</Link>
             </motion.nav>
 
             {/* ================= HERO SECTION ================= */}
@@ -67,18 +67,18 @@ export default function HomePage() {
                         Your health, secured.
                     </p>
 
-                    <motion.button 
+                    {/* <motion.button 
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         className="primary-btn"
                     >
                         Book Appointment
-                    </motion.button>
+                    </motion.button> */}
                 </motion.div>
             </section>
 
 
-            {/* AI SECTION */}
+            {/* AI SECTION
             <motion.section 
                 variants={fadeUp}
                 initial="hidden"
@@ -112,7 +112,49 @@ export default function HomePage() {
                         </motion.button>
                     </div>
                 </div>
-            </motion.section>
+            </motion.section> */}
+<motion.section
+    variants={fadeUp}
+    initial="hidden"
+    whileInView="visible"
+    viewport={{ once: true }}
+    className="max-w-5xl mx-auto px-6 py-10"
+>
+    <div className="bg-white rounded-3xl shadow-md p-10 text-center">
+
+        <h2 className="text-2xl font-bold mb-4">How PulsePortal Works</h2>
+
+        <p className="text-slate-500 mb-8">
+            A seamless digital healthcare platform connecting patients, doctors, and administrators.
+        </p>
+
+        <div className="grid md:grid-cols-3 gap-6 text-left">
+            
+            <div className="p-4 bg-slate-50 rounded-xl">
+                <h3 className="font-semibold mb-2">1. Role-Based Access</h3>
+                <p className="text-sm text-slate-500">
+                    Secure login system for patients, doctors, and administrators with dedicated dashboards.
+                </p>
+            </div>
+
+            <div className="p-4 bg-slate-50 rounded-xl">
+                <h3 className="font-semibold mb-2">2. Book & Manage Appointments</h3>
+                <p className="text-sm text-slate-500">
+                    Patients can easily schedule appointments with doctors and manage their bookings efficiently.
+                </p>
+            </div>
+
+            <div className="p-4 bg-slate-50 rounded-xl">
+                <h3 className="font-semibold mb-2">3. Online Consultation</h3>
+                <p className="text-sm text-slate-500">
+                    Connect with doctors through real-time online consultations for quick and convenient care.
+                </p>
+            </div>
+
+        </div>
+
+    </div>
+</motion.section>
 
 
             {/* FEATURES */}
@@ -130,7 +172,7 @@ export default function HomePage() {
                     {[ 
                         { icon: <Shield size={24} />, title: "24/7 Encryption", text: "Your data is secured with military-grade encryption protocols." },
                         { icon: <Video size={24} />, title: "Telehealth Ready", text: "Connect with top-rated specialists from your home." },
-                        { icon: <Zap size={24} />, title: "Instant Lab Results", text: "Access AI-analyzed diagnostic reports instantly." }
+                        { icon: <Zap size={24} />, title: "Doctor Recommendations", text: "Find suitable specialists for your health concerns quickly." }
                     ].map((item, index) => (
                         <motion.div
                             key={index}
@@ -149,11 +191,11 @@ export default function HomePage() {
 
             {/* FOOTER */}
             <footer className="bg-white border-t py-8 text-center text-sm">
-                <div className="flex justify-center gap-8 mb-4">
+                {/* <div className="flex justify-center gap-8 mb-4">
                     <a href="#" className="footer-link">Privacy Policy</a>
                     <a href="#" className="footer-link">Terms of Service</a>
                     <a href="#" className="footer-link">Contact Us</a>
-                </div>
+                </div> */}
 
                 <p className="text-slate-500">© 2025 PulsePortal. All rights reserved.</p>
             </footer>

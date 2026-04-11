@@ -1,4 +1,4 @@
-name: PulsePortal
+name: CI
 
 on:
   push:

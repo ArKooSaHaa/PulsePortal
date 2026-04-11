@@ -9,6 +9,8 @@ use App\Mail\WelcomeDoctorMail;
 use App\Mail\AdminWelcomMail;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+
 use Mail;
 
 class AdminService
@@ -32,7 +34,7 @@ class AdminService
             'name.regex' => 'Name can only contain letters, spaces, hyphens, and dots.',
         ])->validate();
 
-        return DB::transaction(function () use ($validatedData) {
+        return DB::transaction(function () use ($validatedData, $data) {
             $user = User::create([
                 'name' => $validatedData['name'],
                 'email' => $validatedData['email'],
@@ -83,7 +85,7 @@ class AdminService
             'name.regex' => 'Name can only contain letters, spaces, hyphens, and dots.',
         ])->validate();
 
-        return DB::transaction(function () use ($validatedData) {
+        return DB::transaction(function () use ($validatedData, $data) {
             $user = User::create([
                 'name' => $validatedData['name'],
                 'email' => $validatedData['email'],

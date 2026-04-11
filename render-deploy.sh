@@ -1,26 +1,20 @@
 #!/bin/bash
 
-# Exit immediately if a command exits with a non-zero status
-set -e
+echo "🚀 Starting PulsePortal Deployment Script..."
 
-echo "🚀 Starting Deployment Script..."
+echo "🧹 Clearing stale cache..."
+php artisan config:clear  || echo "⚠️  config:clear failed"
+php artisan cache:clear   || echo "⚠️  cache:clear failed"
+php artisan route:clear   || echo "⚠️  route:clear failed"
+php artisan view:clear    || echo "⚠️  view:clear failed"
 
-# The Dockerfile already runs composer install, but we can do a quick check
-# echo "Running composer..."
-# composer install --no-dev --optimize-autoloader --no-interaction
+echo "⚙️  Caching config for production..."
+php artisan config:cache  || echo "⚠️  config:cache failed"
+php artisan route:cache   || echo "⚠️  route:cache failed"
+php artisan view:cache    || echo "⚠️  view:cache failed"
 
-echo "Clearing cache and configuration..."
-php artisan config:clear
-php artisan cache:clear
+echo "🗄️  Running migrations..."
+php artisan migrate --force || echo "⚠️  migrate failed"
 
-echo "Caching configuration..."
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-
-echo "Running migrations..."
-# --force is required for production
-php artisan migrate --force
-
-echo "🚀 Starting Web Server..."
-exec /start.sh
+echo "🚀 Starting Web Server (Apache)..."
+exec apache2-foreground

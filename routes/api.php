@@ -8,12 +8,14 @@ use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\DoctorController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AiController;
+use App\Http\Controllers\NotificationController;
 
 // ── Auth routes ───────────────────────────────────────────────
 Route::prefix('auth')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login',    [AuthController::class, 'login']);
     Route::post('logout',   [AuthController::class, 'logout'])->middleware('auth:api');
+    Route::post('refresh',  [AuthController::class, 'refresh'])->middleware('auth:api');
     Route::get('me',        [AuthController::class, 'me'])->middleware('auth:api');
 
     // Google OAuth
@@ -25,6 +27,11 @@ Route::prefix('auth')->group(function () {
 Route::middleware('auth:api')->group(function () {
     Route::get('profile', [ProfileController::class, 'show']);
     Route::put('profile', [ProfileController::class, 'update']);
+
+    // Notification routes
+    Route::get('notifications',             [NotificationController::class, 'index']);
+    Route::post('notifications/mark-read',  [NotificationController::class, 'markAllRead']);
+    Route::delete('notifications/{id}',     [NotificationController::class, 'destroy']);
 
     // Patient routes
     Route::prefix('patient')->group(function () {
@@ -72,8 +79,3 @@ Route::middleware('auth:api')->group(function () {
         });
     });
 });
-
-// ── Catch-all OPTIONS route safety net ────────────────────────
-Route::options('{any}', function() {
-    return response('', 200);
-})->where('any', '.*');

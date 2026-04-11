@@ -33,7 +33,11 @@ const STATUS_STYLES = {
 };
 
 function formatDate(dateStr) {
-    return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
+    if (!dateStr) return "—";
+    const date = new Date(
+        dateStr.length === 10 ? dateStr + "T00:00:00" : dateStr
+    );
+    return isNaN(date.getTime()) ? "—" : date.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric",
@@ -150,21 +154,6 @@ function AppointmentCard({ appt }) {
                         </span>
                     </div>
 
-                    {/* View Details — not functional yet */}
-                    <div className="flex items-center gap-2 mt-1 pt-4">
-                        <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.97 }}
-                            className="px-4 py-1 rounded-full text-sm font-semibold text-white shadow-sm focus:outline-none opacity-50 cursor-not-allowed"
-                            style={{
-                                background:
-                                    "linear-gradient(135deg, #0a5bbf, #127fec)",
-                            }}
-                            title="Coming soon"
-                        >
-                            View Details
-                        </motion.button>
-                    </div>
                 </div>
             </div>
         </div>
@@ -194,7 +183,7 @@ export default function PatientDashboard() {
             (a, b) =>
                 new Date(a.appointment_date) - new Date(b.appointment_date),
         )
-        .slice(0, 3); // show max 3 on dashboard
+        .slice(0, 3); // show max 2 on dashboard
 
     // History = completed appointments
     const history = appointments

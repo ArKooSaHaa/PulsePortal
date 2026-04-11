@@ -25,6 +25,8 @@ class AuthController extends Controller
                 'message' => 'Registration successful',
                 'data'    => $result,
             ], 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
                 'status'  => 'error',
@@ -84,5 +86,24 @@ class AuthController extends Controller
                 'role'  => $user->role,
             ],
         ]);
+    }
+
+    // POST /api/auth/refresh
+    public function refresh()
+    {
+        try {
+            $newToken = auth()->refresh();
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'token' => $newToken,
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Token cannot be refreshed',
+            ], 401);
+        }
     }
 }

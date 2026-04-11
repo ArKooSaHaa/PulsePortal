@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import appointmentService from "../../api/appointmentService";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import consultationService from "../../api/consultationService";
@@ -8,6 +8,8 @@ import consultationService from "../../api/consultationService";
 export default function DoctorAppointments() {
     const [appointments, setAppointments] = useState([]);
     const navigate = useNavigate();
+    const location = useLocation();
+    const highlightId = location.state?.highlight;
     const [loading, setLoading] = useState(true);
     const [startingId, setStartingId] = useState(null);
 
@@ -36,10 +38,19 @@ export default function DoctorAppointments() {
         .finally(() => setLoading(false));
 }, []);
 
-    // Reset page when data changes
+    // Handle highlight and pagination reset
     useEffect(() => {
+        if (appointments.length === 0) return;
+        
+        if (highlightId) {
+            const index = appointments.findIndex(a => a.id == highlightId);
+            if (index !== -1) {
+                setCurrentPage(Math.ceil((index + 1) / itemsPerPage));
+                return;
+            }
+        }
         setCurrentPage(1);
-    }, [appointments]);
+    }, [appointments, highlightId]);
 
     const totalPages = Math.ceil(appointments.length / itemsPerPage);
 
@@ -105,14 +116,15 @@ export default function DoctorAppointments() {
                                     scale: 1.01,
                                     backgroundColor: "#f8fafc",
                                 }}
-                                className="grid grid-cols-5 items-center p-4 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition"
+                                className={`grid grid-cols-5 items-center p-4 rounded-xl shadow-sm hover:shadow-md transition ${highlightId == item.id ? 'border-[#127fec] ring-2 ring-[#127fec]/20 bg-blue-50/50' : 'border border-slate-100'}`}
                             >
                                 {/* Date */}
                                 <div>
                                     <p className="font-semibold text-slate-700 text-sm">
                                         {new Date(
-                                            item.appointment_date +
-                                                "T00:00:00"
+                                            (item.appointment_date?.includes("T") 
+                                                ? item.appointment_date.split("T")[0] 
+                                                : item.appointment_date) + "T00:00:00"
                                         ).toLocaleDateString("en-US", {
                                             month: "short",
                                             day: "numeric",
