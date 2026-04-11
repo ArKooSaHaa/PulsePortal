@@ -1,178 +1,126 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { PhoneOff, Mic, MicOff, Video, VideoOff } from "lucide-react";
+import { PhoneOff, FileText, Loader2 } from "lucide-react";
+import consultationService from "../../api/consultationService";
+import authService from "../../api/authService";
 
 export default function PatientConsultation() {
     const navigate = useNavigate();
     const { id } = useParams();
 
-    const localVideoRef = useRef(null);
-    const streamRef = useRef(null);
-
-    const [micOn, setMicOn] = useState(true);
-    const [videoOn, setVideoOn] = useState(true);
-
-    // NEW STATES (FIXED)
-    const [messages, setMessages] = useState([]);
-    const [input, setInput] = useState("");
-
-    const [prescriptions] = useState([
-        "Amoxicillin 500mg - 2x daily",
-        "Paracetamol 500mg - after meal"
-    ]);
+    const [roomName, setRoomName] = useState("");
+    const [status, setStatus] = useState("loading"); // loading, waiting, started, ended
+    const user = authService.getCurrentUser();
 
     useEffect(() => {
-        startCamera();
-        return () => stopCamera();
-    }, []);
+        checkConsultation();
+        
+        // Poll every 5 seconds if waiting
+        const interval = setInterval(() => {
+            if (status === "waiting") checkConsultation();
+        }, 5000);
 
-    const startCamera = async () => {
+        return () => clearInterval(interval);
+    }, [status]);
+
+    const checkConsultation = async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: true,
-                audio: true,
-            });
-
-            streamRef.current = stream;
-
-            if (localVideoRef.current) {
-                localVideoRef.current.srcObject = stream;
+            const res = await consultationService.getPatientConsultation(id);
+            if (!res || res.status === "waiting") {
+                setStatus("waiting");
+            } else if (res.status === "success") {
+                if (res.data.status === "ended") {
+                    setStatus("ended");
+                } else if (res.data.status === "started") {
+                    setRoomName(res.data.room_name);
+                    setStatus("started");
+                }
             }
-        } catch (err) {
-            console.error("Camera error:", err);
+        } catch (e) {
+            console.error("Failed to fetch consultation", e);
+            setStatus("error");
         }
     };
 
-    const stopCamera = () => {
-        if (streamRef.current) {
-            streamRef.current.getTracks().forEach(track => track.stop());
-        }
-    };
-
-    const toggleMic = () => {
-        const stream = streamRef.current;
-        if (!stream) return;
-
-        stream.getAudioTracks().forEach(track => {
-            track.enabled = !track.enabled;
-        });
-
-        setMicOn(prev => !prev);
-    };
-
-    const toggleVideo = () => {
-        const stream = streamRef.current;
-        if (!stream) return;
-
-        stream.getVideoTracks().forEach(track => {
-            track.enabled = !track.enabled;
-        });
-
-        setVideoOn(prev => !prev);
-    };
-
-    const handleEndCall = () => {
-        stopCamera();
+    const handleLeaveCall = () => {
         navigate("/patient/appointments");
-    };
-
-    // FIXED CHAT
-    const sendMessage = () => {
-        if (!input.trim()) return;
-
-        setMessages(prev => [...prev, input]);
-        setInput("");
     };
 
     return (
         <div className="min-h-screen bg-[#0f172a] p-4 flex gap-4">
+            {/* LEFT: FULL VIDEO / JITSI IFRAME */}
+            <div className="flex-1 bg-black rounded-2xl overflow-hidden shadow-xl relative min-h-[500px] border border-slate-800">
 
-            {/* ================= LEFT: FULL VIDEO ================= */}
-            <div className="flex-1 bg-black rounded-2xl overflow-hidden shadow-xl relative">
+                {status === "loading" && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 gap-3">
+                        <Loader2 className="animate-spin" size={32} />
+                        <p>Connecting...</p>
+                    </div>
+                )}
 
-                <video
-                    ref={localVideoRef}
-                    autoPlay
-                    muted
-                    playsInline
-                    className="w-full h-screen object-cover"
-                />
+                {status === "waiting" && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 gap-3 bg-slate-900">
+                        <div className="h-16 w-16 mb-2 rounded-full bg-slate-800 flex items-center justify-center animate-pulse">
+                            <Video className="text-slate-500" size={24} />
+                        </div>
+                        <p className="text-xl font-semibold text-white">Waiting for your doctor...</p>
+                        <p className="text-sm">The consultation hasn't started yet. Please stay on this page.</p>
+                        <button onClick={handleLeaveCall} className="mt-6 px-6 py-2 rounded-full border border-slate-700 text-slate-300 hover:bg-slate-800">
+                            Go Back
+                        </button>
+                    </div>
+                )}
 
-                <div className="absolute top-4 left-4 text-white text-sm bg-black/50 px-3 py-1 rounded-full">
-                    Consultation ID: {id}
-                </div>
+                {status === "ended" && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-white gap-3 bg-slate-900">
+                        <PhoneOff size={48} className="text-red-500 mb-2" />
+                        <p className="text-2xl font-bold">Consultation Ended</p>
+                        <p className="text-sm text-slate-400">The doctor has ended this session.</p>
+                        <button onClick={handleLeaveCall} className="mt-4 px-6 py-2 bg-[#127fec] rounded-full font-semibold">
+                            Return to Appointments
+                        </button>
+                    </div>
+                )}
+
+                {status === "started" && roomName && (
+                    <iframe
+                        allow="camera; microphone; display-capture; autoplay; clipboard-write; fullscreen"
+                        src={`https://meet.jit.si/${roomName}?userInfo.displayName="${encodeURIComponent(user?.name || 'Patient')}"`}
+                        className="w-full h-full border-0 absolute top-0 left-0"
+                        title="Jitsi Video Consultation"
+                    ></iframe>
+                )}
 
                 {/* Controls */}
-                <div className="absolute bottom-4 w-full flex justify-center gap-4">
-
-                    <button onClick={toggleMic}
-                        className="p-3 bg-white/20 rounded-full text-white">
-                        {micOn ? <Mic size={18} /> : <MicOff size={18} />}
-                    </button>
-
-                    <button onClick={toggleVideo}
-                        className="p-3 bg-white/20 rounded-full text-white">
-                        {videoOn ? <Video size={18} /> : <VideoOff size={18} />}
-                    </button>
-
-                    <button onClick={handleEndCall}
-                        className="p-3 bg-red-500 rounded-full text-white">
-                        <PhoneOff size={18} />
-                    </button>
-
-                </div>
+                {status === "started" && (
+                    <div className="absolute bottom-4 w-full flex justify-center gap-4">
+                        <button onClick={handleLeaveCall}
+                            className="px-6 py-3 bg-red-500 hover:bg-red-600 rounded-full text-white font-semibold flex items-center gap-2 shadow-lg shadow-red-500/30 transition">
+                            <PhoneOff size={18} />
+                            Leave Room
+                        </button>
+                    </div>
+                )}
             </div>
 
-            {/* ================= RIGHT PANEL ================= */}
-            <div className="w-[320px] bg-white rounded-2xl shadow-lg p-4 flex flex-col gap-4">
-
-                {/* Upload */}
-                <label className="border-2 border-dashed rounded-xl p-4 text-center text-sm text-gray-600 cursor-pointer hover:bg-gray-50">
-                    <input type="file" className="hidden" />
-                    Click to Upload Files
-                </label>
-
-                {/* Prescription  */}
+            {/* RIGHT PANEL - Kept minimal for future extensions */}
+            <div className="w-[320px] bg-slate-900 rounded-2xl shadow-lg p-6 flex flex-col gap-4 border border-slate-800 text-white hidden lg:flex">
                 <div>
-                    <h3 className="text-sm font-semibold mb-2">Prescription</h3>
-                    <div className="space-y-2">
-                        {prescriptions.map((p, i) => (
-                            <div key={i} className="bg-gray-100 p-2 rounded text-sm">
-                                {p}
-                            </div>
-                        ))}
-                    </div>
+                    <h3 className="text-sm border-b border-slate-800 pb-2 mb-4 text-slate-400 font-semibold uppercase tracking-wider">
+                        Quick Info
+                    </h3>
+                    <p className="text-sm text-slate-300">
+                        Ask your doctor to upload scripts to your profile when the visit concludes.
+                    </p>
                 </div>
-
-                {/* Messages */}
-                <div className="flex-1 overflow-auto">
-                    <h3 className="text-sm font-semibold mb-2">Chat</h3>
-
-                    <div className="space-y-2">
-                        {messages.map((msg, i) => (
-                            <div key={i} className="text-xs bg-blue-100 p-2 rounded">
-                                {msg}
-                            </div>
-                        ))}
-                    </div>
+                
+                <div className="mt-auto bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                    <FileText className="text-[#127fec] mb-2" size={20} />
+                    <h4 className="font-semibold text-sm mb-1">Prescriptions & Files</h4>
+                    <p className="text-xs text-slate-400">
+                        If prescribed, files will appear in your main dashboard under view details.
+                    </p>
                 </div>
-
-                {/* Input */}
-                <div className="flex gap-2">
-                    <input
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        placeholder="Type message..."
-                        className="flex-1 border rounded-lg p-2 text-sm"
-                    />
-                    <button
-                        onClick={sendMessage}
-                        className="bg-blue-500 text-white px-3 rounded-lg text-sm"
-                    >
-                        Send
-                    </button>
-                </div>
-
             </div>
         </div>
     );

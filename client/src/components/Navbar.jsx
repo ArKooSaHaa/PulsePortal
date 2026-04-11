@@ -209,10 +209,16 @@ export default function Navbar() {
                                                     notifications.map((note) => (
                                                         <motion.div
                                                             key={note.id}
+                                                            onClick={() => {
+                                                                if (note.type === 'consultation' && note.appointment_id) {
+                                                                    navigate(`/patient/consultation/${note.appointment_id}`);
+                                                                    setIsNotifOpen(false);
+                                                                }
+                                                            }}
                                                             whileHover={{
                                                                 backgroundColor: "rgba(18, 127, 236, 0.15)",
                                                             }}
-                                                            className="px-3 py-2.5 rounded-lg text-sm border-b border-slate-50 last:border-0"
+                                                            className={`px-3 py-2.5 rounded-lg text-sm border-b border-slate-50 last:border-0 ${note.type === 'consultation' ? 'cursor-pointer hover:shadow-sm' : ''}`}
                                                         >
                                                             <div className="font-bold text-[#127fec]">{note.title}</div>
                                                             <div className="text-slate-700 leading-tight">{note.message}</div>

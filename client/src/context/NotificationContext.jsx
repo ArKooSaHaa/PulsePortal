@@ -36,9 +36,22 @@ export const NotificationProvider = ({ children }) => {
             });
         });
 
+        // Listen for consultation started (for patients)
+        channel.listen('.consultation.started', (data) => {
+            addNotification({
+                id: Date.now(),
+                title: 'Consultation Started',
+                message: data.message,
+                time: new Date().toLocaleTimeString(),
+                type: 'consultation',
+                appointment_id: data.appointment_id
+            });
+        });
+
         return () => {
             channel.stopListening('.appointment.requested');
             channel.stopListening('.appointment.status.updated');
+            channel.stopListening('.consultation.started');
         };
     }, [user?.id]);
 

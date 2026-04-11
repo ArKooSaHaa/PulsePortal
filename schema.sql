@@ -102,10 +102,8 @@ CREATE TABLE appointments (
     doctor_id          BIGINT UNSIGNED NOT NULL,
     appointment_date   DATE            NOT NULL,
     appointment_time   TIME            NULL,
-    type               ENUM('in_person','online')
-                                       NOT NULL DEFAULT 'in_person',
-    status             ENUM('pending','confirmed','completed','cancelled')
-                                       NOT NULL DEFAULT 'pending',
+    type               ENUM('offline', 'online') NOT NULL DEFAULT 'offline',
+    status             ENUM('pending', 'confirmed', 'in_progress', 'completed', 'cancelled') NOT NULL DEFAULT 'pending',
     symptoms           TEXT            NOT NULL,
     admin_notes        TEXT            NULL,
     rating             TINYINT         NULL,
@@ -137,19 +135,40 @@ CREATE TABLE visit_notes (
         FOREIGN KEY (appointment_id) REFERENCES appointments (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ── TABLE 7: prescriptions ──────────────────────────────────────
+-- ── TABLE 7: patient_prescriptions ──────────────────────────────
 -- Prescriptions given by doctor after a visit
-CREATE TABLE prescriptions (
-    id                 BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+CREATE TABLE patient_prescriptions (
+    id                 BIGINT UNSIGNED AUTO_INCREMENT,
     appointment_id     BIGINT UNSIGNED NOT NULL,
     disease_or_problem VARCHAR(255)    NULL,
-    medication         TEXT            NOT NULL,
+    medication         VARCHAR(255)    NOT NULL,
+    dosage             VARCHAR(255)    NULL,
     instructions       TEXT            NULL,
     created_at         TIMESTAMP       NULL,
+    updated_at         TIMESTAMP       NULL,
     PRIMARY KEY (id),
-    CONSTRAINT fk_prescriptions_appointment
-        FOREIGN KEY (appointment_id) REFERENCES appointments (id) ON DELETE CASCADE
+    CONSTRAINT fk_pprescription_appointment
+        FOREIGN KEY (appointment_id) 
+        REFERENCES appointments(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Video Consultations table
+CREATE TABLE consultations (
+    id                 BIGINT UNSIGNED AUTO_INCREMENT,
+    appointment_id     BIGINT UNSIGNED NOT NULL,
+    room_name          VARCHAR(255)    NOT NULL,
+    started_at         TIMESTAMP       NULL,
+    ended_at           TIMESTAMP       NULL,
+    created_at         TIMESTAMP       NULL,
+    updated_at         TIMESTAMP       NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY (appointment_id),
+    UNIQUE KEY (room_name),
+    CONSTRAINT fk_consultations_appointment
+        FOREIGN KEY (appointment_id) 
+        REFERENCES appointments(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 /*
 CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
