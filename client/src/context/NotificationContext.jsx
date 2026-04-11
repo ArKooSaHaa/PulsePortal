@@ -100,7 +100,9 @@ export const NotificationProvider = ({ children }) => {
     const markAsRead = useCallback(() => setUnreadCount(0), []);
 
     const handleNotificationClick = useCallback((notif) => {
-        if (notif.link) navigate(notif.link);
+        if (notif.link) {
+            navigate(notif.link, { state: { highlight: notif.appointmentId } });
+        }
     }, [navigate]);
 
     return (

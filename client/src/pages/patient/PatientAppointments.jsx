@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { CalendarDays, AlarmClock, MapPin, Loader2, Video, X } from "lucide-react";
 import appointmentService from "../../api/appointmentService";
 
@@ -11,7 +11,8 @@ const STATUS_STYLES = {
     cancelled: "bg-red-50 text-red-400 border border-red-100",
 };
 
-function AppointmentCard({ appt, onCancel, cancelling , navigate}) {
+function AppointmentCard({ appt, onCancel, cancelling , navigate, highlight }) {
+    const isHighlighted = highlight == appt.id;
     const statusCls = STATUS_STYLES[appt.status] || STATUS_STYLES.pending;
     const accentColor =
         appt.status === "pending"    ? "linear-gradient(180deg, #f59e0b, #fbbf24)" :
@@ -36,7 +37,7 @@ function AppointmentCard({ appt, onCancel, cancelling , navigate}) {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97 }}
-            className="bg-white/90 rounded-2xl shadow-sm border border-slate-100 overflow-hidden"
+            className={`bg-white/90 rounded-2xl shadow-sm overflow-hidden ${isHighlighted ? 'border-2 border-[#127fec] ring-4 ring-[#127fec]/20' : 'border border-slate-100'}`}
         >
             <div className="flex">
                 <div className="w-1 flex-shrink-0" style={{ background: accentColor }} />
@@ -125,6 +126,18 @@ export default function PatientAppointments() {
     const [page, setPage]                 = useState(1);
     const PER_PAGE = 5;
     const navigate = useNavigate();
+    const location = useLocation();
+    const highlightId = location.state?.highlight;
+
+    useEffect(() => {
+        if (appointments.length > 0 && highlightId) {
+            const index = appointments.findIndex(a => a.id == highlightId);
+            if (index !== -1) {
+                setFilter("all");
+                setPage(Math.ceil((index + 1) / PER_PAGE));
+            }
+        }
+    }, [appointments, highlightId]);
 
     useEffect(() => {
         appointmentService.getPatientAppointments()
@@ -206,6 +219,7 @@ export default function PatientAppointments() {
                                     onCancel={handleCancel}
                                     cancelling={cancelling}
                                     navigate={navigate}
+                                    highlight={highlightId}
                                 />
                             ))}
                         </AnimatePresence>
