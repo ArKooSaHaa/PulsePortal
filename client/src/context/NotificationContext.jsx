@@ -7,6 +7,9 @@ const NotificationContext = createContext();
 export const NotificationProvider = ({ children }) => {
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
+
+    // Get the user once on mount/reload or whenever authService could change. 
+    // Usually, wrapping it in state or reading directly is fine in simple cases.
     const user = authService.getCurrentUser();
 
     useEffect(() => {
