@@ -20,12 +20,7 @@ class AppointmentService
             'doctor_id'        => $data['doctor_id'],
             'appointment_date' => $data['appointment_date'],
             'appointment_time' => $data['appointment_time'],
-            'type'             => $data['type'],
-            'symptoms'         => $data['symptoms'],
-            'doctor_id'        => $data['doctor_id'],
-            'appointment_date' => $data['appointment_date'],
-            'appointment_time' => $data['appointment_time'],
-            'type'             => $data['type'],
+            'type'             => $data['type'] ?? 'in_person',
             'symptoms'         => $data['symptoms'],
             'status'           => 'pending',
         ]);
