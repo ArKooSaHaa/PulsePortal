@@ -16,4 +16,5 @@ php artisan view:cache    || echo "⚠️  view:cache failed"
 echo "🗄️  Running migrations..."
 php artisan migrate --force || echo "⚠️  migrate failed"
 
-echo "✅ Deployment script finished! Handing control back to Docker..."
+echo "🚀 Starting Web Server (Apache)..."
+exec apache2-foreground
