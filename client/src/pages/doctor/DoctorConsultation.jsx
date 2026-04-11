@@ -78,15 +78,15 @@ export default function DoctorConsultation() {
 
     //  Upload Prescription
     const handleFileUpload = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    const file = e.target.files[0];
+    if (!file) return;
 
-        setFileName(file.name);
+    setFileName(file.name);
 
-        console.log("Selected file:", file);
-
-        
-    };
+    navigate(`/doctor/prescription-preview/${appointment.id}`, {
+    state: { file }, // optional
+});
+};
 
     return (
         <div className="min-h-screen bg-[#f1f5f9] p-6 grid lg:grid-cols-4 gap-6">
@@ -154,17 +154,16 @@ export default function DoctorConsultation() {
                 </button>
 
                 {/* Upload Prescription */}
-                <label className="border-2 border-dashed p-4 rounded-xl text-center text-sm cursor-pointer hover:bg-slate-50 block">
-                    <Upload size={16} className="mx-auto mb-1"/>
-                    Upload Prescription
-
-                    <input
-                        type="file"
-                        accept="image/*,.pdf"
-                        hidden
-                        onChange={handleFileUpload}
-                    />
-                </label>
+                <button
+    onClick={() =>
+        navigate(`/doctor/prescription-preview/${appointment.id}`, {
+            state: { appointment },
+        })
+    }
+    className="border-2 border-dashed p-4 rounded-xl text-center text-sm hover:bg-slate-50 w-full"
+>
+    Upload Prescription
+</button>
 
                 {/* Show file name */}
                 {fileName && (

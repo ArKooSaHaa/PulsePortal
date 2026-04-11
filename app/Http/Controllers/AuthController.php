@@ -87,4 +87,23 @@ class AuthController extends Controller
             ],
         ]);
     }
+
+    // POST /api/auth/refresh
+    public function refresh()
+    {
+        try {
+            $newToken = auth()->refresh();
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'token' => $newToken,
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Token cannot be refreshed',
+            ], 401);
+        }
+    }
 }

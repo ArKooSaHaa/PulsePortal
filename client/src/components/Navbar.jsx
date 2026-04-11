@@ -239,7 +239,7 @@ export default function Navbar() {
 
                         {/* Profile Section */}
                         <div className="flex items-center gap-1">
-                            <div className="lg:hidden relative" ref={notifRef}>
+                            <div className="lg:hidden relative">
                                 <motion.button
                                     onClick={() => {
                                         setIsNotifOpen(!isNotifOpen);

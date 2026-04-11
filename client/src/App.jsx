@@ -32,7 +32,16 @@ function ProtectedRoute({ expectedRole }) {
     return <Outlet />;
 }
 
-function App() {
+function AppContent() {
+    const navigate = useNavigate();
+
+    // Hook up the global interceptor auth error handler to React Router's navigate
+    api._onAuthError = () => {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        navigate("/auth", { replace: true });
+    };
+
     return (
         <BrowserRouter>
             <NotificationProvider>

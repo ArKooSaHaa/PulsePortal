@@ -22,6 +22,11 @@ class AppointmentService
             'appointment_time' => $data['appointment_time'],
             'type'             => $data['type'],
             'symptoms'         => $data['symptoms'],
+            'doctor_id'        => $data['doctor_id'],
+            'appointment_date' => $data['appointment_date'],
+            'appointment_time' => $data['appointment_time'],
+            'type'             => $data['type'],
+            'symptoms'         => $data['symptoms'],
             'status'           => 'pending',
         ]);
 
@@ -257,12 +262,8 @@ PROMPT;
     {
         return Appointment::where('doctor_id', $doctorId)
             ->where('appointment_date', $date)
-            ->whereIn('status', ['pending', 'confirmed'])
+            ->where('status', 'confirmed')
             ->pluck('appointment_time')
-            ->map(function ($time) {
-                // format back from HH:MM:SS to something easier if needed, or leave as is
-                return $time;
-            })
             ->toArray();
     }
 
@@ -274,7 +275,7 @@ PROMPT;
             'doctor_name'      => $a->doctor->user->name ?? 'Unknown',
             'specialization'   => $a->doctor->specialization ?? '',
             'department'       => $a->doctor->department ?? '',
-            'appointment_date' => $a->appointment_date,
+            'appointment_date' => $a->appointment_date->format('Y-m-d'),
             'appointment_time' => $a->appointment_time,
             'type'             => $a->type,
             'status'           => $a->status,
@@ -288,7 +289,7 @@ PROMPT;
             'id'               => $a->id,
             'patient_id'       => $a->patient_id,
             'patient_name'     => $a->patient->user->name ?? 'Unknown',
-            'appointment_date' => $a->appointment_date,
+            'appointment_date' => $a->appointment_date->format('Y-m-d'),
             'appointment_time' => $a->appointment_time,
             'type'             => $a->type,
             'status'           => $a->status,
@@ -304,7 +305,7 @@ PROMPT;
             'doctor_name'      => $a->doctor->user->name ?? 'Unknown',
             'specialization'   => $a->doctor->specialization ?? '',
             'department'       => $a->doctor->department ?? '',
-            'appointment_date' => $a->appointment_date,
+            'appointment_date' => $a->appointment_date->format('Y-m-d'),
             'appointment_time' => $a->appointment_time,
             'type'             => $a->type,
             'status'           => $a->status,
