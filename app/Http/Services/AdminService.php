@@ -9,6 +9,7 @@ use App\Mail\WelcomeDoctorMail;
 use App\Mail\AdminWelcomMail;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Mail;
 
 class AdminService
