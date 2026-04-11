@@ -21,7 +21,6 @@ class AdminController extends Controller
     // POST /api/admin/doctors  — Super Admin only
     public function createDoctor(Request $request)
     {
-        $this->middleware('admin.super');
 
         $data = $request->validate([
             'name'              => ['required', 'string', 'min:2', 'max:255', 'regex:/^[\pL\s\-\.]+$/u'],
@@ -52,7 +51,6 @@ class AdminController extends Controller
     // POST /api/admin/admins  — Super Admin only
     public function createAdmin(Request $request)
     {
-        $this->middleware('admin.super');
 
         $data = $request->validate([
             'name'       => ['required', 'string', 'min:2', 'max:255', 'regex:/^[\pL\s\-\.]+$/u'],
