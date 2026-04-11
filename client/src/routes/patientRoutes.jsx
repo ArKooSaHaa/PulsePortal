@@ -4,6 +4,7 @@ import BookAppointment from "../pages/patient/BookAppointment";
 import PatientProfile from "../pages/patient/PatientProfile";
 import PatientConsultation from "../pages/patient/PatientConsultation";
 import PatientPrescriptionView from "../pages/patient/PatientPrescriptionView";
+import PatientHistory from "../pages/patient/PatientHistory";
 
 export const patientRoutes = [
     { index: true, element: <PatientDashboard /> },
@@ -12,4 +13,5 @@ export const patientRoutes = [
     { path: "profile", element: <PatientProfile /> },
     { path: "consultation/:id", element: <PatientConsultation /> },
     { path: "prescription/:id", element: <PatientPrescriptionView /> },
+    { path: "history", element: <PatientHistory /> },
 ];

@@ -192,7 +192,7 @@ export default function PatientDashboard() {
             (a, b) =>
                 new Date(b.appointment_date) - new Date(a.appointment_date),
         )
-        .slice(0, 5);
+        .slice(0, 3);
 
     return (
         <div className="min-h-screen bg-[#eff6ff] px-4 sm:px-8 lg:px-12 py-8">
@@ -360,6 +360,14 @@ export default function PatientDashboard() {
                                     </div>
                                 </motion.div>
                             ))}
+                            <div className="text-center mt-2">
+                                <button
+                                    onClick={() => navigate("/patient/history")}
+                                    className="text-xs font-semibold text-[#127fec] hover:underline"
+                                >
+                                    View full history →
+                                </button>
+                            </div>
                         </div>
                     )}
                 </motion.section>

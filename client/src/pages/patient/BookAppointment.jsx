@@ -362,6 +362,9 @@ export default function BookAppointment() {
     const [bookingLoading, setBookingLoading] = useState(false);
     const [bookingError, setBookingError] = useState("");
 
+    const [currentPage, setCurrentPage] = useState(1);
+    const doctorsPerPage = 4;
+
     const [bookedSlots, setBookedSlots] = useState([]);
     const [loadingSlots, setLoadingSlots] = useState(false);
 
@@ -516,6 +519,10 @@ export default function BookAppointment() {
     });
 
     // ── AI Doctor Suggestion handlers ──
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [search, dept, aiResult]);
+
     const activateAiSearch = () => {
         setIsAiSearchActive(true);
         setAiResult(null);
@@ -931,46 +938,61 @@ export default function BookAppointment() {
                                                 No doctors found.
                                             </motion.div>
                                         ) : (
-                                            filteredDoctors.map((doc) => (
-                                                <motion.div
-                                                    key={doc.id}
-                                                    layout
-                                                    initial={{
-                                                        opacity: 0,
-                                                        y: 8,
-                                                    }}
-                                                    animate={{
-                                                        opacity: 1,
-                                                        y: 0,
-                                                    }}
-                                                    exit={{
-                                                        opacity: 0,
-                                                        scale: 0.96,
-                                                    }}
-                                                >
-                                                    <DoctorCard
-                                                        doctor={doc}
-                                                        selected={
-                                                            selectedDoctor?.id ===
-                                                            doc.id
-                                                        }
-                                                        onSelect={(d) => {
-                                                            setSelectedDoctor(
-                                                                d,
-                                                            );
-                                                            setSelectedType(
-                                                                null,
-                                                            );
-                                                            setSelectedDate(
-                                                                null,
-                                                            );
-                                                            setSelectedTime(
-                                                                null,
-                                                            );
-                                                        }}
-                                                    />
-                                                </motion.div>
-                                            ))
+                                            <>
+                                                {filteredDoctors
+                                                    .slice(
+                                                        (currentPage - 1) * doctorsPerPage,
+                                                        currentPage * doctorsPerPage
+                                                    )
+                                                    .map((doc) => (
+                                                        <motion.div
+                                                            key={doc.id}
+                                                            layout
+                                                            initial={{ opacity: 0, y: 8 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            exit={{ opacity: 0, scale: 0.96 }}
+                                                        >
+                                                            <DoctorCard
+                                                                doctor={doc}
+                                                                selected={selectedDoctor?.id === doc.id}
+                                                                onSelect={(d) => {
+                                                                    setSelectedDoctor(d);
+                                                                    setSelectedType(null);
+                                                                    setSelectedDate(null);
+                                                                    setSelectedTime(null);
+                                                                }}
+                                                            />
+                                                        </motion.div>
+                                                    ))}
+                                                {Math.ceil(filteredDoctors.length / doctorsPerPage) > 1 && (
+                                                    <div className="flex justify-center items-center gap-3 mt-4">
+                                                        <button
+                                                            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                                            disabled={currentPage === 1}
+                                                            className="flex items-center justify-center w-8 h-8 rounded-full border border-slate-200 text-slate-500 disabled:opacity-40 hover:bg-slate-50 transition-colors"
+                                                        >
+                                                            <ChevronLeft size={16} />
+                                                        </button>
+                                                        <span className="text-xs font-semibold text-slate-500">
+                                                            {currentPage} / {Math.ceil(filteredDoctors.length / doctorsPerPage)}
+                                                        </span>
+                                                        <button
+                                                            onClick={() =>
+                                                                setCurrentPage((p) =>
+                                                                    Math.min(
+                                                                        Math.ceil(filteredDoctors.length / doctorsPerPage),
+                                                                        p + 1,
+                                                                    )
+                                                                )
+                                                            }
+                                                            disabled={currentPage === Math.ceil(filteredDoctors.length / doctorsPerPage)}
+                                                            className="flex items-center justify-center w-8 h-8 rounded-full border border-slate-200 text-slate-500 disabled:opacity-40 hover:bg-slate-50 transition-colors"
+                                                        >
+                                                            <ChevronRight size={16} />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </>
                                         )}
                                     </AnimatePresence>
                                 )}
