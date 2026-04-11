@@ -4,6 +4,7 @@ namespace App\Http\Services;
 
 use App\Models\Admin;
 use App\Models\Appointment;
+use App\Models\Patient;
 use Illuminate\Support\Facades\Mail;
 use App\Events\AppointmentRequested;
 use App\Mail\PatientAppointmentDetails;
