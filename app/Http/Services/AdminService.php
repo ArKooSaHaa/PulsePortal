@@ -33,7 +33,7 @@ class AdminService
             'name.regex' => 'Name can only contain letters, spaces, hyphens, and dots.',
         ])->validate();
 
-        return DB::transaction(function () use ($validatedData) {
+        return DB::transaction(function () use ($validatedData, $data) {
             $user = User::create([
                 'name' => $validatedData['name'],
                 'email' => $validatedData['email'],
@@ -84,7 +84,7 @@ class AdminService
             'name.regex' => 'Name can only contain letters, spaces, hyphens, and dots.',
         ])->validate();
 
-        return DB::transaction(function () use ($validatedData) {
+        return DB::transaction(function () use ($validatedData, $data) {
             $user = User::create([
                 'name' => $validatedData['name'],
                 'email' => $validatedData['email'],
