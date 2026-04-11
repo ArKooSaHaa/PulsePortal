@@ -3,12 +3,15 @@
 namespace App\Http\Services;
 
 use App\Models\Appointment;
+use App\Events\AppointmentRequested;
+use App\Events\AppointmentStatusUpdated;
+
 
 class AppointmentService
 {
     public function createAppointment(int $patientId, array $data): Appointment
     {
-        return Appointment::create([
+        $appointment = Appointment::create([
             'patient_id'       => $patientId,
             'doctor_id'        => $data['doctor_id'],
             'appointment_date' => $data['appointment_date'],
@@ -17,6 +20,10 @@ class AppointmentService
             'symptoms'         => $data['symptoms'],
             'status'           => 'pending',
         ]);
+
+        broadcast(new AppointmentRequested($appointment))->toOthers();
+
+        return $appointment;
     }
 
     public function getPatientAppointments(int $patientId)
@@ -48,6 +55,9 @@ class AppointmentService
         if (!$appointment) return null;
 
         $appointment->update(['status' => $status]);
+
+        broadcast(new AppointmentStatusUpdated($appointment))->toOthers();
+
         return $appointment;
     }
 
@@ -61,6 +71,9 @@ class AppointmentService
         if (!$appointment) return null;
 
         $appointment->update(['status' => 'cancelled']);
+
+        broadcast(new AppointmentStatusUpdated($appointment))->toOthers();
+
         return $appointment;
     }
 
