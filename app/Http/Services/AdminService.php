@@ -31,13 +31,14 @@ class AdminService
             }
 
             Doctor::create([
-                'user_id' => $user->id,
-                'specialization' => $data['specialization'],
-                'bio' => $data['bio'] ?? null,
-                'phone' => $data['phone'] ?? null,
+                'user_id'          => $user->id,
+                'specialization'   => $data['specialization'],
+                'department'       => $data['department'] ?? null,
+                'bio'              => $data['bio'] ?? null,
+                'phone'            => $data['phone'] ?? null,
                 'consultation_fee' => $data['consultation_fee'] ?? 0,
-                'availability' => $availability,
-                'is_available' => true,
+                'availability'     => $availability,
+                'is_available'     => true,
             ]);
 
             Mail::to($data['email'])->queue(new WelcomeDoctorMail($data['name'], $data['email'], $data['password']));
@@ -86,15 +87,16 @@ class AdminService
         return \App\Models\Doctor::with('user')
             ->get()
             ->map(fn($d) => [
-                'id' => $d->id,
-                'user_id' => $d->user_id,
-                'name' => $d->user->name,
-                'email' => $d->user->email,
+                'id'             => $d->id,
+                'user_id'        => $d->user_id,
+                'name'           => $d->user->name,
+                'email'          => $d->user->email,
                 'specialization' => $d->specialization,
-                'phone' => $d->phone,
-                'fee' => $d->consultation_fee,
-                'is_available' => $d->is_available,
-                'availability' => $d->availability,
+                'department'     => $d->department,
+                'phone'          => $d->phone,
+                'fee'            => $d->consultation_fee,
+                'is_available'   => $d->is_available,
+                'availability'   => $d->availability,
             ])
             ->toArray();
     }
@@ -120,14 +122,15 @@ class AdminService
             ->orderBy('appointment_date', 'desc')
             ->get()
             ->map(fn($a) => [
-                'id' => $a->id,
-                'patient_name' => $a->patient->user->name ?? 'Unknown',
-                'doctor_name' => $a->doctor->user->name ?? 'Unknown',
-                'specialization' => $a->doctor->specialization ?? '',
+                'id'               => $a->id,
+                'patient_name'     => $a->patient->user->name ?? 'Unknown',
+                'doctor_name'      => $a->doctor->user->name ?? 'Unknown',
+                'specialization'   => $a->doctor->specialization ?? '',
+                'department'       => $a->doctor->department ?? '',
                 'appointment_date' => $a->appointment_date,
                 'appointment_time' => $a->appointment_time,
-                'type' => $a->type,
-                'status' => $a->status,
+                'type'             => $a->type,
+                'status'           => $a->status,
             ])
             ->toArray();
     }

@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
@@ -19,16 +18,46 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Admin
-        $adminUser = User::create([
+        // 1. Super Admin (System Admin)
+        $superAdminUser = User::create([
             'name'     => 'System Admin',
             'email'    => 'admin@pulseportal.com',
             'password' => Hash::make('password123'),
             'role'     => 'admin',
         ]);
-        Admin::create(['user_id' => $adminUser->id]);
+        Admin::create([
+            'user_id'    => $superAdminUser->id,
+            'admin_role' => 'Super Admin',
+            'department' => null,
+        ]);
 
-        // Doctor
+        // 2. Department Admin: Cardiology
+        $cardioAdminUser = User::create([
+            'name'     => 'Cardio Admin',
+            'email'    => 'cardio@pulseportal.com',
+            'password' => Hash::make('password123'),
+            'role'     => 'admin',
+        ]);
+        Admin::create([
+            'user_id'    => $cardioAdminUser->id,
+            'admin_role' => 'Department Admin',
+            'department' => 'Cardiology',
+        ]);
+
+        // 3. Department Admin: Neurology
+        $neuroAdminUser = User::create([
+            'name'     => 'Neuro Admin',
+            'email'    => 'neuro@pulseportal.com',
+            'password' => Hash::make('password123'),
+            'role'     => 'admin',
+        ]);
+        Admin::create([
+            'user_id'    => $neuroAdminUser->id,
+            'admin_role' => 'Department Admin',
+            'department' => 'Neurology',
+        ]);
+
+        // 4. Doctor: Cardiology
         $doctorUser = User::create([
             'name'     => 'Dr. Sarah Khan',
             'email'    => 'doctor@pulseportal.com',
@@ -38,6 +67,7 @@ class DatabaseSeeder extends Seeder
         $doctor = Doctor::create([
             'user_id'          => $doctorUser->id,
             'specialization'   => 'Cardiology',
+            'department'       => 'Cardiology',
             'bio'              => 'Senior Cardiologist with 10+ years experience.',
             'phone'            => '01711000001',
             'consultation_fee' => 800.00,
@@ -51,7 +81,29 @@ class DatabaseSeeder extends Seeder
             ],
         ]);
 
-        // Patient
+        // 5. Doctor: Neurology
+        $neuroDoctorUser = User::create([
+            'name'     => 'Dr. James Wilson',
+            'email'    => 'neuro_doc@pulseportal.com',
+            'password' => Hash::make('password123'),
+            'role'     => 'doctor',
+        ]);
+        $neuroDoctor = Doctor::create([
+            'user_id'          => $neuroDoctorUser->id,
+            'specialization'   => 'Neurology',
+            'department'       => 'Neurology',
+            'bio'              => 'Specialist in neurological disorders.',
+            'phone'            => '01711000004',
+            'consultation_fee' => 1000.00,
+            'is_available'     => true,
+            'availability'     => [
+                'mon' => ['10:00', '18:00'],
+                'wed' => ['10:00', '18:00'],
+                'fri' => ['10:00', '14:00'],
+            ],
+        ]);
+
+        // 6. Patient
         $patientUser = User::create([
             'name'     => 'Rahim Uddin',
             'email'    => 'patient@pulseportal.com',
@@ -69,11 +121,12 @@ class DatabaseSeeder extends Seeder
             'emergency_phone'   => '01911000003',
         ]);
 
-        // Sample appointment
+        // 7. Sample Appointments
+        // Completed Cardiology appt
         $appointment = Appointment::create([
             'patient_id'       => $patient->id,
             'doctor_id'        => $doctor->id,
-            'appointment_date' => '2025-03-15',
+            'appointment_date' => now()->subDays(2)->toDateString(),
             'appointment_time' => '10:00:00',
             'type'             => 'in_person',
             'status'           => 'completed',
@@ -81,104 +134,62 @@ class DatabaseSeeder extends Seeder
             'admin_notes'      => 'Scheduled at Room 204.',
         ]);
 
-                Appointment::create([
-    'patient_id'       => $patient->id,
-    'doctor_id'        => $doctor->id,
-    'appointment_date' => '2025-03-15',
-    'appointment_time' => '09:00:00',
-    'type'             => 'in_person',
-    'status'           => 'pending',
-    'symptoms'         => 'Headache and dizziness',
-    'admin_notes'      => 'First visit',
-]);
+        // Pending Cardiology appt (should be visible to Cardio Admin)
+        Appointment::create([
+            'patient_id'       => $patient->id,
+            'doctor_id'        => $doctor->id,
+            'appointment_date' => now()->addDays(1)->toDateString(),
+            'appointment_time' => '09:00:00',
+            'type'             => 'in_person',
+            'status'           => 'pending',
+            'symptoms'         => 'Headache and dizziness',
+        ]);
 
-Appointment::create([
-    'patient_id'       => $patient->id,
-    'doctor_id'        => $doctor->id,
-    'appointment_date' => '2025-03-16',
-    'appointment_time' => '10:00:00',
-    'type'             => 'online',
-    'status'           => 'confirmed',
-    'symptoms'         => 'Fever and cough',
-    'admin_notes'      => 'Follow-up required',
-]);
+        Appointment::create([
+            'patient_id'       => $patient->id,
+            'doctor_id'        => $doctor->id,
+            'appointment_date' => now()->addDays(3)->toDateString(),
+            'appointment_time' => '10:30:00',
+            'type'             => 'online',
+            'status'           => 'confirmed',
+            'symptoms'         => 'Follow-up on blood pressure medication.',
+        ]);
 
-Appointment::create([
-    'patient_id'       => $patient->id,
-    'doctor_id'        => $doctor->id,
-    'appointment_date' => '2025-03-17',
-    'appointment_time' => '11:00:00',
-    'type'             => 'in_person',
-    'status'           => 'completed',
-    'symptoms'         => 'Chest pain',
-    'admin_notes'      => 'ECG done',
-]);
+        // Pending Neurology appt (should be visible to Neuro Admin)
+        Appointment::create([
+            'patient_id'       => $patient->id,
+            'doctor_id'        => $neuroDoctor->id,
+            'appointment_date' => now()->addDays(2)->toDateString(),
+            'appointment_time' => '11:00:00',
+            'type'             => 'online',
+            'status'           => 'pending',
+            'symptoms'         => 'Frequent tremors in hands.',
+        ]);
 
-Appointment::create([
-    'patient_id'       => $patient->id,
-    'doctor_id'        => $doctor->id,
-    'appointment_date' => '2025-03-18',
-    'appointment_time' => '12:00:00',
-    'type'             => 'online',
-    'status'           => 'cancelled',
-    'symptoms'         => 'Back pain',
-    'admin_notes'      => 'Cancelled by patient',
-]);
+        Appointment::create([
+            'patient_id'       => $patient->id,
+            'doctor_id'        => $neuroDoctor->id,
+            'appointment_date' => now()->addDays(4)->toDateString(),
+            'appointment_time' => '14:00:00',
+            'type'             => 'in_person',
+            'status'           => 'pending',
+            'symptoms'         => 'Persistent migraines for two weeks.',
+        ]);
 
-Appointment::create([
-    'patient_id'       => $patient->id,
-    'doctor_id'        => $doctor->id,
-    'appointment_date' => '2025-03-19',
-    'appointment_time' => '13:00:00',
-    'type'             => 'in_person',
-    'status'           => 'pending',
-    'symptoms'         => 'Stomach pain',
-    'admin_notes'      => 'Waiting for test',
-]);
+        Appointment::create([
+            'patient_id'       => $patient->id,
+            'doctor_id'        => $neuroDoctor->id,
+            'appointment_date' => now()->subDays(1)->toDateString(),
+            'appointment_time' => '15:30:00',
+            'type'             => 'in_person',
+            'status'           => 'cancelled',
+            'symptoms'         => 'Sleep disorder and insomnia.',
+        ]);
 
-Appointment::create([
-    'patient_id'       => $patient->id,
-    'doctor_id'        => $doctor->id,
-    'appointment_date' => '2025-03-20',
-    'appointment_time' => '14:00:00',
-    'type'             => 'online',
-    'status'           => 'confirmed',
-    'symptoms'         => 'Skin allergy',
-    'admin_notes'      => 'Prescribed medicine',
-]);
-
-Appointment::create([
-    'patient_id'       => $patient->id,
-    'doctor_id'        => $doctor->id,
-    'appointment_date' => '2025-03-21',
-    'appointment_time' => '15:00:00',
-    'type'             => 'in_person',
-    'status'           => 'completed',
-    'symptoms'         => 'BP checkup',
-    'admin_notes'      => 'Stable condition',
-]);
-
-Appointment::create([
-    'patient_id'       => $patient->id,
-    'doctor_id'        => $doctor->id,
-    'appointment_date' => '2025-03-22',
-    'appointment_time' => '16:00:00',
-    'type'             => 'online',
-    'status'           => 'pending',
-    'symptoms'         => 'Migraine',
-    'admin_notes'      => 'MRI suggested',
-]);
-
-        // Sample visit note
+        // 8. Visit Note
         VisitNote::create([
             'appointment_id' => $appointment->id,
-            'doctor_notes'   => 'BP stable at 130/85. ECG normal. Prescribed Amlodipine 5mg once daily. Review in 4 weeks.',
+            'doctor_notes'   => 'BP stable at 130/85. ECG normal. Prescribed Amlodipine 5mg once daily.',
         ]);
-        // \App\Models\User::factory(10)->create();
-
-        // \App\Models\User::factory()->create([
-        //     'name' => 'Test User',
-        //     'email' => 'test@example.com',
-        // ]);
     }
 }

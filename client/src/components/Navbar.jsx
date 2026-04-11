@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { HeartPulse, LogOut, User, Menu, X, Bell, Loader2 } from "lucide-react";
 import demoImage from "../assets/demo.jpg";
 import authService from "../api/authService";
+import { useNotifications } from "../context/NotificationContext";
+
 
 const NAV_LINKS = {
     patient: [
@@ -11,11 +13,6 @@ const NAV_LINKS = {
         { name: "Book Appointment", path: "book-appointment" },
     ],
     doctor: [{ name: "Appointments", path: "appointments" }],
-    admin: [
-        { name: "Add Doctor", path: "add-doctor" },
-        { name: "Add Admin", path: "add-admin" },
-        { name: "Appointments", path: "all-appointments" },
-    ],
 };
 
 function NavLink({ to, children, isActive }) {
@@ -63,12 +60,31 @@ export default function Navbar() {
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isNotifOpen, setIsNotifOpen] = useState(false);
+    const { notifications, unreadCount, markAsRead } = useNotifications();
+
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const dropdownRef = useRef(null);
     const notifRef = useRef(null);
     const mobileMenuRef = useRef(null);
 
-    const links = NAV_LINKS[role] || [];
+    // Read the stored user to determine admin_role
+    const currentUser = authService.getCurrentUser();
+    const adminRole = currentUser?.admin_role || null;
+    const isSuperAdmin = adminRole === 'Super Admin';
+
+    // Compute admin nav links dynamically based on role
+    const getAdminLinks = () => {
+        const links = [{ name: "Appointments", path: "all-appointments" }];
+        if (isSuperAdmin) {
+            links.unshift(
+                { name: "Add Doctor", path: "add-doctor" },
+                { name: "Add Admin", path: "add-admin" },
+            );
+        }
+        return links;
+    };
+
+    const links = role === 'admin' ? getAdminLinks() : (NAV_LINKS[role] || []);
     const dashboardPath = `/${role}`;
 
     const handleLogout = async () => {
@@ -150,13 +166,18 @@ export default function Navbar() {
                             {/* Notification Button */}
                             <div className="relative" ref={notifRef}>
                                 <motion.button
-                                    onClick={() => setIsNotifOpen(!isNotifOpen)}
+                                onClick={() => {
+                                    setIsNotifOpen(!isNotifOpen);
+                                    if (!isNotifOpen) markAsRead();
+                                }}
                                     whileHover={{ scale: 1.08 }}
                                     whileTap={{ scale: 0.92 }}
                                     className="relative p-2 rounded-full text-slate-600 hover:text-[#127fec] hover:bg-[#127fec]/10 transition-colors focus:outline-none"
                                 >
                                     <Bell size={20} />
-                                    <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+                                    {unreadCount > 0 && (
+                                        <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+                                    )}
                                 </motion.button>
 
                                 {/* Notification Dropdown */}
@@ -183,23 +204,26 @@ export default function Navbar() {
                                             <p className="text-md font-bold tracking-wider px-2 mb-2">
                                                 Notifications
                                             </p>
-                                            <div className="flex flex-col gap-1">
-                                                {[
-                                                    "Notificatoin 1.",
-                                                    "Notification 2.",
-                                                    "Notification 3.",
-                                                ].map((note, i) => (
-                                                    <motion.div
-                                                        key={i}
-                                                        whileHover={{
-                                                            backgroundColor:
-                                                                "rgba(18, 127, 236, 0.15)",
-                                                        }}
-                                                        className="px-3 py-2.5 rounded-lg text-sm text-slate-700 cursor-pointer transition-colors"
-                                                    >
-                                                        {note}
-                                                    </motion.div>
-                                                ))}
+                                            <div className="flex flex-col gap-1 max-h-64 overflow-y-auto">
+                                                {notifications.length > 0 ? (
+                                                    notifications.map((note) => (
+                                                        <motion.div
+                                                            key={note.id}
+                                                            whileHover={{
+                                                                backgroundColor: "rgba(18, 127, 236, 0.15)",
+                                                            }}
+                                                            className="px-3 py-2.5 rounded-lg text-sm border-b border-slate-50 last:border-0"
+                                                        >
+                                                            <div className="font-bold text-[#127fec]">{note.title}</div>
+                                                            <div className="text-slate-700 leading-tight">{note.message}</div>
+                                                            <div className="text-[10px] text-slate-400 mt-1">{note.time}</div>
+                                                        </motion.div>
+                                                    ))
+                                                ) : (
+                                                    <div className="px-3 py-8 text-center text-sm text-slate-400">
+                                                        No new notifications
+                                                    </div>
+                                                )}
                                             </div>
                                         </motion.div>
                                     )}
@@ -213,13 +237,18 @@ export default function Navbar() {
                         <div className="flex items-center gap-1">
                             <div className="lg:hidden relative" ref={notifRef}>
                                 <motion.button
-                                    onClick={() => setIsNotifOpen(!isNotifOpen)}
+                                    onClick={() => {
+                                        setIsNotifOpen(!isNotifOpen);
+                                        if (!isNotifOpen) markAsRead();
+                                    }}
                                     whileHover={{ scale: 1.08 }}
                                     whileTap={{ scale: 0.92 }}
                                     className="relative p-2 rounded-full text-slate-600 hover:text-[#127fec] hover:bg-[#127fec]/10 transition-colors focus:outline-none"
                                 >
                                     <Bell size={20} />
-                                    <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+                                    {unreadCount > 0 && (
+                                        <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+                                    )}
                                 </motion.button>
 
                                 <AnimatePresence>
@@ -245,23 +274,26 @@ export default function Navbar() {
                                             <p className="text-md font-bold tracking-wider px-2 mb-2">
                                                 Notifications
                                             </p>
-                                            <div className="flex flex-col gap-1">
-                                                {[
-                                                    "Notificatoin 1.",
-                                                    "Notification 2.",
-                                                    "Notification 3.",
-                                                ].map((note, i) => (
-                                                    <motion.div
-                                                        key={i}
-                                                        whileHover={{
-                                                            backgroundColor:
-                                                                "rgba(18, 127, 236, 0.15)",
-                                                        }}
-                                                        className="px-3 py-2.5 rounded-lg text-sm text-slate-700 cursor-pointer transition-colors"
-                                                    >
-                                                        {note}
-                                                    </motion.div>
-                                                ))}
+                                            <div className="flex flex-col gap-1 max-h-64 overflow-y-auto">
+                                                {notifications.length > 0 ? (
+                                                    notifications.map((note) => (
+                                                        <motion.div
+                                                            key={note.id}
+                                                            whileHover={{
+                                                                backgroundColor: "rgba(18, 127, 236, 0.15)",
+                                                            }}
+                                                            className="px-3 py-2.5 rounded-lg text-sm border-b border-slate-50 last:border-0"
+                                                        >
+                                                            <div className="font-bold text-[#127fec]">{note.title}</div>
+                                                            <div className="text-slate-700 leading-tight">{note.message}</div>
+                                                            <div className="text-[10px] text-slate-400 mt-1">{note.time}</div>
+                                                        </motion.div>
+                                                    ))
+                                                ) : (
+                                                    <div className="px-3 py-8 text-center text-sm text-slate-400">
+                                                        No new notifications
+                                                    </div>
+                                                )}
                                             </div>
                                         </motion.div>
                                     )}
