@@ -1,5 +1,6 @@
 import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
+import axios from 'axios';
 
 window.Pusher = Pusher;
 
@@ -15,10 +16,28 @@ if (pusherKey) {
         forceTLS: true,
         authEndpoint: (import.meta.env.VITE_API_URL || 'http://localhost:8000/api').replace('/api', '') + '/broadcasting/auth',
         auth: {
-            headers: {
-                Authorization: `Bearer ${localStorage.getItem('token')}`,
-                Accept: 'application/json',
-            },
+            headers: {},
+        },
+        authorizer: (channel, options) => {
+            return {
+                authorize: (socketId, callback) => {
+                    axios.post(options.authEndpoint, {
+                        socket_id: socketId,
+                        channel_name: channel.name
+                    }, {
+                        headers: {
+                            Authorization: `Bearer ${localStorage.getItem('token')}`,
+                            Accept: 'application/json'
+                        }
+                    })
+                    .then(response => {
+                        callback(false, response.data);
+                    })
+                    .catch(error => {
+                        callback(true, error);
+                    });
+                }
+            };
         },
     });
 } else {

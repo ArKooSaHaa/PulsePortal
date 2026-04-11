@@ -48,11 +48,16 @@ export default function AdminDashboard() {
     const PER_PAGE = 5;
 
     const user = authService.getCurrentUser();
+    const isSuperAdmin = user?.admin_role === "Super Admin";
 
     useEffect(() => {
+        const apptFetcher = isSuperAdmin
+            ? adminService.getAllAppointments
+            : adminService.getDepartmentAppointments;
+
         Promise.all([
             adminService.getStats(),
-            adminService.getAllAppointments(),
+            apptFetcher(),
         ])
             .then(([statsData, apptData]) => {
                 setStats(statsData);
@@ -60,7 +65,7 @@ export default function AdminDashboard() {
             })
             .catch(() => {})
             .finally(() => setLoading(false));
-    }, []);
+    }, [isSuperAdmin]);
 
     const totalPages = Math.ceil(appointments.length / PER_PAGE);
     // const paginated = appointments.slice(

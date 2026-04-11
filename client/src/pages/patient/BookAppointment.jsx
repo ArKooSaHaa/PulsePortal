@@ -334,6 +334,14 @@ export default function BookAppointment() {
         let [startH, startM] = availability[0].split(':').map(Number);
         let [endH, endM] = availability[1].split(':').map(Number);
         
+        // Check if selected date is today
+        const now = new Date();
+        const isToday = cell.getFullYear() === now.getFullYear()
+            && cell.getMonth() === now.getMonth()
+            && cell.getDate() === now.getDate();
+        const currentH = now.getHours();
+        const currentM = now.getMinutes();
+        
         const formatUI = (h, m) => {
             const period = h >= 12 ? 'PM' : 'AM';
             const hr = h % 12 || 12;
@@ -347,7 +355,9 @@ export default function BookAppointment() {
         while (currH < endH || (currH === endH && currM < endM)) {
             const dbTime = formatDB(currH, currM);
             const uiTime = formatUI(currH, currM);
-            const available = !bookedSlots.includes(dbTime);
+            const isBooked = bookedSlots.includes(dbTime);
+            const isPast = isToday && (currH < currentH || (currH === currentH && currM <= currentM));
+            const available = !isBooked && !isPast;
             
             slots.push({ id: uiTime, time: uiTime, dbTime: dbTime, available });
             
