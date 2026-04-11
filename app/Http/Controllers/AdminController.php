@@ -18,23 +18,7 @@ class AdminController extends Controller
     // POST /api/admin/doctors
     public function createDoctor(Request $request)
     {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'min:2', 'max:255', 'regex:/^[\pL\s\-\.]+$/u'],
-            'email' => ['required', 'email', 'unique:users,email', 'regex:/^[a-zA-Z0-9._%+\-]+@(gmail\.com|yahoo\.com|outlook\.com|aust\.edu|pulseportal\.com)$/'],
-            'password' => ['required', 'string', 'min:8', 'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/'],
-            'specialization' => 'required|string|max:100',
-            'bio' => 'nullable|string|max:1000',
-            'phone' => 'nullable|string|max:20',
-            'consultation_fee' => 'nullable|numeric|min:0',
-            'availability_days' => 'nullable|array',
-            'availability_days.*' => 'string|in:SUN,MON,TUE,WED,THU,FRI,SAT',
-        ], [
-            'email.regex' => 'Only gmail.com, yahoo.com, outlook.com, aust.edu, and pulseportal.com emails are allowed.',
-            'password.regex' => 'Password must contain at least one uppercase letter, one lowercase letter, and one number.',
-            'name.regex' => 'Name can only contain letters, spaces, hyphens, and dots.',
-        ]);
-
-        $result = $this->adminService->createDoctor($data);
+        $result = $this->adminService->createDoctor($request->all());
 
         return response()->json([
             'status' => 'success',
@@ -46,18 +30,7 @@ class AdminController extends Controller
     // POST /api/admin/admins
     public function createAdmin(Request $request)
     {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'min:2', 'max:255', 'regex:/^[\pL\s\-\.]+$/u'],
-            'email' => ['required', 'email', 'unique:users,email', 'regex:/^[a-zA-Z0-9._%+\-]+@(gmail\.com|yahoo\.com|outlook\.com|aust\.edu|pulseportal\.com)$/'],
-            'password' => ['required', 'string', 'min:8', 'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/'],
-            'phone' => 'nullable|string|max:20',
-        ], [
-            'email.regex' => 'Only gmail.com, yahoo.com, outlook.com, aust.edu, and pulseportal.com emails are allowed.',
-            'password.regex' => 'Password must contain at least one uppercase letter, one lowercase letter, and one number.',
-            'name.regex' => 'Name can only contain letters, spaces, hyphens, and dots.',
-        ]);
-
-        $result = $this->adminService->createAdmin($data);
+        $result = $this->adminService->createAdmin($request->all());
 
         return response()->json([
             'status' => 'success',
@@ -96,16 +69,9 @@ class AdminController extends Controller
     // GET /api/admin/stats
     public function getStats()
     {
-        $today = now()->toDateString();
-
         return response()->json([
             'status' => 'success',
-            'data' => [
-                'total_doctors' => \App\Models\Doctor::count(),
-                'total_patients' => \App\Models\Patient::count(),
-                'appointments_today' => \App\Models\Appointment::whereDate('appointment_date', $today)->count(),
-                'upcoming_appointments' => \App\Models\Appointment::whereIn('status', ['pending', 'confirmed'])->count(),
-            ],
+            'data' => $this->adminService->getStats(),
         ]);
     }
 }

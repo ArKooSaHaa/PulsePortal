@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class VisitNote extends Model
+class Prescription extends Model
 {
     use HasFactory;
 
@@ -13,10 +13,9 @@ class VisitNote extends Model
 
     protected $fillable = [
         'appointment_id',
-        'doctor_notes',
-        'ai_summary',
-        'ai_specialist_recommendation',
-        'ai_history_summary',
+        'disease_or_problem',
+        'medication',
+        'instructions',
     ];
 
     public function appointment()

@@ -5,7 +5,7 @@ import appointmentService from "../../api/appointmentService";
 import { Star, CheckCircle2, ChevronLeft, ChevronRight, Bot, Sparkles, Search, CalendarDays, Clock, UserCheck, ArrowRight, Video, MapPin, Loader2 } from "lucide-react";
 
 // ── Keep your existing DEPARTMENTS, TIME_SLOTS, WEEKDAYS constants ──
-const DEPARTMENTS = ["All", "Cardiology", "Neurology", "Pediatrics", "General", "Orthopedics"];
+// DEPARTMENTS will be dynamically generated
 
 const TIME_SLOTS = [
     { id: 1, time: "09:00 AM", available: true },
@@ -114,7 +114,7 @@ const MONTH_NAMES = [
     "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December",
 ];
 
-function MiniCalendar({ selectedDate, onSelect }) {
+function MiniCalendar({ selectedDate, onSelect, availableDays }) {
     const today = new Date();
     const [view, setView] = useState({ year: today.getFullYear(), month: today.getMonth() });
 
@@ -130,11 +130,18 @@ function MiniCalendar({ selectedDate, onSelect }) {
     const nextMonth = () =>
         setView(v => v.month === 11 ? { year: v.year + 1, month: 0 } : { year: v.year, month: v.month + 1 });
 
-    const isPast = (d) => {
+    const isPastOrUnavailable = (d) => {
         const cell = new Date(view.year, view.month, d);
         cell.setHours(0, 0, 0, 0);
         const t = new Date(); t.setHours(0, 0, 0, 0);
-        return cell < t;
+        if (cell < t) return true;
+
+        if (availableDays && availableDays.length > 0) {
+            const dayMap = { 0: "sun", 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri", 6: "sat" };
+            const dayName = dayMap[cell.getDay()];
+            if (!availableDays.includes(dayName)) return true;
+        }
+        return false;
     };
 
     const isSelected = (d) =>
@@ -180,21 +187,21 @@ function MiniCalendar({ selectedDate, onSelect }) {
             <div className="grid grid-cols-7 gap-y-1">
                 {cells.map((day, i) => {
                     if (!day) return <div key={`e-${i}`} />;
-                    const past = isPast(day);
+                    const invalid = isPastOrUnavailable(day);
                     const sel = isSelected(day);
                     const tod = isToday(day);
 
                     return (
                         <motion.button
                             key={day}
-                            whileTap={!past ? { scale: 0.9 } : {}}
-                            disabled={past}
-                            onClick={() => !past && onSelect({ year: view.year, month: view.month, day })}
+                            whileTap={!invalid ? { scale: 0.9 } : {}}
+                            disabled={invalid}
+                            onClick={() => !invalid && onSelect({ year: view.year, month: view.month, day })}
                             className={`w-8 h-8 mx-auto rounded-full text-sm font-medium transition-all flex items-center justify-center
-                                ${past ? "text-slate-200 cursor-not-allowed" : "cursor-pointer hover:bg-blue-50 hover:text-[#127fec]"}
+                                ${invalid ? "text-slate-200 cursor-not-allowed" : "cursor-pointer hover:bg-blue-50 hover:text-[#127fec]"}
                                 ${sel ? "!bg-[#127fec] !text-white shadow-md shadow-blue-200 font-bold" : ""}
                                 ${tod && !sel ? "ring-1 ring-[#127fec] text-[#127fec] font-bold" : ""}
-                                ${!past && !sel ? "text-slate-700" : ""}
+                                ${!invalid && !sel ? "text-slate-700" : ""}
                             `}
                         >
                             {day}
@@ -206,11 +213,27 @@ function MiniCalendar({ selectedDate, onSelect }) {
     );
 }
 
-function TimeSlotGrid({ selectedTime, onSelect }) {
+function TimeSlotGrid({ selectedTime, onSelect, availableSlots, loading }) {
+    if (loading) {
+        return (
+            <div className="bg-white rounded-2xl border border-slate-100 p-8 shadow-sm flex items-center justify-center">
+                <Loader2 size={24} className="animate-spin text-slate-400" />
+            </div>
+        );
+    }
+    
+    if (!availableSlots || availableSlots.length === 0) {
+        return (
+            <div className="bg-white rounded-2xl border border-slate-100 p-8 shadow-sm flex items-center justify-center text-sm text-slate-400 text-center">
+                No availability or shifts found.
+            </div>
+        );
+    }
+
     return (
-        <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
+        <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm max-h-[290px] overflow-y-auto">
             <div className="grid grid-cols-2 gap-2">
-                {TIME_SLOTS.map((slot) => {
+                {availableSlots.map((slot) => {
                     const isSel = selectedTime === slot.time;
                     return (
                         <motion.button
@@ -275,11 +298,13 @@ export default function BookAppointment() {
     const [confirmed, setConfirmed]         = useState(false);
     const [symptoms, setSymptoms]           = useState("");
 
-    // ── NEW: real doctors from API ──
     const [doctors, setDoctors]     = useState([]);
     const [loadingDoctors, setLoadingDoctors] = useState(true);
     const [bookingLoading, setBookingLoading] = useState(false);
     const [bookingError, setBookingError]     = useState("");
+
+    const [bookedSlots, setBookedSlots] = useState([]);
+    const [loadingSlots, setLoadingSlots] = useState(false);
 
     useEffect(() => {
         appointmentService.getDoctors()
@@ -287,6 +312,57 @@ export default function BookAppointment() {
             .catch(() => setDoctors([]))
             .finally(() => setLoadingDoctors(false));
     }, []);
+
+    useEffect(() => {
+        if (selectedDate && selectedDoctor) {
+            setLoadingSlots(true);
+            const dateStr = `${selectedDate.year}-${String(selectedDate.month + 1).padStart(2, "0")}-${String(selectedDate.day).padStart(2, "0")}`;
+            appointmentService.getBookedSlots(selectedDoctor.id, dateStr)
+                .then(slots => setBookedSlots(slots || []))
+                .catch(() => setBookedSlots([]))
+                .finally(() => setLoadingSlots(false));
+        } else {
+            setBookedSlots([]);
+        }
+    }, [selectedDate, selectedDoctor]);
+
+    const getDynamicSlots = () => {
+        if (!selectedDoctor || !selectedDate) return [];
+        const cell = new Date(selectedDate.year, selectedDate.month, selectedDate.day);
+        const dayMap = { 0: "sun", 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri", 6: "sat" };
+        const dWeek = dayMap[cell.getDay()];
+        
+        const availability = selectedDoctor.availability?.[dWeek];
+        if (!availability || availability.length !== 2) return [];
+        
+        let [startH, startM] = availability[0].split(':').map(Number);
+        let [endH, endM] = availability[1].split(':').map(Number);
+        
+        const formatUI = (h, m) => {
+            const period = h >= 12 ? 'PM' : 'AM';
+            const hr = h % 12 || 12;
+            return `${String(hr).padStart(2, '0')}:${String(m).padStart(2, '0')} ${period}`;
+        };
+        const formatDB = (h, m) => `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+        
+        const slots = [];
+        let currH = startH;
+        let currM = startM;
+        while (currH < endH || (currH === endH && currM < endM)) {
+            const dbTime = formatDB(currH, currM);
+            const uiTime = formatUI(currH, currM);
+            const available = !bookedSlots.includes(dbTime);
+            
+            slots.push({ id: uiTime, time: uiTime, dbTime: dbTime, available });
+            
+            currM += 30;
+            if (currM >= 60) {
+                currH += 1;
+                currM -= 60;
+            }
+        }
+        return slots;
+    };
 
     // Map API doctor to shape your DoctorCard expects
     const mappedDoctors = doctors.map((d, i) => {
@@ -309,13 +385,18 @@ export default function BookAppointment() {
             avatar:     d.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(),
             color:      c.color,
             accent:     c.accent,
+            availability: d.availability,
         };
     });
 
+    const departmentsList = ["All", ...new Set(mappedDoctors.map(d => d.department))];
+
     const filteredDoctors = mappedDoctors.filter((d) => {
-        const matchSearch =
-            d.name.toLowerCase().includes(search.toLowerCase()) ||
-            d.specialty.toLowerCase().includes(search.toLowerCase());
+        const words = search.toLowerCase().split(' ').filter(w => w.trim() !== '');
+        const matchSearch = words.length === 0 || words.every(word =>
+            d.name.toLowerCase().includes(word) ||
+            d.specialty.toLowerCase().includes(word)
+        );
         const matchDept = dept === "All" || d.department === dept;
         return matchSearch && matchDept;
     });
@@ -470,7 +551,7 @@ export default function BookAppointment() {
                                     onChange={(e) => setDept(e.target.value)}
                                     className="px-5 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-[#127fec] transition-all text-slate-700 font-medium cursor-pointer"
                                 >
-                                    {DEPARTMENTS.map((d) => (
+                                    {departmentsList.map((d) => (
                                         <option key={d} value={d}>{d === "All" ? "All Departments" : d}</option>
                                     ))}
                                 </select>
@@ -596,13 +677,22 @@ export default function BookAppointment() {
                                         <div className="flex items-center gap-2 mb-2 px-1">
                                             <h2 className="text-base font-bold text-slate-800">Select Date</h2>
                                         </div>
-                                        <MiniCalendar selectedDate={selectedDate} onSelect={(d) => { setSelectedDate(d); setSelectedTime(null); }} />
+                                        <MiniCalendar 
+                                            selectedDate={selectedDate} 
+                                            onSelect={(d) => { setSelectedDate(d); setSelectedTime(null); }} 
+                                            availableDays={selectedDoctor ? Object.keys(selectedDoctor.availability || {}) : []}
+                                        />
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-2 mb-2 px-1">
                                             <h2 className="text-base font-bold text-slate-800">Select Time</h2>
                                         </div>
-                                        <TimeSlotGrid selectedTime={selectedTime} onSelect={setSelectedTime} />
+                                        <TimeSlotGrid 
+                                            selectedTime={selectedTime} 
+                                            onSelect={setSelectedTime} 
+                                            availableSlots={getDynamicSlots()} 
+                                            loading={loadingSlots} 
+                                        />
                                     </div>
                                 </motion.div>
                             )}

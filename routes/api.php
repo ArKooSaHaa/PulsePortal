@@ -31,6 +31,7 @@ Route::middleware('auth:api')->group(function () {
 
     // Patient routes
     Route::prefix('patient')->group(function () {
+        Route::get('appointments/booked-slots', [AppointmentController::class, 'getBookedSlots']);
         Route::get('appointments',              [AppointmentController::class, 'patientIndex']);
         Route::post('appointments',             [AppointmentController::class, 'store']);
         Route::patch('appointments/{id}/cancel', [AppointmentController::class, 'cancel']);

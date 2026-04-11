@@ -3,18 +3,28 @@
 namespace App\Http\Services;
 
 use App\Models\Appointment;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class AppointmentService
 {
     public function createAppointment(int $patientId, array $data): Appointment
     {
+        $validatedData = Validator::make($data, [
+            'doctor_id'        => 'required|exists:doctors,id',
+            'appointment_date' => 'required|date|after_or_equal:today',
+            'appointment_time' => 'required',
+            'type'             => 'required|in:in_person,online',
+            'symptoms'         => 'required|string|max:1000',
+        ])->validate();
+
         return Appointment::create([
             'patient_id'       => $patientId,
-            'doctor_id'        => $data['doctor_id'],
-            'appointment_date' => $data['appointment_date'],
-            'appointment_time' => $data['appointment_time'],
-            'type'             => $data['type'],
-            'symptoms'         => $data['symptoms'],
+            'doctor_id'        => $validatedData['doctor_id'],
+            'appointment_date' => $validatedData['appointment_date'],
+            'appointment_time' => $validatedData['appointment_time'],
+            'type'             => $validatedData['type'],
+            'symptoms'         => $validatedData['symptoms'],
             'status'           => 'pending',
         ]);
     }
@@ -39,15 +49,19 @@ class AppointmentService
             ->map(fn($a) => $this->formatAppointmentForDoctor($a));
     }
 
-    public function updateAppointmentStatus(int $appointmentId, string $status, int $doctorId): ?Appointment
+    public function updateAppointmentStatus(int $appointmentId, array $data, int $doctorId): ?Appointment
     {
+        $validatedData = Validator::make($data, [
+            'status' => 'required|in:confirmed,completed,cancelled',
+        ])->validate();
+
         $appointment = Appointment::where('id', $appointmentId)
             ->where('doctor_id', $doctorId)
             ->first();
 
         if (!$appointment) return null;
 
-        $appointment->update(['status' => $status]);
+        $appointment->update(['status' => $validatedData['status']]);
         return $appointment;
     }
 
@@ -62,6 +76,19 @@ class AppointmentService
 
         $appointment->update(['status' => 'cancelled']);
         return $appointment;
+    }
+
+    public function getBookedSlots(int $doctorId, string $date): array
+    {
+        return Appointment::where('doctor_id', $doctorId)
+            ->where('appointment_date', $date)
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->pluck('appointment_time')
+            ->map(function ($time) {
+                // format back from HH:MM:SS to something easier if needed, or leave as is
+                return $time;
+            })
+            ->toArray();
     }
 
     private function formatAppointment(Appointment $a): array

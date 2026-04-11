@@ -7,32 +7,51 @@ use App\Models\Doctor;
 use App\Models\Admin;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
+use App\Models\Appointment;
 
 class AdminService
 {
     // Create a doctor account + doctor profile in one transaction
     public function createDoctor(array $data): array
     {
-        return DB::transaction(function () use ($data) {
+        $validatedData = Validator::make($data, [
+            'name' => ['required', 'string', 'min:2', 'max:255', 'regex:/^[\pL\s\-\.]+$/u'],
+            'email' => ['required', 'email', 'unique:users,email', 'regex:/^[a-zA-Z0-9._%+\-]+@(gmail\.com|yahoo\.com|outlook\.com|aust\.edu|pulseportal\.com)$/'],
+            'password' => ['required', 'string', 'min:8', 'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/'],
+            'specialization' => 'required|string|max:100',
+            'bio' => 'nullable|string|max:1000',
+            'phone' => 'nullable|string|max:20',
+            'consultation_fee' => 'nullable|numeric|min:0',
+            'availability_days' => 'nullable|array',
+            'availability_days.*' => 'string|in:SUN,MON,TUE,WED,THU,FRI,SAT',
+        ], [
+            'email.regex' => 'Only gmail.com, yahoo.com, outlook.com, aust.edu, and pulseportal.com emails are allowed.',
+            'password.regex' => 'Password must contain at least one uppercase letter, one lowercase letter, and one number.',
+            'name.regex' => 'Name can only contain letters, spaces, hyphens, and dots.',
+        ])->validate();
+
+        return DB::transaction(function () use ($validatedData) {
             $user = User::create([
-                'name' => $data['name'],
-                'email' => $data['email'],
-                'password' => Hash::make($data['password']),
+                'name' => $validatedData['name'],
+                'email' => $validatedData['email'],
+                'password' => Hash::make($validatedData['password']),
                 'role' => 'doctor',
             ]);
 
             // Parse availability days into JSON
             $availability = null;
-            if (!empty($data['availability_days'])) {
-                $availability = ['days' => $data['availability_days']];
+            if (!empty($validatedData['availability_days'])) {
+                $availability = ['days' => $validatedData['availability_days']];
             }
 
             Doctor::create([
                 'user_id' => $user->id,
-                'specialization' => $data['specialization'],
-                'bio' => $data['bio'] ?? null,
-                'phone' => $data['phone'] ?? null,
-                'consultation_fee' => $data['consultation_fee'] ?? 0,
+                'specialization' => $validatedData['specialization'],
+                'bio' => $validatedData['bio'] ?? null,
+                'phone' => $validatedData['phone'] ?? null,
+                'consultation_fee' => $validatedData['consultation_fee'] ?? 0,
                 'availability' => $availability,
                 'is_available' => true,
             ]);
@@ -42,7 +61,7 @@ class AdminService
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role,
-                'specialization' => $data['specialization'],
+                'specialization' => $validatedData['specialization'],
             ];
         });
     }
@@ -50,11 +69,22 @@ class AdminService
     // Create an admin account + admin profile in one transaction
     public function createAdmin(array $data): array
     {
-        return DB::transaction(function () use ($data) {
+        $validatedData = Validator::make($data, [
+            'name' => ['required', 'string', 'min:2', 'max:255', 'regex:/^[\pL\s\-\.]+$/u'],
+            'email' => ['required', 'email', 'unique:users,email', 'regex:/^[a-zA-Z0-9._%+\-]+@(gmail\.com|yahoo\.com|outlook\.com|aust\.edu|pulseportal\.com)$/'],
+            'password' => ['required', 'string', 'min:8', 'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/'],
+            'phone' => 'nullable|string|max:20',
+        ], [
+            'email.regex' => 'Only gmail.com, yahoo.com, outlook.com, aust.edu, and pulseportal.com emails are allowed.',
+            'password.regex' => 'Password must contain at least one uppercase letter, one lowercase letter, and one number.',
+            'name.regex' => 'Name can only contain letters, spaces, hyphens, and dots.',
+        ])->validate();
+
+        return DB::transaction(function () use ($validatedData) {
             $user = User::create([
-                'name' => $data['name'],
-                'email' => $data['email'],
-                'password' => Hash::make($data['password']),
+                'name' => $validatedData['name'],
+                'email' => $validatedData['email'],
+                'password' => Hash::make($validatedData['password']),
                 'role' => 'admin',
             ]);
 
@@ -121,5 +151,16 @@ class AdminService
                 'status' => $a->status,
             ])
             ->toArray();
+    }
+
+    public function getStats(): array
+    {
+        $today = now()->toDateString();
+        return [
+            'total_doctors' => Doctor::count(),
+            'total_patients' => Patient::count(),
+            'appointments_today' => Appointment::whereDate('appointment_date', $today)->count(),
+            'upcoming_appointments' => Appointment::whereIn('status', ['pending', 'confirmed'])->count(),
+        ];
     }
 }
