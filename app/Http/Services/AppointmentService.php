@@ -2,10 +2,10 @@
 
 namespace App\Http\Services;
 
+use App\Models\Admin;
 use App\Models\Appointment;
 use App\Events\AppointmentRequested;
 use App\Events\AppointmentStatusUpdated;
-
 
 class AppointmentService
 {
@@ -21,6 +21,7 @@ class AppointmentService
             'status'           => 'pending',
         ]);
 
+        // Notify department admins in real-time
         broadcast(new AppointmentRequested($appointment))->toOthers();
 
         return $appointment;
@@ -40,22 +41,51 @@ class AppointmentService
     {
         return Appointment::with(['patient.user'])
             ->where('doctor_id', $doctorId)
+            ->where('status', 'confirmed')
             ->orderBy('appointment_date', 'asc')
             ->orderBy('appointment_time', 'asc')
             ->get()
             ->map(fn($a) => $this->formatAppointmentForDoctor($a));
     }
 
-    public function updateAppointmentStatus(int $appointmentId, string $status, int $doctorId): ?Appointment
+    /**
+     * Get appointments filtered by the admin's department.
+     */
+    public function getDepartmentAppointments(Admin $admin)
     {
-        $appointment = Appointment::where('id', $appointmentId)
-            ->where('doctor_id', $doctorId)
-            ->first();
+        $query = Appointment::with(['patient.user', 'doctor.user']);
+
+        if ($admin->admin_role !== 'Super Admin' && $admin->department) {
+            // Filter to only appointments for doctors in this department
+            $query->whereHas('doctor', fn($q) => $q->where('department', $admin->department));
+        }
+
+        return $query
+            ->orderBy('appointment_date', 'desc')
+            ->orderBy('appointment_time', 'desc')
+            ->get()
+            ->map(fn($a) => $this->formatAppointmentForAdmin($a));
+    }
+
+    /**
+     * Allow admin OR doctor to update appointment status.
+     */
+    public function updateAppointmentStatus(int $appointmentId, string $status, ?int $doctorId = null): ?Appointment
+    {
+        $query = Appointment::where('id', $appointmentId);
+
+        // If doctorId is provided, restrict to that doctor's appointments (doctor workflow)
+        if ($doctorId) {
+            $query->where('doctor_id', $doctorId);
+        }
+
+        $appointment = $query->first();
 
         if (!$appointment) return null;
 
         $appointment->update(['status' => $status]);
 
+        // Notify the patient in real-time
         broadcast(new AppointmentStatusUpdated($appointment))->toOthers();
 
         return $appointment;
@@ -84,6 +114,7 @@ class AppointmentService
             'doctor_id'        => $a->doctor_id,
             'doctor_name'      => $a->doctor->user->name ?? 'Unknown',
             'specialization'   => $a->doctor->specialization ?? '',
+            'department'       => $a->doctor->department ?? '',
             'appointment_date' => $a->appointment_date,
             'appointment_time' => $a->appointment_time,
             'type'             => $a->type,
@@ -98,6 +129,22 @@ class AppointmentService
             'id'               => $a->id,
             'patient_id'       => $a->patient_id,
             'patient_name'     => $a->patient->user->name ?? 'Unknown',
+            'appointment_date' => $a->appointment_date,
+            'appointment_time' => $a->appointment_time,
+            'type'             => $a->type,
+            'status'           => $a->status,
+            'symptoms'         => $a->symptoms,
+        ];
+    }
+
+    private function formatAppointmentForAdmin(Appointment $a): array
+    {
+        return [
+            'id'               => $a->id,
+            'patient_name'     => $a->patient->user->name ?? 'Unknown',
+            'doctor_name'      => $a->doctor->user->name ?? 'Unknown',
+            'specialization'   => $a->doctor->specialization ?? '',
+            'department'       => $a->doctor->department ?? '',
             'appointment_date' => $a->appointment_date,
             'appointment_time' => $a->appointment_time,
             'type'             => $a->type,

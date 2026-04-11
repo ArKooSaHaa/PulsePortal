@@ -24,13 +24,32 @@ const adminService = {
         return response.data.data;
     },
 
+    // All appointments — Super Admin only
     getAllAppointments: async () => {
         const response = await api.get("/admin/appointments");
         return response.data.data;
     },
 
+    // Department-filtered appointments — any admin
+    getDepartmentAppointments: async () => {
+        const response = await api.get("/admin/department-appointments");
+        return response.data.data;
+    },
+
+    // Update appointment status (confirm / cancel)
+    updateAppointmentStatus: async (id, status) => {
+        const response = await api.patch(`/admin/appointments/${id}/status`, { status });
+        return response.data.data;
+    },
+
     getStats: async () => {
         const response = await api.get("/admin/stats");
+        return response.data.data;
+    },
+
+    // Get logged-in admin's profile (admin_role + department)
+    getMe: async () => {
+        const response = await api.get("/admin/me");
         return response.data.data;
     },
 };

@@ -79,7 +79,7 @@ class AppointmentController extends Controller
         ]);
     }
 
-    // PATCH /api/doctor/appointments/{id}/status
+    // PATCH /api/doctor/appointments/{id}/status  (doctor-only)
     public function updateStatus(Request $request, $id)
     {
         $data = $request->validate([

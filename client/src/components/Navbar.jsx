@@ -13,11 +13,7 @@ const NAV_LINKS = {
         { name: "Book Appointment", path: "book-appointment" },
     ],
     doctor: [{ name: "Appointments", path: "appointments" }],
-    admin: [
-        { name: "Add Doctor", path: "add-doctor" },
-        { name: "Add Admin", path: "add-admin" },
-        { name: "Appointments", path: "all-appointments" },
-    ],
+    // Admin links are computed dynamically based on admin_role
 };
 
 function NavLink({ to, children, isActive }) {
@@ -72,7 +68,24 @@ export default function Navbar() {
     const notifRef = useRef(null);
     const mobileMenuRef = useRef(null);
 
-    const links = NAV_LINKS[role] || [];
+    // Read the stored user to determine admin_role
+    const currentUser = authService.getCurrentUser();
+    const adminRole = currentUser?.admin_role || null;
+    const isSuperAdmin = adminRole === 'Super Admin';
+
+    // Compute admin nav links dynamically based on role
+    const getAdminLinks = () => {
+        const links = [{ name: "Appointments", path: "all-appointments" }];
+        if (isSuperAdmin) {
+            links.unshift(
+                { name: "Add Doctor", path: "add-doctor" },
+                { name: "Add Admin", path: "add-admin" },
+            );
+        }
+        return links;
+    };
+
+    const links = role === 'admin' ? getAdminLinks() : (NAV_LINKS[role] || []);
     const dashboardPath = `/${role}`;
 
     const handleLogout = async () => {

@@ -56,6 +56,7 @@ export default function AddDoctor() {
         password: "",
         phone: "",
         specialization: "",
+        department: "",
         bio: "",
         consultation_fee: "",
         availability_days: [],
@@ -91,7 +92,7 @@ export default function AddDoctor() {
         if (form.password.length < 8)
             e.password = "Password must be at least 8 characters.";
         if (!form.specialization.trim())
-            e.specialization = "Specialization is required.";
+            e.specialization = "Department / Specialization is required.";
         return e;
     };
 
@@ -120,6 +121,7 @@ export default function AddDoctor() {
                 password: "",
                 phone: "",
                 specialization: "",
+                department: "",
                 bio: "",
                 consultation_fee: "",
                 availability_days: [],
@@ -258,7 +260,14 @@ export default function AddDoctor() {
                                 <select
                                     name="specialization"
                                     value={form.specialization}
-                                    onChange={handleChange}
+                                    onChange={(e) => {
+                                        // Set both specialization and department to the same value
+                                        setForm((prev) => ({
+                                            ...prev,
+                                            specialization: e.target.value,
+                                            department: e.target.value,
+                                        }));
+                                    }}
                                     className={`w-full px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all
                                         ${
                                             errors.specialization
