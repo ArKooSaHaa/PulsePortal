@@ -146,7 +146,7 @@ class AdminController extends Controller
             'data'   => [
                 'total_doctors'          => \App\Models\Doctor::count(),
                 'total_patients'         => \App\Models\Patient::count(),
-                'appointments_today'     => \App\Models\Appointment::whereDate('appointment_date', $today)->count(),
+                'appointments_today'     => \App\Models\Appointment::whereDate('appointment_date', now()->toDateString())->count(),
                 'upcoming_appointments'  => \App\Models\Appointment::whereIn('status', ['pending', 'confirmed'])->count(),
             ],
         ]);
