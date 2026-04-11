@@ -7,6 +7,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\DoctorController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AiController;
 
 // ── Auth routes ───────────────────────────────────────────────
 Route::prefix('auth')->group(function () {
@@ -35,6 +36,10 @@ Route::middleware('auth:api')->group(function () {
         Route::get('appointments',              [AppointmentController::class, 'patientIndex']);
         Route::post('appointments',             [AppointmentController::class, 'store']);
         Route::patch('appointments/{id}/cancel', [AppointmentController::class, 'cancel']);
+
+        // AI routes
+        Route::post('ai/chat',            [AiController::class, 'chat']);
+        Route::post('ai/suggest-doctors', [AiController::class, 'suggestDoctors']);
     });
 
     // Doctor routes

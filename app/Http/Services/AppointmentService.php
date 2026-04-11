@@ -3,6 +3,9 @@
 namespace App\Http\Services;
 
 use App\Models\Appointment;
+use App\Models\Patient;
+use App\Http\Services\AiService;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
@@ -62,7 +65,84 @@ class AppointmentService
         if (!$appointment) return null;
 
         $appointment->update(['status' => $validatedData['status']]);
+
+        // ── Auto-generate medical history when appointment is completed ──
+        if ($validatedData['status'] === 'completed') {
+            try {
+                $this->regenerateMedicalHistory($appointment->patient_id);
+            } catch (\Exception $e) {
+                // Log but don't fail the status update if AI is unavailable
+                Log::warning('AI medical history generation failed', [
+                    'patient_id' => $appointment->patient_id,
+                    'error'      => $e->getMessage(),
+                ]);
+            }
+        }
+
         return $appointment;
+    }
+
+    /**
+     * Regenerate the patient's medical_history field using AI.
+     * Gathers all completed appointments and produces a concise summary.
+     */
+    private function regenerateMedicalHistory(int $patientId): void
+    {
+        $patient = Patient::find($patientId);
+        if (!$patient) return;
+
+        // Gather all completed appointments with their details
+        $completedAppointments = Appointment::with(['doctor.user', 'visitNote', 'prescriptions'])
+            ->where('patient_id', $patientId)
+            ->where('status', 'completed')
+            ->orderBy('appointment_date', 'asc')
+            ->get();
+
+        if ($completedAppointments->isEmpty()) return;
+
+        // Build a context string from appointment data
+        $appointmentSummaries = $completedAppointments->map(function ($appt) {
+            $parts = [
+                "Date: {$appt->appointment_date->format('Y-m-d')}",
+                "Doctor: " . ($appt->doctor->user->name ?? 'Unknown'),
+                "Specialization: " . ($appt->doctor->specialization ?? 'Unknown'),
+                "Symptoms: {$appt->symptoms}",
+            ];
+
+            if ($appt->visitNote) {
+                $parts[] = "Doctor Notes: {$appt->visitNote->doctor_notes}";
+            }
+
+            if ($appt->prescriptions->isNotEmpty()) {
+                $meds = $appt->prescriptions->map(fn($p) =>
+                    ($p->disease_or_problem ? "{$p->disease_or_problem}: " : '') . $p->medication
+                )->implode('; ');
+                $parts[] = "Prescriptions: {$meds}";
+            }
+
+            return implode(' | ', $parts);
+        })->implode("\n");
+
+        $systemPrompt = <<<PROMPT
+You are a medical records assistant. Your job is to write a concise medical history summary for a patient based on their appointment records.
+
+Guidelines:
+- Write in third person (e.g., "Patient has a history of...")
+- Keep it to 2-4 sentences maximum
+- Highlight key conditions, recurring issues, and treatments
+- Mention relevant specializations consulted
+- Be factual and concise — this will be displayed on the patient's profile
+- If the patient has had only one appointment, still summarize it meaningfully
+- Do NOT include dates unless they are medically relevant
+PROMPT;
+
+        $userMessage = "Generate a medical history summary based on these appointment records:\n\n{$appointmentSummaries}";
+
+        $aiService = app(AiService::class);
+        $summary   = $aiService->chat($systemPrompt, $userMessage);
+
+        // Update the patient's medical_history field
+        $patient->update(['medical_history' => trim($summary)]);
     }
 
     public function cancelAppointment(int $appointmentId, int $patientId): ?Appointment
