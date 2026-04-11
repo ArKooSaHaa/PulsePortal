@@ -43,21 +43,6 @@ export default function DoctorConsultation() {
         navigate("/doctor/appointments");
     };
 
-<<<<<<< Updated upstream
-    //  Upload Prescription
-    const handleFileUpload = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        setFileName(file.name);
-
-        console.log("Selected file:", file);
-
-        
-    };
-
-=======
->>>>>>> Stashed changes
     return (
         <div className="min-h-screen bg-[#f1f5f9] p-6 grid lg:grid-cols-4 gap-6">
             {/* LEFT SIDE */}
@@ -112,45 +97,6 @@ export default function DoctorConsultation() {
                     </div>
                 </div>
 
-<<<<<<< Updated upstream
-                {/* Video Button */}
-                <button className="w-full bg-blue-50 hover:bg-blue-100 transition p-3 rounded-xl flex gap-2 items-center text-sm">
-                    <Video size={16}/> Video Call
-                </button>
-
-                {/* Files */}
-                <button className="w-full bg-slate-50 hover:bg-slate-100 transition p-3 rounded-xl flex gap-2 items-center text-sm">
-                    <FileText size={16}/> Files
-                </button>
-
-                {/* Upload Prescription */}
-                <label className="border-2 border-dashed p-4 rounded-xl text-center text-sm cursor-pointer hover:bg-slate-50 block">
-                    <Upload size={16} className="mx-auto mb-1"/>
-                    Upload Prescription
-
-                    <input
-                        type="file"
-                        accept="image/*,.pdf"
-                        hidden
-                        onChange={handleFileUpload}
-                    />
-                </label>
-
-                {/* Show file name */}
-                {fileName && (
-                    <p className="text-xs text-slate-500 text-center">
-                        Selected: {fileName}
-                    </p>
-                )}
-
-                {/* Notes */}
-                <textarea
-                    placeholder="Write notes..."
-                    className="w-full border rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    rows={4}
-                ></textarea>
-
-=======
                 <div className="flex flex-col gap-3 mt-auto pt-6 border-t border-slate-100">
                     <button
                         onClick={() =>
@@ -168,7 +114,6 @@ export default function DoctorConsultation() {
                         className="w-full border rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#127fec] h-32"
                     ></textarea>
                 </div>
->>>>>>> Stashed changes
             </div>
         </div>
     );
