@@ -25,7 +25,7 @@ return new class extends Migration
             $table->text('address')->nullable();
             $table->string('emergency_contact', 100)->nullable();
             $table->string('emergency_phone', 20)->nullable();
-            $table->timestamps();
+            $table->timestamp('created_at')->nullable();
         });
     }
 
@@ -37,3 +37,4 @@ return new class extends Migration
         Schema::dropIfExists('patients');
     }
 };
+

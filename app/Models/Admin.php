@@ -9,6 +9,8 @@ class Admin extends Model
 {
     use HasFactory;
 
+    public const UPDATED_AT = null;
+
     protected $fillable = ['user_id', 'admin_role', 'department', 'last_login_at'];
     
     protected $casts = [

@@ -35,21 +35,30 @@ class ProfileController extends Controller
         ]);
     }
 
-    public function update(Request $request) {
+    public function update(Request $request)
+    {
         $user = auth()->user();
 
         $validatedData = $request->validate([
             'name'     => [
-                'sometimes', 'required', 'string', 'min:2', 'max:255',
+                'sometimes',
+                'required',
+                'string',
+                'min:2',
+                'max:255',
                 'regex:/^[\pL\s\-\.]+$/u',
             ],
             'email'    => [
-                'sometimes', 'required', 'email',
+                'sometimes',
+                'required',
+                'email',
                 'unique:users,email,' . $user->id,
                 'regex:/^[a-zA-Z0-9._%+\-]+@(gmail\.com|yahoo\.com|outlook\.com|aust\.edu|pulseportal\.com)$/',
             ],
             'password' => [
-                'nullable', 'string', 'min:8',
+                'nullable',
+                'string',
+                'min:8',
                 'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/',
             ],
         ], [
@@ -92,6 +101,7 @@ class ProfileController extends Controller
                     'bio'              => $request->input('bio', $doctor->bio),
                     'phone'            => $request->input('phone', $doctor->phone),
                     'availability'     => $request->input('availability', $doctor->availability),
+                    'license_number'   => $request->input('licenseNumber', $doctor->license_number),
                 ]);
             }
         }
@@ -105,7 +115,7 @@ class ProfileController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message'=> 'Profile updated successfully',
+            'message' => 'Profile updated successfully',
             'data'   => [
                 'user'    => [
                     'id'    => $user->id,

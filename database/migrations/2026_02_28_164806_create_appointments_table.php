@@ -29,7 +29,8 @@ return new class extends Migration
             $table->index('patient_id');
             $table->index('doctor_id');
             $table->index('appointment_date');
-            $table->timestamps();
+            $table->tinyInteger('rating')->nullable();
+            $table->timestamp('created_at')->nullable();
         });
     }
 
@@ -41,3 +42,4 @@ return new class extends Migration
         Schema::dropIfExists('appointments');
     }
 };
+
