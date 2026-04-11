@@ -4,36 +4,9 @@ import {
     X,
     Send,
     Bot,
+    AlertTriangle,
 } from "lucide-react";
-import AIResultCard from "./ai-chat/AiResultCard";
-
-/*  Mock data Data for ai response  */
-const AI_RESPONSES = {
-    default: {
-        specialty: "General Medicine",
-        urgency: "Urgent",
-        summary: [
-            "No immediately concerning patterns detected.",
-            "A general practitioner visit is recommended.",
-        ],
-    },
-    headache: {
-        specialty: "Neurology",
-        urgency: "Soon",
-        summary: [
-            "Headache symptoms should be evaluated if recurring.",
-            "Rule out tension, migraine, or hypertension-related causes.",
-        ],
-    },
-    fever: {
-        specialty: "General Medicine",
-        urgency: "Routine",
-        summary: [
-            "Fever may indicate infection — monitor temperature closely.",
-            "Seek care if fever exceeds 39°C or persists beyond 3 days.",
-        ],
-    },
-};
+import aiService from "../api/aiService";
 
 const CHIPS = [
     "Headache",
@@ -106,43 +79,132 @@ export default function AIChatPanel({ onClose }) {
         {
             id: 0,
             from: "ai",
-            text: "Hi! I'm your AI Health Assistant. How can I help you today?",
+            text: "Hi! I'm your AI Health Assistant. Describe your symptoms and I'll provide guidance on what to do, basic treatments, and which specialist you should visit. How can I help you today?",
         },
     ]);
     const [input, setInput] = useState("");
     const [isThinking, setIsThinking] = useState(false);
     const [showChips, setShowChips] = useState(true);
-    const [resultCard, setResultCard] = useState(null);
+    const [error, setError] = useState(null);
     const bottomRef = useRef(null);
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages, isThinking, resultCard]);
+    }, [messages, isThinking]);
 
-    function getResult(text) {
-        const lower = text.toLowerCase();
-        for (const key of Object.keys(AI_RESPONSES)) {
-            if (key !== "default" && lower.includes(key))
-                return AI_RESPONSES[key];
-        }
-        return AI_RESPONSES.default;
+    /**
+     * Build conversation history in the format the backend expects.
+     * Excludes the initial greeting and the current user message.
+     */
+    function buildHistory() {
+        return messages
+            .filter((m) => m.id !== 0) // skip initial greeting
+            .map((m) => ({
+                role: m.from === "user" ? "user" : "assistant",
+                content: m.text,
+            }));
     }
 
-    function send(text) {
+    async function send(text) {
         const trimmed = (text ?? input).trim();
         if (!trimmed || isThinking) return;
-        setMessages((prev) => [
-            ...prev,
-            { id: Date.now(), from: "user", text: trimmed },
-        ]);
+
+        const userMsg = { id: Date.now(), from: "user", text: trimmed };
+        setMessages((prev) => [...prev, userMsg]);
         setInput("");
         setShowChips(false);
-        setResultCard(null);
+        setError(null);
         setIsThinking(true);
-        setTimeout(() => {
+
+        try {
+            const history = buildHistory();
+            const aiResponse = await aiService.chatWithAssistant(trimmed, history);
+
+            setMessages((prev) => [
+                ...prev,
+                {
+                    id: Date.now() + 1,
+                    from: "ai",
+                    text: aiResponse,
+                },
+            ]);
+        } catch (err) {
+            console.error("AI chat error:", err);
+            const backendMsg = err.response?.data?.message;
+            setError(backendMsg || "Failed to get a response. Please try again.");
+            setMessages((prev) => [
+                ...prev,
+                {
+                    id: Date.now() + 1,
+                    from: "ai",
+                    text: backendMsg || "I'm sorry, I'm having trouble connecting right now. Please try again in a moment.",
+                },
+            ]);
+        } finally {
             setIsThinking(false);
-            setResultCard(getResult(trimmed));
-        }, 1800);
+        }
+    }
+
+    /**
+     * Render message text with basic markdown-like formatting.
+     * Handles **bold**, line breaks, and bullet points.
+     */
+    function renderMessageText(text) {
+        // Split by double newlines for paragraphs, then handle bullets
+        const lines = text.split('\n');
+        const elements = [];
+        let currentList = [];
+
+        const flushList = () => {
+            if (currentList.length > 0) {
+                elements.push(
+                    <ul key={`list-${elements.length}`} className="list-disc pl-4 space-y-0.5 my-1">
+                        {currentList.map((item, i) => (
+                            <li key={i} className="text-sm leading-relaxed">{formatInline(item)}</li>
+                        ))}
+                    </ul>
+                );
+                currentList = [];
+            }
+        };
+
+        lines.forEach((line, i) => {
+            const trimmedLine = line.trim();
+            // Bullet point lines
+            if (/^[-•*]\s+/.test(trimmedLine)) {
+                currentList.push(trimmedLine.replace(/^[-•*]\s+/, ''));
+            } else if (/^\d+\.\s+/.test(trimmedLine)) {
+                currentList.push(trimmedLine.replace(/^\d+\.\s+/, ''));
+            } else {
+                flushList();
+                if (trimmedLine === '') {
+                    // Empty line = paragraph break
+                    if (i > 0 && i < lines.length - 1) {
+                        elements.push(<div key={`br-${i}`} className="h-2" />);
+                    }
+                } else {
+                    elements.push(
+                        <p key={`p-${i}`} className="text-sm leading-relaxed">
+                            {formatInline(trimmedLine)}
+                        </p>
+                    );
+                }
+            }
+        });
+        flushList();
+
+        return <div className="flex flex-col gap-0.5">{elements}</div>;
+    }
+
+    function formatInline(text) {
+        // Handle **bold** text
+        const parts = text.split(/(\*\*.*?\*\*)/g);
+        return parts.map((part, i) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+                return <strong key={i} className="font-semibold">{part.slice(2, -2)}</strong>;
+            }
+            return part;
+        });
     }
 
     return (
@@ -263,9 +325,9 @@ export default function AIChatPanel({ onClose }) {
                                 </div>
                             )}
                             <div
-                                className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                                className={`max-w-[80%] px-4 py-2.5 rounded-2xl leading-relaxed ${
                                     msg.from === "user"
-                                        ? "bg-[#127fec] text-white rounded-br-sm shadow-md"
+                                        ? "bg-[#127fec] text-white text-sm rounded-br-sm shadow-md"
                                         : "rounded-bl-sm shadow-sm"
                                 }`}
                                 style={
@@ -284,7 +346,7 @@ export default function AIChatPanel({ onClose }) {
                                         : {}
                                 }
                             >
-                                {msg.text}
+                                {msg.from === "ai" ? renderMessageText(msg.text) : msg.text}
                             </div>
                         </motion.div>
                     ))}
@@ -333,20 +395,18 @@ export default function AIChatPanel({ onClose }) {
                     )}
                 </AnimatePresence>
 
-                {/* Result card */}
+                {/* Error banner */}
                 <AnimatePresence>
-                    {resultCard && !isThinking && (
-                        <div className="flex items-end gap-2 relative z-10">
-                            <div className="w-7 h-7 rounded-full bg-blue-50/80 backdrop-blur-sm border border-blue-100 flex items-center justify-center flex-shrink-0 mb-0.5">
-                                <Bot size={14} className="text-[#127fec]" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <AIResultCard
-                                    key="result"
-                                    result={resultCard}
-                                />
-                            </div>
-                        </div>
+                    {error && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0 }}
+                            className="relative z-10 flex items-center gap-2 px-3 py-2 rounded-xl bg-red-50/80 border border-red-100 text-red-600 text-xs"
+                        >
+                            <AlertTriangle size={12} />
+                            {error}
+                        </motion.div>
                     )}
                 </AnimatePresence>
 
@@ -378,7 +438,7 @@ export default function AIChatPanel({ onClose }) {
                         whileTap={{ scale: 0.9 }}
                         whileHover={{ scale: 1.05 }}
                         onClick={() => send()}
-                        disabled={!input.trim()}
+                        disabled={!input.trim() || isThinking}
                         className="p-2.5 rounded-xl text-white focus:outline-none flex-shrink-0 disabled:opacity-40 transition-opacity"
                         style={{
                             background:

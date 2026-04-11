@@ -9,6 +9,8 @@ class Doctor extends Model
 {
     use HasFactory;
 
+    public const UPDATED_AT = null;
+
     protected $fillable = [
         'user_id',
         'specialization',
@@ -18,6 +20,9 @@ class Doctor extends Model
         'consultation_fee',
         'availability',
         'is_available',
+        'license_number',
+        'rating',
+        'reviews_count',
     ];
 
     protected $casts = [

@@ -29,7 +29,6 @@ CREATE TABLE users (
     email_verified_at  TIMESTAMP       NULL,
     remember_token     VARCHAR(100)    NULL,
     created_at         TIMESTAMP       NULL,
-    updated_at         TIMESTAMP       NULL,
     PRIMARY KEY (id),
     UNIQUE KEY users_email_unique (email),
     UNIQUE KEY users_google_id_unique (google_id)
@@ -50,7 +49,6 @@ CREATE TABLE patients (
     emergency_contact  VARCHAR(100)    NULL,
     emergency_phone    VARCHAR(20)     NULL,
     created_at         TIMESTAMP       NULL,
-    updated_at         TIMESTAMP       NULL,
     PRIMARY KEY (id),
     UNIQUE KEY patients_user_id_unique (user_id),
     CONSTRAINT fk_patients_user
@@ -70,8 +68,10 @@ CREATE TABLE doctors (
     consultation_fee   DECIMAL(10,2)   NOT NULL DEFAULT '0.00',
     availability       JSON            NULL,
     is_available       TINYINT(1)      NOT NULL DEFAULT 1,
+    license_number     VARCHAR(100)    NULL,
+    rating             DECIMAL(3,2)    NOT NULL DEFAULT '0.00',
+    reviews_count      INT             NOT NULL DEFAULT 0,
     created_at         TIMESTAMP       NULL,
-    updated_at         TIMESTAMP       NULL,
     PRIMARY KEY (id),
     UNIQUE KEY doctors_user_id_unique (user_id),
     CONSTRAINT fk_doctors_user
@@ -108,8 +108,8 @@ CREATE TABLE appointments (
                                        NOT NULL DEFAULT 'pending',
     symptoms           TEXT            NOT NULL,
     admin_notes        TEXT            NULL,
+    rating             TINYINT         NULL,
     created_at         TIMESTAMP       NULL,
-    updated_at         TIMESTAMP       NULL,
     PRIMARY KEY (id),
     INDEX idx_appointments_patient (patient_id),
     INDEX idx_appointments_doctor  (doctor_id),
@@ -131,10 +131,23 @@ CREATE TABLE visit_notes (
     ai_specialist_recommendation TEXT           NULL,
     ai_history_summary          TEXT            NULL,
     created_at                  TIMESTAMP       NULL,
-    updated_at                  TIMESTAMP       NULL,
     PRIMARY KEY (id),
     UNIQUE KEY visit_notes_appointment_id_unique (appointment_id),
     CONSTRAINT fk_visit_notes_appointment
+        FOREIGN KEY (appointment_id) REFERENCES appointments (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ── TABLE 7: prescriptions ──────────────────────────────────────
+-- Prescriptions given by doctor after a visit
+CREATE TABLE prescriptions (
+    id                 BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    appointment_id     BIGINT UNSIGNED NOT NULL,
+    disease_or_problem VARCHAR(255)    NULL,
+    medication         TEXT            NOT NULL,
+    instructions       TEXT            NULL,
+    created_at         TIMESTAMP       NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT fk_prescriptions_appointment
         FOREIGN KEY (appointment_id) REFERENCES appointments (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*

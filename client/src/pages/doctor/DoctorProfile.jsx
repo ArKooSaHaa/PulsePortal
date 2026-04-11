@@ -14,12 +14,12 @@ export default function DoctorProfile() {
             try {
                 const data = await authService.getProfile();
                 const fetchedProfile = {
-                    name: data.user?.name || "—",
-                    email: data.user?.email || "—",
-                    specialization: data.profile?.specialization || "—",
-                    phone: data.profile?.phone || "—",
-                    bio: data.profile?.bio || "—",
-                    license: "—",
+                    name: data.user?.name || "",
+                    email: data.user?.email || "",
+                    specialization: data.profile?.specialization || "",
+                    phone: data.profile?.phone || "",
+                    bio: data.profile?.bio || "",
+                    licenseNumber: data.profile?.license_number || "",
                     availability: data.profile?.availability || "",
                 };
                 setProfile(fetchedProfile);
@@ -172,8 +172,8 @@ export default function DoctorProfile() {
 
                     <EditableField
                         label="License Number"
-                        name="license"
-                        value={profile.license}
+                        name="licenseNumber"
+                        value={profile.licenseNumber}
                         isEdit={isEdit}
                         handleChange={handleChange}
                     />

@@ -18,13 +18,7 @@ class AppointmentController extends Controller
     // POST /api/patient/appointments
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'doctor_id'        => 'required|exists:doctors,id',
-            'appointment_date' => 'required|date|after_or_equal:today',
-            'appointment_time' => 'required',
-            'type'             => 'required|in:in_person,online',
-            'symptoms'         => 'required|string|max:1000',
-        ]);
+        $data = $request->all();
 
         $user    = auth()->user();
         $patient = $user->patient;
@@ -82,12 +76,10 @@ class AppointmentController extends Controller
     // PATCH /api/doctor/appointments/{id}/status  (doctor-only)
     public function updateStatus(Request $request, $id)
     {
-        $data = $request->validate([
-            'status' => 'required|in:confirmed,completed,cancelled',
-        ]);
+        $data = $request->all();
 
         $doctor      = auth()->user()->doctor;
-        $appointment = $this->appointmentService->updateAppointmentStatus($id, $data['status'], $doctor->id);
+        $appointment = $this->appointmentService->updateAppointmentStatus($id, $data, $doctor->id);
 
         if (!$appointment) {
             return response()->json(['status' => 'error', 'message' => 'Appointment not found or unauthorized.'], 404);
@@ -114,6 +106,24 @@ class AppointmentController extends Controller
             'status'  => 'success',
             'message' => 'Appointment cancelled.',
             'data'    => $appointment,
+        ]);
+    }
+
+    // GET /api/patient/appointments/booked-slots
+    public function getBookedSlots(Request $request)
+    {
+        $doctorId = $request->query('doctor_id');
+        $date = $request->query('date');
+
+        if (!$doctorId || !$date) {
+            return response()->json(['status' => 'error', 'message' => 'doctor_id and date are required parameters'], 400);
+        }
+
+        $slots = $this->appointmentService->getBookedSlots((int)$doctorId, $date);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $slots
         ]);
     }
 }

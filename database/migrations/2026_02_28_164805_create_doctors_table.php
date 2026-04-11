@@ -23,7 +23,10 @@ return new class extends Migration
             $table->decimal('consultation_fee', 10, 2)->default(0.00);
             $table->json('availability')->nullable();
             $table->boolean('is_available')->default(true);
-            $table->timestamps();
+            $table->string('license_number', 100)->nullable();
+            $table->decimal('rating', 3, 2)->default(0.00);
+            $table->integer('reviews_count')->default(0);
+            $table->timestamp('created_at')->nullable();
         });
     }
 
@@ -35,3 +38,4 @@ return new class extends Migration
         Schema::dropIfExists('doctors');
     }
 };
+

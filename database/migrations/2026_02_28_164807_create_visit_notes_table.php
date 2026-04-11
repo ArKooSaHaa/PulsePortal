@@ -21,7 +21,7 @@ return new class extends Migration
             $table->text('ai_summary')->nullable();
             $table->text('ai_specialist_recommendation')->nullable();
             $table->text('ai_history_summary')->nullable();
-            $table->timestamps();
+            $table->timestamp('created_at')->nullable();
         });
     }
 
@@ -33,3 +33,4 @@ return new class extends Migration
         Schema::dropIfExists('visit_notes');
     }
 };
+
