@@ -4,46 +4,46 @@ import axios from 'axios';
 
 window.Pusher = Pusher;
 
-const pusherKey = import.meta.env.VITE_PUSHER_APP_KEY;
+let echoInstance = null;
+let currentToken = null;
 
-let echo;
+/**
+ * Returns an Echo instance authenticated with the given token.
+ * Re-creates the instance whenever the token changes (login/logout).
+ */
+export function getEcho(token) {
+    const pusherKey = import.meta.env.VITE_PUSHER_APP_KEY;
 
-if (pusherKey) {
-    echo = new Echo({
-        broadcaster: 'pusher',
-        key: pusherKey,
-        cluster: import.meta.env.VITE_PUSHER_APP_CLUSTER,
-        forceTLS: true,
-        authEndpoint: (import.meta.env.VITE_API_URL || 'http://localhost:8000/api').replace('/api', '') + '/broadcasting/auth',
-        auth: {
-            headers: {},
-        },
-        authorizer: (channel, options) => {
-            return {
-                authorize: (socketId, callback) => {
-                    axios.post(options.authEndpoint, {
-                        socket_id: socketId,
-                        channel_name: channel.name
-                    }, {
-                        headers: {
-                            Authorization: `Bearer ${localStorage.getItem('token')}`,
-                            Accept: 'application/json'
-                        }
-                    })
-                    .then(response => {
-                        callback(false, response.data);
-                    })
-                    .catch(error => {
-                        callback(true, error);
-                    });
-                }
-            };
-        },
-    });
-} else {
-    console.warn('[PulsePortal] VITE_PUSHER_APP_KEY is not set – real-time notifications disabled.');
-    // Provide a no-op echo so the rest of the app doesn't crash
-    echo = { private: () => ({ listen: () => ({}), stopListening: () => ({}) }) };
+    if (!pusherKey) {
+        console.warn('[PulsePortal] VITE_PUSHER_APP_KEY is not set – real-time notifications disabled.');
+        return { private: () => ({ listen: () => ({}), stopListening: () => ({}) }) };
+    }
+
+    // Re-create if token changed or first call
+    if (!echoInstance || currentToken !== token) {
+        if (echoInstance) {
+            try { echoInstance.disconnect(); } catch (_) {}
+        }
+
+        currentToken = token;
+        echoInstance = new Echo({
+            broadcaster: 'pusher',
+            key: pusherKey,
+            cluster: import.meta.env.VITE_PUSHER_APP_CLUSTER,
+            forceTLS: true,
+            authEndpoint: (import.meta.env.VITE_API_URL || 'http://localhost:8000/api')
+                .replace('/api', '') + '/broadcasting/auth',
+            auth: {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    Accept: 'application/json',
+                },
+            },
+        });
+    }
+
+    return echoInstance;
 }
 
-export default echo;
+// Default no-op export so any old import doesn't crash
+export default { private: () => ({ listen: () => ({}), stopListening: () => ({}) }) };

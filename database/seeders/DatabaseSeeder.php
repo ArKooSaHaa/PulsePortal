@@ -24,41 +24,75 @@ class DatabaseSeeder extends Seeder
         $allowedDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'aust.edu', 'pulseportal.com'];
 
         // --- 1. ADMINS (Super & Department Specific) ---
-        $superAdminUser = User::create([
-            'name'     => 'System Admin',
-            'email'    => 'admin@pulseportal.com',
-            'password' => Hash::make('Password123'),
-            'role'     => 'admin',
-        ]);
-        Admin::create([
-            'user_id'    => $superAdminUser->id,
-            'admin_role' => 'Super Admin',
-            'department' => null,
-        ]);
+        $superAdminUser = User::firstOrCreate(
+            ['email' => 'admin@pulseportal.com'],
+            [
+                'name'     => 'System Admin',
+                'password' => Hash::make('Password123'),
+                'role'     => 'admin',
+            ]
+        );
+        Admin::firstOrCreate(
+            ['user_id' => $superAdminUser->id],
+            [
+                'admin_role' => 'Super Admin',
+                'department' => null,
+            ]
+        );
 
-        $cardioAdminUser = User::create([
-            'name'     => 'Cardio Admin',
-            'email'    => 'cardio@pulseportal.com',
-            'password' => Hash::make('password123'),
-            'role'     => 'admin',
-        ]);
-        Admin::create([
-            'user_id'    => $cardioAdminUser->id,
-            'admin_role' => 'Department Admin',
-            'department' => 'Cardiology',
-        ]);
+        $cardioAdminUser = User::firstOrCreate(
+            ['email' => 'cardio@pulseportal.com'],
+            [
+                'name'     => 'Cardio Admin',
+                'password' => Hash::make('password123'),
+                'role'     => 'admin',
+            ]
+        );
+        Admin::firstOrCreate(
+            ['user_id' => $cardioAdminUser->id],
+            [
+                'admin_role' => 'Department Admin',
+                'department' => 'Cardiology',
+            ]
+        );
 
-        $neuroAdminUser = User::create([
-            'name'     => 'Neuro Admin',
-            'email'    => 'neuro@pulseportal.com',
-            'password' => Hash::make('password123'),
-            'role'     => 'admin',
-        ]);
-        Admin::create([
-            'user_id'    => $neuroAdminUser->id,
-            'admin_role' => 'Department Admin',
-            'department' => 'Neurology',
-        ]);
+        $neuroAdminUser = User::firstOrCreate(
+            ['email' => 'neuro@pulseportal.com'],
+            [
+                'name'     => 'Neuro Admin',
+                'password' => Hash::make('password123'),
+                'role'     => 'admin',
+            ]
+        );
+        Admin::firstOrCreate(
+            ['user_id' => $neuroAdminUser->id],
+            [
+                'admin_role' => 'Department Admin',
+                'department' => 'Neurology',
+            ]
+        );
+
+        $moreDepts = ['Orthopedics', 'Paediatrics', 'OBGYN', 'Dermatology', 'Gastroenterology', 'Urology', 'Psychiatry'];
+        foreach ($moreDepts as $dept) {
+            $slug = strtolower(str_replace([' ', '&'], ['_', 'n'], $dept));
+            $email = $slug . '_admin@pulseportal.com';
+
+            $user = User::firstOrCreate(
+                ['email' => $email],
+                [
+                    'name'     => $dept . ' Admin',
+                    'password' => Hash::make('password123'),
+                    'role'     => 'admin',
+                ]
+            );
+            Admin::firstOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'admin_role' => 'Department Admin',
+                    'department' => $dept,
+                ]
+            );
+        }
 
         // --- 2. SAMPLE PATIENT ---
         $patientUser = User::create([
