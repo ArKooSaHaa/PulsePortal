@@ -62,6 +62,7 @@ CREATE TABLE doctors (
     id                 BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     user_id            BIGINT UNSIGNED NOT NULL,
     specialization     VARCHAR(255)    NOT NULL,
+    department         VARCHAR(255)    NOT NULL,
     bio                TEXT            NULL,
     phone              VARCHAR(20)     NULL,
     consultation_fee   DECIMAL(10,2)   NOT NULL DEFAULT '0.00',
@@ -83,6 +84,9 @@ CREATE TABLE admins (
     id                 BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     user_id            BIGINT UNSIGNED NOT NULL,
     created_at         TIMESTAMP       NULL,
+    updated_at         TIMESTAMP       NULL,
+    admin_roles        VARCHAR(255)    NULL,
+    department         VARCHAR(255)    NULL,
     PRIMARY KEY (id),
     UNIQUE KEY admins_user_id_unique (user_id),
     CONSTRAINT fk_admins_user

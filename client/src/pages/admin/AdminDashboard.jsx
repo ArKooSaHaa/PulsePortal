@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import adminService from "../../api/adminService";
 import authService from "../../api/authService";
+import { useNavigate } from "react-router-dom";
 
 const cardVariants = {
     hidden: { opacity: 0, y: 40 },
@@ -40,6 +41,7 @@ function formatDate(dateStr, timeStr) {
 
 export default function AdminDashboard() {
     const [stats, setStats] = useState(null);
+    const navigate = useNavigate();
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
@@ -61,10 +63,17 @@ export default function AdminDashboard() {
     }, []);
 
     const totalPages = Math.ceil(appointments.length / PER_PAGE);
-    const paginated = appointments.slice(
-        (page - 1) * PER_PAGE,
-        page * PER_PAGE,
-    );
+    // const paginated = appointments.slice(
+    //     (page - 1) * PER_PAGE,
+    //     page * PER_PAGE,
+    // );
+    //const recentAppointments = appointments.slice(0, 5);
+    const recentAppointments = [...appointments]
+    .sort((a, b) => {
+        return new Date(`${b.appointment_date}T${b.appointment_time}`) -
+               new Date(`${a.appointment_date}T${a.appointment_time}`);
+    })
+    .slice(0, 5);
 
     const statCards = [
         {
@@ -155,6 +164,14 @@ export default function AdminDashboard() {
                         Recent Appointments
                     </h2>
                 </div>
+                <div className="flex justify-end mt-4">
+    <button
+        onClick={() => navigate("/admin/all-appointments")}
+        className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
+    >
+        View All
+    </button>
+</div>
 
                 {loading ? (
                     <div className="flex items-center justify-center py-12 text-slate-400 gap-2">
@@ -189,7 +206,7 @@ export default function AdminDashboard() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {paginated.map((item) => (
+                                    {recentAppointments.map((item) => (
                                         <tr
                                             key={item.id}
                                             className="border-b last:border-none hover:bg-gray-50 transition"
@@ -228,7 +245,7 @@ export default function AdminDashboard() {
                         </div>
 
                         {/* Pagination */}
-                        <div className="flex justify-between items-center mt-6">
+                        {/* <div className="flex justify-between items-center mt-6">
                             <p className="text-sm text-gray-500">
                                 Showing{" "}
                                 {Math.min(
@@ -264,7 +281,7 @@ export default function AdminDashboard() {
                                     Next
                                 </button>
                             </div>
-                        </div>
+                        </div> */}
                     </>
                 )}
             </motion.div>

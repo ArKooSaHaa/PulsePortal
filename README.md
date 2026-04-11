@@ -31,7 +31,7 @@ The objective of Pulse Portal is to develop an intelligent healthcare support sy
 ### 2. Frontend
 
 - **React**
-- **TailwindCSS/ Bootstrap / MUI**
+- **TailwindCSS**
 
 ### 3. Rendering Method
 
@@ -45,9 +45,11 @@ The objective of Pulse Portal is to develop an intelligent healthcare support sy
 
 - **OpenAI / Gemini API:** Will be used for AI-assisted features such as recommending specialists based on symptoms, generating visit summaries, and providing decision-support guidance.
 
-### 6. Suporting Tools
+### 6. Supporting Tools
 
-- **JWT:** For secure authentication and API communication.
+- **JWT:** For secure authentication.
+- **Pusher & Laravel Echo:** For real-time notifications.
+- **Mailpit:** For local email testing.
 
 # UI Mockups
 
@@ -95,7 +97,7 @@ The objective of Pulse Portal is to develop an intelligent healthcare support sy
 
 - **Role-Based Access Control:** Secure authentication and authorization for patients, doctors, and hospital staff based on assigned roles.
 
-## 2. AI Intregrated Features
+## 2. AI Integrated Features
 
 - **Specialist Recommendation:** Suggest appropriate departments or specialists based on patient-reported symptoms.
 
@@ -195,7 +197,6 @@ DB_HOST=mysql
 DB_DATABASE=pulse_portal
 DB_USERNAME=root
 DB_PASSWORD=root
-```
 
 **4. Start Docker**
 
@@ -232,16 +233,19 @@ docker exec -it pulseportal_app php artisan migrate:fresh --seed
 ```bash
 cd client
 npm install
+
+# Install Pusher/Echo front-end dependencies (if not already installed)
+npm install pusher-js laravel-echo
 ```
 
 ## Accessing the App
 
-| Service                 | URL                       |
-| ----------------------- | ------------------------- |
-| Frontend (React)        | http://localhost:5173     |
-| Backend API             | http://localhost:8000/api |
-| Mailpit (Email Catcher) | http://localhost:8025     |
-| MySQL (DB Client only)  | localhost:3307            |
+| Service                 | URL                       | Description                  |
+| ----------------------- | ------------------------- | ---------------------------- |
+| Frontend (React)        | http://localhost:5173     | Main user interface          |
+| Backend API             | http://localhost:8000/api | API root                     |
+| Mailpit (Email Catcher) | http://localhost:8025     | View outgoing emails locally |
+| MySQL (DB Client only)  | localhost:3307            | Direct database access       |
 
 > Connect to MySQL using a client like DBeaver or TablePlus with username `root` and password `root`.
 
@@ -249,19 +253,29 @@ npm install
 
 All accounts use the password: `password123`
 
-| Role    | Email                   |
-| ------- | ----------------------- |
-| Patient | patient@pulseportal.com |
-| Doctor  | doctor@pulseportal.com  |
-| Admin   | admin@pulseportal.com   |
+| Role | Email |
+| :--- | :--- |
+| **Super Admin** | `admin@pulseportal.com` |
+| **Dept Admin (Cardio)** | `cardio@pulseportal.com` |
+| **Doctor (Cardio)** | `doctor@pulseportal.com` |
+| **Patient** | `patient@pulseportal.com` |
 
-## Daily Workflow
-
-**Starting the project**
+# Daily Development Workflow
 
 ```bash
 docker-compose up
 ```
+
+**Running the Background Worker (For Emails & Queued Tasks)**
+If `QUEUE_CONNECTION` is set to `database`, you must run the worker to process emails:
+```bash
+docker exec -it pulseportal_app php artisan queue:work
+```
+
+**Real-time Alerts Setup**
+To ensure the appointment requests and status updates pop up instantly:
+1. **Backend Installation**: Run `docker exec -it pulseportal_app composer require pusher/pusher-php-server` (if not already in vendor).
+
 
 **After pulling new changes that include migrations**
 

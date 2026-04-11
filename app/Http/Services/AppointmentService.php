@@ -2,26 +2,18 @@
 
 namespace App\Http\Services;
 
+use App\Models\Admin;
 use App\Models\Appointment;
-use App\Models\Patient;
-use App\Http\Services\AiService;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Mail;
+use App\Events\AppointmentRequested;
+use App\Mail\PatientAppointmentDetails;
+use App\Events\AppointmentStatusUpdated;
 
 class AppointmentService
 {
     public function createAppointment(int $patientId, array $data): Appointment
     {
-        $validatedData = Validator::make($data, [
-            'doctor_id'        => 'required|exists:doctors,id',
-            'appointment_date' => 'required|date|after_or_equal:today',
-            'appointment_time' => 'required',
-            'type'             => 'required|in:in_person,online',
-            'symptoms'         => 'required|string|max:1000',
-        ])->validate();
-
-        return Appointment::create([
+        $appointment = Appointment::create([
             'patient_id'       => $patientId,
             'doctor_id'        => $validatedData['doctor_id'],
             'appointment_date' => $validatedData['appointment_date'],
@@ -30,6 +22,13 @@ class AppointmentService
             'symptoms'         => $validatedData['symptoms'],
             'status'           => 'pending',
         ]);
+
+        broadcast(new AppointmentRequested($appointment))->toOthers();
+        
+        $appointment->load(['patient.user', 'doctor.user']);
+        Mail::to($appointment->patient->user->email)->send(new PatientAppointmentDetails($appointment));
+
+        return $appointment;
     }
 
     public function getPatientAppointments(int $patientId)
@@ -46,37 +45,57 @@ class AppointmentService
     {
         return Appointment::with(['patient.user'])
             ->where('doctor_id', $doctorId)
+            ->where('status', 'confirmed')
             ->orderBy('appointment_date', 'asc')
             ->orderBy('appointment_time', 'asc')
             ->get()
             ->map(fn($a) => $this->formatAppointmentForDoctor($a));
     }
 
-    public function updateAppointmentStatus(int $appointmentId, array $data, int $doctorId): ?Appointment
+    /**
+     * Get appointments filtered by the admin's department.
+     */
+    public function getDepartmentAppointments(Admin $admin)
     {
-        $validatedData = Validator::make($data, [
-            'status' => 'required|in:confirmed,completed,cancelled',
-        ])->validate();
+        $query = Appointment::with(['patient.user', 'doctor.user']);
 
-        $appointment = Appointment::where('id', $appointmentId)
-            ->where('doctor_id', $doctorId)
-            ->first();
+        if ($admin->admin_role !== 'Super Admin' && $admin->department) {
+            // Filter to only appointments for doctors in this department
+            $query->whereHas('doctor', fn($q) => $q->where('department', $admin->department));
+        }
+
+        return $query
+            ->orderBy('appointment_date', 'desc')
+            ->orderBy('appointment_time', 'desc')
+            ->get()
+            ->map(fn($a) => $this->formatAppointmentForAdmin($a));
+    }
+
+    /**
+     * Allow admin OR doctor to update appointment status.
+     */
+    public function updateAppointmentStatus(int $appointmentId, string $status, ?int $doctorId = null): ?Appointment
+    {
+        $query = Appointment::where('id', $appointmentId);
+
+        // If doctorId is provided, restrict to that doctor's appointments (doctor workflow)
+        if ($doctorId) {
+            $query->where('doctor_id', $doctorId);
+        }
+
+        $appointment = $query->first();
 
         if (!$appointment) return null;
 
-        $appointment->update(['status' => $validatedData['status']]);
+        $appointment->update(['status' => $status]);
 
-        // ── Auto-generate medical history when appointment is completed ──
-        if ($validatedData['status'] === 'completed') {
-            try {
-                $this->regenerateMedicalHistory($appointment->patient_id);
-            } catch (\Exception $e) {
-                // Log but don't fail the status update if AI is unavailable
-                Log::warning('AI medical history generation failed', [
-                    'patient_id' => $appointment->patient_id,
-                    'error'      => $e->getMessage(),
-                ]);
-            }
+        // Notify the patient via WebSocket
+        broadcast(new AppointmentStatusUpdated($appointment))->toOthers();
+
+        // Notify the patient via email for major status changes
+        if (in_array($status, ['confirmed', 'cancelled'])) {
+            $appointment->load(['patient.user', 'doctor.user']);
+            Mail::to($appointment->patient->user->email)->send(new PatientAppointmentDetails($appointment));
         }
 
         return $appointment;
@@ -155,6 +174,9 @@ PROMPT;
         if (!$appointment) return null;
 
         $appointment->update(['status' => 'cancelled']);
+
+        broadcast(new AppointmentStatusUpdated($appointment))->toOthers();
+
         return $appointment;
     }
 
@@ -178,6 +200,7 @@ PROMPT;
             'doctor_id'        => $a->doctor_id,
             'doctor_name'      => $a->doctor->user->name ?? 'Unknown',
             'specialization'   => $a->doctor->specialization ?? '',
+            'department'       => $a->doctor->department ?? '',
             'appointment_date' => $a->appointment_date,
             'appointment_time' => $a->appointment_time,
             'type'             => $a->type,
@@ -192,6 +215,22 @@ PROMPT;
             'id'               => $a->id,
             'patient_id'       => $a->patient_id,
             'patient_name'     => $a->patient->user->name ?? 'Unknown',
+            'appointment_date' => $a->appointment_date,
+            'appointment_time' => $a->appointment_time,
+            'type'             => $a->type,
+            'status'           => $a->status,
+            'symptoms'         => $a->symptoms,
+        ];
+    }
+
+    private function formatAppointmentForAdmin(Appointment $a): array
+    {
+        return [
+            'id'               => $a->id,
+            'patient_name'     => $a->patient->user->name ?? 'Unknown',
+            'doctor_name'      => $a->doctor->user->name ?? 'Unknown',
+            'specialization'   => $a->doctor->specialization ?? '',
+            'department'       => $a->doctor->department ?? '',
             'appointment_date' => $a->appointment_date,
             'appointment_time' => $a->appointment_time,
             'type'             => $a->type,

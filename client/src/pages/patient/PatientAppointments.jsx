@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { CalendarDays, AlarmClock, MapPin, Loader2, Video, X } from "lucide-react";
 import appointmentService from "../../api/appointmentService";
 
@@ -10,7 +11,7 @@ const STATUS_STYLES = {
     cancelled: "bg-red-50 text-red-400 border border-red-100",
 };
 
-function AppointmentCard({ appt, onCancel, cancelling }) {
+function AppointmentCard({ appt, onCancel, cancelling , navigate}) {
     const statusCls = STATUS_STYLES[appt.status] || STATUS_STYLES.pending;
     const accentColor =
         appt.status === "pending"    ? "linear-gradient(180deg, #f59e0b, #fbbf24)" :
@@ -77,6 +78,7 @@ function AppointmentCard({ appt, onCancel, cancelling }) {
                     )}
 
                     {["pending", "confirmed"].includes(appt.status) && (
+                        
                         <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-100">
                             <motion.button
                                 whileHover={{ scale: 1.02 }}
@@ -93,6 +95,21 @@ function AppointmentCard({ appt, onCancel, cancelling }) {
                             </motion.button>
                         </div>
                     )}
+                     {appt.status === "confirmed" &&
+                        appt.type === "online" && (
+                            <div className="mt-4">
+                                <button
+                                    onClick={() =>
+                                        navigate(
+                                            `/patient/consultation/${appt.id}`
+                                        )
+                                    }
+                                    className="px-4 py-2 rounded-full text-xs font-semibold text-white bg-green-500 hover:bg-green-600"
+                                >
+                                    Join Consultation
+                                </button>
+                            </div>
+                        )}
                 </div>
             </div>
         </motion.div>
@@ -105,6 +122,7 @@ export default function PatientAppointments() {
     const [error, setError]               = useState("");
     const [cancelling, setCancelling]     = useState(null);
     const [filter, setFilter]             = useState("all");
+    const navigate = useNavigate();
 
     useEffect(() => {
         appointmentService.getPatientAppointments()
@@ -182,6 +200,7 @@ export default function PatientAppointments() {
                                     appt={appt}
                                     onCancel={handleCancel}
                                     cancelling={cancelling}
+                                    navigate={navigate}
                                 />
                             ))}
                         </AnimatePresence>

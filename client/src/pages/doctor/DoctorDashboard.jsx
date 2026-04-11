@@ -31,7 +31,6 @@ function formatTime(t) {
 export default function DoctorDashboard() {
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [updating, setUpdating] = useState(null);
 
     const user = authService.getCurrentUser();
 
@@ -42,19 +41,6 @@ export default function DoctorDashboard() {
             .catch(() => {})
             .finally(() => setLoading(false));
     }, []);
-
-    const handleStatusUpdate = async (id, status) => {
-        setUpdating(id);
-        try {
-            await appointmentService.updateAppointmentStatus(id, status);
-            setAppointments((prev) =>
-                prev.map((a) => (a.id === id ? { ...a, status } : a)),
-            );
-        } catch {
-        } finally {
-            setUpdating(null);
-        }
-    };
 
     // Fix: use local date not UTC
     const today = new Date();
@@ -214,58 +200,10 @@ export default function DoctorDashboard() {
 
                                         <div className="flex items-center gap-2">
                                             <span
-                                                className={`text-xs px-3 py-1 rounded-full font-medium capitalize ${
-                                                    item.status === "confirmed"
-                                                        ? "bg-blue-100 text-blue-600"
-                                                        : item.status ===
-                                                            "completed"
-                                                          ? "bg-green-100 text-green-600"
-                                                          : item.status ===
-                                                              "cancelled"
-                                                            ? "bg-red-100 text-red-400"
-                                                            : "bg-yellow-100 text-yellow-600"
-                                                }`}
+                                                className={`text-xs px-3 py-1 rounded-full font-medium capitalize "bg-blue-100 text-blue-600"`}
                                             >
                                                 {item.status}
                                             </span>
-
-                                            {/* Quick action buttons */}
-                                            {item.status === "pending" && (
-                                                <button
-                                                    onClick={() =>
-                                                        handleStatusUpdate(
-                                                            item.id,
-                                                            "confirmed",
-                                                        )
-                                                    }
-                                                    disabled={
-                                                        updating === item.id
-                                                    }
-                                                    className="text-xs px-2 py-1 rounded-full bg-blue-500 text-white font-medium hover:bg-blue-600 transition disabled:opacity-50"
-                                                >
-                                                    {updating === item.id
-                                                        ? "..."
-                                                        : "Confirm"}
-                                                </button>
-                                            )}
-                                            {item.status === "confirmed" && (
-                                                <button
-                                                    onClick={() =>
-                                                        handleStatusUpdate(
-                                                            item.id,
-                                                            "completed",
-                                                        )
-                                                    }
-                                                    disabled={
-                                                        updating === item.id
-                                                    }
-                                                    className="text-xs px-2 py-1 rounded-full bg-green-500 text-white font-medium hover:bg-green-600 transition disabled:opacity-50"
-                                                >
-                                                    {updating === item.id
-                                                        ? "..."
-                                                        : "Complete"}
-                                                </button>
-                                            )}
                                         </div>
                                     </motion.div>
                                 ))

@@ -11,7 +11,11 @@ class Admin extends Model
 
     public const UPDATED_AT = null;
 
-    protected $fillable = ['user_id'];
+    protected $fillable = ['user_id', 'admin_role', 'department', 'last_login_at'];
+    
+    protected $casts = [
+        'last_login_at' => 'datetime',
+    ];
 
     public function user()
     {

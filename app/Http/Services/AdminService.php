@@ -5,11 +5,11 @@ namespace App\Http\Services;
 use App\Models\User;
 use App\Models\Doctor;
 use App\Models\Admin;
+use App\Mail\WelcomeDoctorMail;
+use App\Mail\AdminWelcomMail;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\ValidationException;
-use App\Models\Appointment;
+use Mail;
 
 class AdminService
 {
@@ -47,14 +47,17 @@ class AdminService
             }
 
             Doctor::create([
-                'user_id' => $user->id,
-                'specialization' => $validatedData['specialization'],
-                'bio' => $validatedData['bio'] ?? null,
-                'phone' => $validatedData['phone'] ?? null,
-                'consultation_fee' => $validatedData['consultation_fee'] ?? 0,
-                'availability' => $availability,
-                'is_available' => true,
+                'user_id'          => $user->id,
+                'specialization'   => $data['specialization'],
+                'department'       => $data['department'] ?? null,
+                'bio'              => $data['bio'] ?? null,
+                'phone'            => $data['phone'] ?? null,
+                'consultation_fee' => $data['consultation_fee'] ?? 0,
+                'availability'     => $availability,
+                'is_available'     => true,
             ]);
+
+            Mail::to($data['email'])->queue(new WelcomeDoctorMail($data['name'], $data['email'], $data['password']));
 
             return [
                 'id' => $user->id,
@@ -90,7 +93,11 @@ class AdminService
 
             Admin::create([
                 'user_id' => $user->id,
+                'admin_role' => $data['admin_role'],
+                'department' => $data['department'],
             ]);
+
+            Mail::to($data['email'])->queue(new AdminWelcomMail($data['name'], $data['email'], $data['admin_role'], $data['department'], $data['password']));
 
             return [
                 'id' => $user->id,
@@ -107,15 +114,16 @@ class AdminService
         return \App\Models\Doctor::with('user')
             ->get()
             ->map(fn($d) => [
-                'id' => $d->id,
-                'user_id' => $d->user_id,
-                'name' => $d->user->name,
-                'email' => $d->user->email,
+                'id'             => $d->id,
+                'user_id'        => $d->user_id,
+                'name'           => $d->user->name,
+                'email'          => $d->user->email,
                 'specialization' => $d->specialization,
-                'phone' => $d->phone,
-                'fee' => $d->consultation_fee,
-                'is_available' => $d->is_available,
-                'availability' => $d->availability,
+                'department'     => $d->department,
+                'phone'          => $d->phone,
+                'fee'            => $d->consultation_fee,
+                'is_available'   => $d->is_available,
+                'availability'   => $d->availability,
             ])
             ->toArray();
     }
@@ -141,14 +149,15 @@ class AdminService
             ->orderBy('appointment_date', 'desc')
             ->get()
             ->map(fn($a) => [
-                'id' => $a->id,
-                'patient_name' => $a->patient->user->name ?? 'Unknown',
-                'doctor_name' => $a->doctor->user->name ?? 'Unknown',
-                'specialization' => $a->doctor->specialization ?? '',
+                'id'               => $a->id,
+                'patient_name'     => $a->patient->user->name ?? 'Unknown',
+                'doctor_name'      => $a->doctor->user->name ?? 'Unknown',
+                'specialization'   => $a->doctor->specialization ?? '',
+                'department'       => $a->doctor->department ?? '',
                 'appointment_date' => $a->appointment_date,
                 'appointment_time' => $a->appointment_time,
-                'type' => $a->type,
-                'status' => $a->status,
+                'type'             => $a->type,
+                'status'           => $a->status,
             ])
             ->toArray();
     }

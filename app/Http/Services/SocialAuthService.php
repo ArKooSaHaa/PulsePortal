@@ -79,11 +79,18 @@ class SocialAuthService
      */
     private function formatUser(User $user): array
     {
-        return [
+        $data = [
             'id'    => $user->id,
             'name'  => $user->name,
             'email' => $user->email,
             'role'  => $user->role,
         ];
+
+        if ($user->role === 'admin' && $user->admin) {
+            $data['admin_role'] = $user->admin->admin_role;
+            $data['department'] = $user->admin->department;
+        }
+
+        return $data;
     }
 }

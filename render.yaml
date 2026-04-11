@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: pulse-portal-backend
+    runtime: docker
+    plan: free
+    region: singapore
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: DB_CONNECTION
+        value: mysql
+      # Adding sync: false creates the empty UI fields in Render
+      - key: DATABASE_URL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - fromGroup: pulse-portal-secrets
+
+envVarGroups:
+  - name: pulse-portal-secrets
+    envVars:
+      - key: APP_KEY
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true

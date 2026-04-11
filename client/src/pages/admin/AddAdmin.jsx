@@ -11,6 +11,8 @@ import {
     Loader2,
     CheckCircle2,
     AlertCircle,
+    Building2,
+    ShieldCheck,
 } from "lucide-react";
 import adminService from "../../api/adminService";
 
@@ -32,6 +34,38 @@ function Input({ icon, error, ...props }) {
     );
 }
 
+function SelectField({ icon, label, options, error, ...props }) {
+    return (
+        <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+                {label}
+            </label>
+            <div className="relative">
+                <div className="absolute left-3 top-3 text-slate-400">
+                    {icon}
+                </div>
+                <select
+                    {...props}
+                    className={`w-full pl-10 pr-4 py-3 rounded-xl border text-sm appearance-none bg-white focus:outline-none focus:ring-2 transition-all
+                        ${
+                            error
+                                ? "border-red-300 focus:ring-red-200"
+                                : "border-slate-200 focus:ring-blue-200 focus:border-blue-400"
+                        }`}
+                >
+                    <option value="">{props.placeholder || `Select ${label}`}</option>
+                    {options.map((opt) => (
+                        <option key={opt} value={opt}>
+                            {opt}
+                        </option>
+                    ))}
+                </select>
+            </div>
+            {error && <p className="text-red-500 text-xs mt-1 ml-1">{error}</p>}
+        </div>
+    );
+}
+
 export default function AddAdmin() {
     const [showPass, setShowPass] = useState(false);
     const [form, setForm] = useState({
@@ -39,6 +73,8 @@ export default function AddAdmin() {
         email: "",
         password: "",
         phone: "",
+        admin_role: "",
+        department: "",
     });
 
     const [errors, setErrors] = useState({});
@@ -47,9 +83,17 @@ export default function AddAdmin() {
     const [apiError, setApiError] = useState("");
 
     const handleChange = (e) => {
-        setForm({ ...form, [e.target.name]: e.target.value });
-        if (errors[e.target.name]) {
-            setErrors({ ...errors, [e.target.name]: "" });
+        const { name, value } = e.target;
+        let newForm = { ...form, [name]: value };
+
+        // If Super Admin is selected, force department to empty
+        if (name === "admin_role" && value === "Super Admin") {
+            newForm.department = "";
+        }
+
+        setForm(newForm);
+        if (errors[name]) {
+            setErrors({ ...errors, [name]: "" });
         }
     };
 
@@ -60,6 +104,12 @@ export default function AddAdmin() {
         if (!form.password) e.password = "Password is required.";
         if (form.password.length < 8)
             e.password = "Password must be at least 8 characters.";
+        if (!form.admin_role) e.admin_role = "Admin role is required.";
+
+        // Department is required only if NOT a Super Admin
+        if (form.admin_role !== "Super Admin" && !form.department) {
+            e.department = "Department is required.";
+        }
         return e;
     };
 
@@ -77,7 +127,14 @@ export default function AddAdmin() {
         try {
             await adminService.createAdmin(form);
             setSuccess(true);
-            setForm({ name: "", email: "", password: "", phone: "" });
+            setForm({
+                name: "",
+                email: "",
+                password: "",
+                phone: "",
+                admin_role: "",
+                department: "",
+            });
         } catch (err) {
             if (err.response?.data?.errors) {
                 const firstError = Object.values(
@@ -234,6 +291,46 @@ export default function AddAdmin() {
                                 onChange={handleChange}
                             />
                         </div>
+
+                        {/* Admin Role Dropdown */}
+                        <SelectField
+                            label="Admin Role"
+                            icon={<ShieldCheck size={16} />}
+                            name="admin_role"
+                            value={form.admin_role}
+                            onChange={handleChange}
+                            error={errors.admin_role}
+                            options={[
+                                "Super Admin",
+                                "IT Support Admin",
+                                "Department Admin",
+                                "Front Desk Admin",
+                            ]}
+                        />
+
+                        {/* Department Dropdown */}
+                        <SelectField
+                            label="Department"
+                            icon={<Building2 size={16} />}
+                            name="department"
+                            value={form.admin_role === "Super Admin" ? "" : form.department}
+                            onChange={handleChange}
+                            error={errors.department}
+                            disabled={form.admin_role === "Super Admin"}
+                            placeholder={form.admin_role === "Super Admin" ? "All Departments (Default)" : "Select Department"}
+                            options={[
+                                "Cardiology",
+                                "Neurology",
+                                "Orthopedics",
+                                "Pediatrics",
+                                "Oncology",
+                                "Radiology",
+                                "Nursing",
+                                "General",
+                                "Dermatology",
+                                "Psychiatry",
+                            ]}
+                        />
                     </div>
 
                     <motion.button
