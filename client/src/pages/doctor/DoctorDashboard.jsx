@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Calendar, Users, Plus, TrendingUp, Loader2 } from "lucide-react";
+import { Calendar, Users, Plus, TrendingUp, Loader2, FileText } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import appointmentService from "../../api/appointmentService";
 import authService from "../../api/authService";
 
@@ -31,6 +32,7 @@ function formatTime(t) {
 export default function DoctorDashboard() {
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
 
     const user = authService.getCurrentUser();
 
@@ -146,11 +148,12 @@ export default function DoctorDashboard() {
                         </div>
 
                         {/* Header Row */}
-                        <div className="grid grid-cols-4 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-3 mb-4">
+                        <div className="grid grid-cols-5 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-3 mb-4">
                             <div>Time</div>
                             <div>Patient Name</div>
                             <div>Type</div>
                             <div>Status</div>
+                            <div>Prescription</div>
                         </div>
 
                         {/* Data Rows */}
@@ -176,7 +179,7 @@ export default function DoctorDashboard() {
                                         whileHover={{
                                             backgroundColor: "#f8fafc",
                                         }}
-                                        className="grid grid-cols-4 items-center p-4 rounded-xl border border-slate-100 transition"
+                                        className="grid grid-cols-5 items-center p-4 rounded-xl border border-slate-100 transition"
                                     >
                                         <div className="font-medium text-slate-700">
                                             {formatTime(item.appointment_time)}
@@ -209,6 +212,26 @@ export default function DoctorDashboard() {
                                                 >
                                                     {item.status}
                                             </span>
+                                        </div>
+
+                                        {/* Prescription Upload */}
+                                        <div>
+                                            {item.has_prescription ? (
+                                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-600 bg-green-50 px-3 py-1 rounded-full">
+                                                    ✓ Rx Done
+                                                </span>
+                                            ) : item.status === "confirmed" ? (
+                                                <button
+                                                    onClick={() =>
+                                                        navigate(`/doctor/prescription-preview/${item.id}`)
+                                                    }
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-[#127fec] border border-[#127fec]/40 hover:bg-blue-50 transition"
+                                                >
+                                                    <FileText size={12} /> Upload Rx
+                                                </button>
+                                            ) : (
+                                                <span className="text-xs text-slate-400">—</span>
+                                            )}
                                         </div>
                                     </motion.div>
                                 ))

@@ -350,12 +350,12 @@ export default function PatientDashboard() {
                                         <span className="text-xs text-slate-400 hidden sm:block">
                                             {formatDate(item.appointment_date)}
                                         </span>
-                                        {/* Not functional yet */}
                                         <button
-                                            className="text-xs font-semibold text-slate-300 cursor-not-allowed focus:outline-none whitespace-nowrap"
-                                            title="Coming soon"
+                                            onClick={() => navigate(`/patient/prescription/${item.id}`)}
+                                            className="text-xs font-semibold text-[#127fec] hover:underline focus:outline-none whitespace-nowrap"
+                                            title="View Prescription"
                                         >
-                                            View Summary
+                                            View Prescription →
                                         </button>
                                     </div>
                                 </motion.div>

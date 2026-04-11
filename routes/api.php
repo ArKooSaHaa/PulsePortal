@@ -9,6 +9,7 @@ use App\Http\Controllers\DoctorController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AiController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PrescriptionController;
 
 // ── Auth routes ───────────────────────────────────────────────
 Route::prefix('auth')->group(function () {
@@ -47,10 +48,14 @@ Route::middleware('auth:api')->group(function () {
 
     // Doctor routes
     Route::prefix('doctor')->group(function () {
-        Route::get('appointments',               [AppointmentController::class, 'doctorIndex']);
-        Route::patch('appointments/{id}/status', [AppointmentController::class, 'updateStatus']);
-        Route::get('available',                  [DoctorController::class, 'index']);
+        Route::get('appointments',                        [AppointmentController::class, 'doctorIndex']);
+        Route::patch('appointments/{id}/status',          [AppointmentController::class, 'updateStatus']);
+        Route::post('appointments/{id}/prescription',     [PrescriptionController::class, 'store']);
+        Route::get('available',                           [DoctorController::class, 'index']);
     });
+
+    // Patient prescription
+    Route::get('patient/appointments/{id}/prescription', [PrescriptionController::class, 'show']);
 
     // Admin routes — role:admin enforced inside AdminController constructor
     Route::prefix('admin')->group(function () {

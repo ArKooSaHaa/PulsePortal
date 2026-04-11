@@ -70,7 +70,7 @@ class AppointmentService
 
     public function getDoctorAppointments(int $doctorId)
     {
-        return Appointment::with(['patient.user'])
+        return Appointment::with(['patient.user', 'prescriptions'])
             ->where('doctor_id', $doctorId)
             ->where('status', 'confirmed')
             ->orderBy('appointment_date', 'asc')
@@ -289,6 +289,7 @@ PROMPT;
             'type'             => $a->type,
             'status'           => $a->status,
             'symptoms'         => $a->symptoms,
+            'has_prescription'  => $a->prescriptions->isNotEmpty(),
         ];
     }
 

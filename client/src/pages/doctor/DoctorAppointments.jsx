@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import appointmentService from "../../api/appointmentService";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { Loader2, FileText, CheckCircle } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function DoctorAppointments() {
@@ -11,37 +11,35 @@ export default function DoctorAppointments() {
     const highlightId = location.state?.highlight;
     const [loading, setLoading] = useState(true);
 
+    // Today's date string (local)
+    const todayObj = new Date();
+    const todayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, "0")}-${String(todayObj.getDate()).padStart(2, "0")}`;
+
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 5;
 
-    // useEffect(() => {
-    //     appointmentService
-    //         .getDoctorAppointments()
-    //         .then(setAppointments)
-    //         .finally(() => setLoading(false));
-    // }, []);
     useEffect(() => {
-    appointmentService
-        .getDoctorAppointments()
-        .then((data) =>
-            setAppointments(
-                data.map((item) => ({
-                    ...item,
-                    type: item.type?.trim()?.toLowerCase(),
-                    status: item.status?.trim()?.toLowerCase(),
-                }))
+        appointmentService
+            .getDoctorAppointments()
+            .then((data) =>
+                setAppointments(
+                    data.map((item) => ({
+                        ...item,
+                        type: item.type?.trim()?.toLowerCase(),
+                        status: item.status?.trim()?.toLowerCase(),
+                    }))
+                )
             )
-        )
-        .finally(() => setLoading(false));
-}, []);
+            .finally(() => setLoading(false));
+    }, []);
 
     // Handle highlight and pagination reset
     useEffect(() => {
         if (appointments.length === 0) return;
-        
+
         if (highlightId) {
-            const index = appointments.findIndex(a => a.id == highlightId);
+            const index = appointments.findIndex((a) => a.id == highlightId);
             if (index !== -1) {
                 setCurrentPage(Math.ceil((index + 1) / itemsPerPage));
                 return;
@@ -85,12 +83,13 @@ export default function DoctorAppointments() {
                 </div>
 
                 {/* Table Header */}
-                <div className="grid grid-cols-5 text-xs font-semibold text-slate-500 uppercase border-b border-slate-200 pb-3 mb-4">
+                <div className="grid grid-cols-6 text-xs font-semibold text-slate-500 uppercase border-b border-slate-200 pb-3 mb-4">
                     <div>Date & Time</div>
                     <div>Patient</div>
                     <div>Type</div>
                     <div>Status</div>
-                    <div>Action</div>
+                    <div>Consultation</div>
+                    <div>Prescription</div>
                 </div>
 
                 {/* Content */}
@@ -114,14 +113,18 @@ export default function DoctorAppointments() {
                                     scale: 1.01,
                                     backgroundColor: "#f8fafc",
                                 }}
-                                className={`grid grid-cols-5 items-center p-4 rounded-xl shadow-sm hover:shadow-md transition ${highlightId == item.id ? 'border-[#127fec] ring-2 ring-[#127fec]/20 bg-blue-50/50' : 'border border-slate-100'}`}
+                                className={`grid grid-cols-6 items-center p-4 rounded-xl shadow-sm hover:shadow-md transition ${
+                                    highlightId == item.id
+                                        ? "border-[#127fec] ring-2 ring-[#127fec]/20 bg-blue-50/50"
+                                        : "border border-slate-100"
+                                }`}
                             >
                                 {/* Date */}
                                 <div>
                                     <p className="font-semibold text-slate-700 text-sm">
                                         {new Date(
-                                            (item.appointment_date?.includes("T") 
-                                                ? item.appointment_date.split("T")[0] 
+                                            (item.appointment_date?.includes("T")
+                                                ? item.appointment_date.split("T")[0]
                                                 : item.appointment_date) + "T00:00:00"
                                         ).toLocaleDateString("en-US", {
                                             month: "short",
@@ -130,9 +133,7 @@ export default function DoctorAppointments() {
                                         })}
                                     </p>
                                     <p className="text-xs text-slate-400">
-                                        {formatTime(
-                                            item.appointment_time
-                                        )}
+                                        {formatTime(item.appointment_time)}
                                     </p>
                                 </div>
 
@@ -177,21 +178,50 @@ export default function DoctorAppointments() {
                                         {item.status}
                                     </span>
                                 </div>
-                                {/* Action */}
-<div>
-    {item.type === "online" && item.status === "confirmed" ? (
-        <button
-            onClick={() =>
-                navigate(`/doctor/consultation/${item.id}`)
-            }
-            className="px-4 py-1 rounded-full border text-sm hover:bg-green-100"
-        >
-            Start
-        </button>
-    ) : (
-        <span className="text-xs text-slate-400">—</span>
-    )}
-</div>
+
+                                {/* Consultation Action */}
+                                <div>
+                                    {item.type === "online" && item.status === "confirmed" ? (
+                                        <button
+                                            onClick={() =>
+                                                navigate(`/doctor/consultation/${item.id}`)
+                                            }
+                                            className="px-4 py-1 rounded-full border text-sm hover:bg-green-100"
+                                        >
+                                            Start
+                                        </button>
+                                    ) : (
+                                        <span className="text-xs text-slate-400">—</span>
+                                    )}
+                                </div>
+
+                                {/* Prescription */}
+                                <div>
+                                    {(() => {
+                                        const apptDate = String(item.appointment_date).slice(0, 10);
+                                        const isToday = apptDate === todayStr;
+                                        if (item.has_prescription) {
+                                            return (
+                                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-600 bg-green-50 px-3 py-1 rounded-full">
+                                                    <CheckCircle size={12} /> Rx Done
+                                                </span>
+                                            );
+                                        }
+                                        if (isToday && item.status === "confirmed") {
+                                            return (
+                                                <button
+                                                    onClick={() =>
+                                                        navigate(`/doctor/prescription-preview/${item.id}`)
+                                                    }
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-[#127fec] border border-[#127fec]/40 hover:bg-blue-50 transition"
+                                                >
+                                                    <FileText size={12} /> Upload Rx
+                                                </button>
+                                            );
+                                        }
+                                        return <span className="text-xs text-slate-400">—</span>;
+                                    })()}
+                                </div>
                             </motion.div>
                         ))
                     )}
@@ -202,9 +232,7 @@ export default function DoctorAppointments() {
                     <div className="flex justify-center mt-8 gap-2 flex-wrap">
                         <button
                             onClick={() =>
-                                setCurrentPage((p) =>
-                                    Math.max(p - 1, 1)
-                                )
+                                setCurrentPage((p) => Math.max(p - 1, 1))
                             }
                             disabled={currentPage === 1}
                             className="px-4 py-1 rounded-full border text-sm disabled:opacity-50 hover:bg-slate-100"
@@ -215,9 +243,7 @@ export default function DoctorAppointments() {
                         {[...Array(totalPages)].map((_, i) => (
                             <button
                                 key={i}
-                                onClick={() =>
-                                    setCurrentPage(i + 1)
-                                }
+                                onClick={() => setCurrentPage(i + 1)}
                                 className={`px-3 py-1 rounded-full text-sm ${
                                     currentPage === i + 1
                                         ? "bg-blue-500 text-white"
