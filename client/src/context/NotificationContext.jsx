@@ -22,9 +22,13 @@ export const NotificationProvider = ({ children }) => {
         let link = `/${role}/appointments`;
         if (role === 'admin') link = '/admin/all-appointments';
 
+        let title = 'Appointment Updated';
+        if (type === 'request') title = 'New Appointment Request';
+        if (type === 'confirmed_doctor') title = 'New Appointment Confirmed';
+
         return {
             id: Date.now() + Math.random(),          // ensure uniqueness
-            title: type === 'request' ? 'New Appointment Request' : 'Appointment Updated',
+            title,
             message: data.message,
             time: new Date().toLocaleTimeString(),
             type,
@@ -58,6 +62,7 @@ export const NotificationProvider = ({ children }) => {
             try {
                 channelRef.current.stopListening('.appointment.requested');
                 channelRef.current.stopListening('.appointment.status.updated');
+                channelRef.current.stopListening('.appointment.confirmed_for_doctor');
             } catch (_) {}
             channelRef.current = null;
         }
@@ -77,6 +82,10 @@ export const NotificationProvider = ({ children }) => {
         channel.listen('.appointment.status.updated', (data) => {
             addNotification(buildNotification(data, 'status'));
         });
+
+        channel.listen('.appointment.confirmed_for_doctor', (data) => {
+            addNotification(buildNotification(data, 'confirmed_doctor'));
+        });
     }, [addNotification, buildNotification]);
 
     // Run on mount, and re-check periodically to catch logins that happen after mount
@@ -92,6 +101,7 @@ export const NotificationProvider = ({ children }) => {
                 try {
                     channelRef.current.stopListening('.appointment.requested');
                     channelRef.current.stopListening('.appointment.status.updated');
+                    channelRef.current.stopListening('.appointment.confirmed_for_doctor');
                 } catch (_) {}
             }
         };

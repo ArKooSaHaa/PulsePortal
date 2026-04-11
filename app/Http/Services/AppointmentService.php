@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Mail;
 use App\Events\AppointmentRequested;
 use App\Mail\PatientAppointmentDetails;
 use App\Events\AppointmentStatusUpdated;
+use App\Events\AppointmentConfirmedForDoctor;
 
 class AppointmentService
 {
@@ -96,6 +97,10 @@ class AppointmentService
         if (in_array($status, ['confirmed', 'cancelled'])) {
             $appointment->load(['patient.user', 'doctor.user']);
             Mail::to($appointment->patient->user->email)->send(new PatientAppointmentDetails($appointment));
+
+            if ($status === 'confirmed') {
+                broadcast(new AppointmentConfirmedForDoctor($appointment))->toOthers();
+            }
         }
 
         return $appointment;

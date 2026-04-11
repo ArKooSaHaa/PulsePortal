@@ -120,8 +120,9 @@ export default function DoctorAppointments() {
                                 <div>
                                     <p className="font-semibold text-slate-700 text-sm">
                                         {new Date(
-                                            item.appointment_date +
-                                                "T00:00:00"
+                                            (item.appointment_date?.includes("T") 
+                                                ? item.appointment_date.split("T")[0] 
+                                                : item.appointment_date) + "T00:00:00"
                                         ).toLocaleDateString("en-US", {
                                             month: "short",
                                             day: "numeric",
