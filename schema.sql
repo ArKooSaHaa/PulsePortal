@@ -85,7 +85,7 @@ CREATE TABLE admins (
     user_id            BIGINT UNSIGNED NOT NULL,
     created_at         TIMESTAMP       NULL,
     updated_at         TIMESTAMP       NULL,
-    admin_roles        VARCHAR(255)    NULL,
+    admin_role         VARCHAR(255)    NULL,
     department         VARCHAR(255)    NULL,
     PRIMARY KEY (id),
     UNIQUE KEY admins_user_id_unique (user_id),
