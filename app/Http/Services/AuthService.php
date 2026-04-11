@@ -6,16 +6,43 @@ use App\Mail\PatientWelcomeMail;
 use App\Models\User;
 use App\Models\Patient;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use Mail;
 
 class AuthService
 {
     public function registerPatient(array $data): array
     {
+        $validator = Validator::make($data, [
+            'name'     => [
+                'required', 'string', 'min:2', 'max:255',
+                'regex:/^[\pL\s\-\.]+$/u',
+            ],
+            'email'    => [
+                'required', 
+                app()->environment('testing') ? 'email:rfc' : 'email:rfc,dns',
+                'unique:users,email',
+                'regex:/^[a-zA-Z0-9._%+\-]+@(gmail\.com|yahoo\.com|outlook\.com|aust\.edu|pulseportal\.com)$/',
+            ],
+            'password' => [
+                'required', 'string', 'min:8', 'confirmed',
+                'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/',
+            ],
+        ], [
+            'name.regex'     => 'Name can only contain letters, spaces, hyphens, and dots.',
+            'email.regex'    => 'Only gmail.com, yahoo.com, outlook.com, aust.edu, and pulseportal.com emails are allowed.',
+            'password.regex' => 'Password must contain at least one uppercase letter, one lowercase letter, and one number.',
+            'password.min'   => 'Password must be at least 8 characters.',
+            'email.unique'   => 'This email is already registered.',
+        ]);
+
+        $validatedData = $validator->validate();
+
         $user = User::create([
-            'name'     => $data['name'],
-            'email'    => $data['email'],
-            'password' => Hash::make($data['password']),
+            'name'     => $validatedData['name'],
+            'email'    => $validatedData['email'],
+            'password' => Hash::make($validatedData['password']),
             'role'     => 'patient', // always forced — cannot be changed by user input
         ]);
 
@@ -34,14 +61,21 @@ class AuthService
 
     public function login(array $credentials): ?array
     {
+        $validator = Validator::make($credentials, [
+            'email'    => 'required|email',
+            'password' => 'required|string',
+        ]);
+        
+        $validatedData = $validator->validate();
+
         // Check if the user exists but has no password (Google-only account)
-        $user = User::where('email', $credentials['email'])->first();
+        $user = User::where('email', $validatedData['email'])->first();
 
         if ($user && is_null($user->password)) {
             throw new \Exception('This account uses Google Sign-In. Please use the "Continue with Google" button.');
         }
 
-        if (!$token = auth()->attempt($credentials)) {
+        if (!$token = auth()->attempt($validatedData)) {
             return null;
         }
 

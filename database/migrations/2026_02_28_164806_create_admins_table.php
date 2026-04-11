@@ -17,7 +17,7 @@ return new class extends Migration
                   ->unique()
                   ->constrained('users')
                   ->onDelete('cascade');
-            $table->timestamps();
+            $table->timestamp('created_at')->nullable();
         });
     }
 
@@ -29,3 +29,4 @@ return new class extends Migration
         Schema::dropIfExists('admins');
     }
 };
+

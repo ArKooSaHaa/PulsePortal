@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import AIChatPanel from "../../components/AIChatPanel";
 import appointmentService from "../../api/appointmentService";
-import { Star, CheckCircle2, ChevronLeft, ChevronRight, Bot, Sparkles, Search, CalendarDays, Clock, UserCheck, ArrowRight, Video, MapPin, Loader2 } from "lucide-react";
+import aiService from "../../api/aiService";
+import { Star, CheckCircle2, ChevronLeft, ChevronRight, Sparkles, Search, CalendarDays, Clock, UserCheck, ArrowRight, Video, MapPin, Loader2, X, Send } from "lucide-react";
 
 // ── Keep your existing DEPARTMENTS, TIME_SLOTS, WEEKDAYS constants ──
-const DEPARTMENTS = ["All", "Cardiology", "Neurology", "Pediatrics", "General", "Orthopedics"];
+// DEPARTMENTS will be dynamically generated
 
 const TIME_SLOTS = [
     { id: 1, time: "09:00 AM", available: true },
@@ -114,7 +114,7 @@ const MONTH_NAMES = [
     "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December",
 ];
 
-function MiniCalendar({ selectedDate, onSelect }) {
+function MiniCalendar({ selectedDate, onSelect, availableDays }) {
     const today = new Date();
     const [view, setView] = useState({ year: today.getFullYear(), month: today.getMonth() });
 
@@ -130,11 +130,18 @@ function MiniCalendar({ selectedDate, onSelect }) {
     const nextMonth = () =>
         setView(v => v.month === 11 ? { year: v.year + 1, month: 0 } : { year: v.year, month: v.month + 1 });
 
-    const isPast = (d) => {
+    const isPastOrUnavailable = (d) => {
         const cell = new Date(view.year, view.month, d);
         cell.setHours(0, 0, 0, 0);
         const t = new Date(); t.setHours(0, 0, 0, 0);
-        return cell < t;
+        if (cell < t) return true;
+
+        if (availableDays && availableDays.length > 0) {
+            const dayMap = { 0: "sun", 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri", 6: "sat" };
+            const dayName = dayMap[cell.getDay()];
+            if (!availableDays.includes(dayName)) return true;
+        }
+        return false;
     };
 
     const isSelected = (d) =>
@@ -180,21 +187,21 @@ function MiniCalendar({ selectedDate, onSelect }) {
             <div className="grid grid-cols-7 gap-y-1">
                 {cells.map((day, i) => {
                     if (!day) return <div key={`e-${i}`} />;
-                    const past = isPast(day);
+                    const invalid = isPastOrUnavailable(day);
                     const sel = isSelected(day);
                     const tod = isToday(day);
 
                     return (
                         <motion.button
                             key={day}
-                            whileTap={!past ? { scale: 0.9 } : {}}
-                            disabled={past}
-                            onClick={() => !past && onSelect({ year: view.year, month: view.month, day })}
+                            whileTap={!invalid ? { scale: 0.9 } : {}}
+                            disabled={invalid}
+                            onClick={() => !invalid && onSelect({ year: view.year, month: view.month, day })}
                             className={`w-8 h-8 mx-auto rounded-full text-sm font-medium transition-all flex items-center justify-center
-                                ${past ? "text-slate-200 cursor-not-allowed" : "cursor-pointer hover:bg-blue-50 hover:text-[#127fec]"}
+                                ${invalid ? "text-slate-200 cursor-not-allowed" : "cursor-pointer hover:bg-blue-50 hover:text-[#127fec]"}
                                 ${sel ? "!bg-[#127fec] !text-white shadow-md shadow-blue-200 font-bold" : ""}
                                 ${tod && !sel ? "ring-1 ring-[#127fec] text-[#127fec] font-bold" : ""}
-                                ${!past && !sel ? "text-slate-700" : ""}
+                                ${!invalid && !sel ? "text-slate-700" : ""}
                             `}
                         >
                             {day}
@@ -206,11 +213,27 @@ function MiniCalendar({ selectedDate, onSelect }) {
     );
 }
 
-function TimeSlotGrid({ selectedTime, onSelect }) {
+function TimeSlotGrid({ selectedTime, onSelect, availableSlots, loading }) {
+    if (loading) {
+        return (
+            <div className="bg-white rounded-2xl border border-slate-100 p-8 shadow-sm flex items-center justify-center">
+                <Loader2 size={24} className="animate-spin text-slate-400" />
+            </div>
+        );
+    }
+    
+    if (!availableSlots || availableSlots.length === 0) {
+        return (
+            <div className="bg-white rounded-2xl border border-slate-100 p-8 shadow-sm flex items-center justify-center text-sm text-slate-400 text-center">
+                No availability or shifts found.
+            </div>
+        );
+    }
+
     return (
-        <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
+        <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm max-h-[290px] overflow-y-auto">
             <div className="grid grid-cols-2 gap-2">
-                {TIME_SLOTS.map((slot) => {
+                {availableSlots.map((slot) => {
                     const isSel = selectedTime === slot.time;
                     return (
                         <motion.button
@@ -271,15 +294,24 @@ export default function BookAppointment() {
     const [selectedType, setSelectedType]   = useState(null);
     const [selectedDate, setSelectedDate]   = useState(null);
     const [selectedTime, setSelectedTime]   = useState(null);
-    const [isChatOpen, setIsChatOpen]       = useState(false);
     const [confirmed, setConfirmed]         = useState(false);
     const [symptoms, setSymptoms]           = useState("");
 
-    // ── NEW: real doctors from API ──
     const [doctors, setDoctors]     = useState([]);
     const [loadingDoctors, setLoadingDoctors] = useState(true);
     const [bookingLoading, setBookingLoading] = useState(false);
     const [bookingError, setBookingError]     = useState("");
+
+    const [bookedSlots, setBookedSlots] = useState([]);
+    const [loadingSlots, setLoadingSlots] = useState(false);
+
+    // ── AI Doctor Suggestion State ──
+    const [isAiSearchActive, setIsAiSearchActive] = useState(false);
+    const [aiSearchQuery, setAiSearchQuery]       = useState("");
+    const [aiLoading, setAiLoading]               = useState(false);
+    const [aiResult, setAiResult]                 = useState(null); // { specializations, explanation }
+    const [aiError, setAiError]                   = useState("");
+    const searchInputRef = useRef(null);
 
     useEffect(() => {
         appointmentService.getDoctors()
@@ -287,6 +319,57 @@ export default function BookAppointment() {
             .catch(() => setDoctors([]))
             .finally(() => setLoadingDoctors(false));
     }, []);
+
+    useEffect(() => {
+        if (selectedDate && selectedDoctor) {
+            setLoadingSlots(true);
+            const dateStr = `${selectedDate.year}-${String(selectedDate.month + 1).padStart(2, "0")}-${String(selectedDate.day).padStart(2, "0")}`;
+            appointmentService.getBookedSlots(selectedDoctor.id, dateStr)
+                .then(slots => setBookedSlots(slots || []))
+                .catch(() => setBookedSlots([]))
+                .finally(() => setLoadingSlots(false));
+        } else {
+            setBookedSlots([]);
+        }
+    }, [selectedDate, selectedDoctor]);
+
+    const getDynamicSlots = () => {
+        if (!selectedDoctor || !selectedDate) return [];
+        const cell = new Date(selectedDate.year, selectedDate.month, selectedDate.day);
+        const dayMap = { 0: "sun", 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri", 6: "sat" };
+        const dWeek = dayMap[cell.getDay()];
+        
+        const availability = selectedDoctor.availability?.[dWeek];
+        if (!availability || availability.length !== 2) return [];
+        
+        let [startH, startM] = availability[0].split(':').map(Number);
+        let [endH, endM] = availability[1].split(':').map(Number);
+        
+        const formatUI = (h, m) => {
+            const period = h >= 12 ? 'PM' : 'AM';
+            const hr = h % 12 || 12;
+            return `${String(hr).padStart(2, '0')}:${String(m).padStart(2, '0')} ${period}`;
+        };
+        const formatDB = (h, m) => `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+        
+        const slots = [];
+        let currH = startH;
+        let currM = startM;
+        while (currH < endH || (currH === endH && currM < endM)) {
+            const dbTime = formatDB(currH, currM);
+            const uiTime = formatUI(currH, currM);
+            const available = !bookedSlots.includes(dbTime);
+            
+            slots.push({ id: uiTime, time: uiTime, dbTime: dbTime, available });
+            
+            currM += 30;
+            if (currM >= 60) {
+                currH += 1;
+                currM -= 60;
+            }
+        }
+        return slots;
+    };
 
     // Map API doctor to shape your DoctorCard expects
     const mappedDoctors = doctors.map((d, i) => {
@@ -309,16 +392,64 @@ export default function BookAppointment() {
             avatar:     d.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(),
             color:      c.color,
             accent:     c.accent,
+            availability: d.availability,
         };
     });
 
+    const departmentsList = ["All", ...new Set(mappedDoctors.map(d => d.department))];
+
     const filteredDoctors = mappedDoctors.filter((d) => {
-        const matchSearch =
-            d.name.toLowerCase().includes(search.toLowerCase()) ||
-            d.specialty.toLowerCase().includes(search.toLowerCase());
+        // If AI filter is active, only show doctors matching AI-suggested specializations
+        if (aiResult && aiResult.specializations.length > 0) {
+            const matchAi = aiResult.specializations.some(spec =>
+                d.specialty.toLowerCase() === spec.toLowerCase()
+            );
+            if (!matchAi) return false;
+        }
+
+        const words = search.toLowerCase().split(' ').filter(w => w.trim() !== '');
+        const matchSearch = words.length === 0 || words.every(word =>
+            d.name.toLowerCase().includes(word) ||
+            d.specialty.toLowerCase().includes(word)
+        );
         const matchDept = dept === "All" || d.department === dept;
         return matchSearch && matchDept;
     });
+
+    // ── AI Doctor Suggestion handlers ──
+    const activateAiSearch = () => {
+        setIsAiSearchActive(true);
+        setAiResult(null);
+        setAiError("");
+        setAiSearchQuery("");
+        setTimeout(() => searchInputRef.current?.focus(), 100);
+    };
+
+    const cancelAiSearch = () => {
+        setIsAiSearchActive(false);
+        setAiSearchQuery("");
+        setAiResult(null);
+        setAiError("");
+    };
+
+    const handleAiSearch = async () => {
+        const query = aiSearchQuery.trim();
+        if (!query || aiLoading) return;
+        setAiLoading(true);
+        setAiError("");
+        setAiResult(null);
+        try {
+            const result = await aiService.suggestDoctors(query);
+            setAiResult(result);
+            setIsAiSearchActive(false);
+        } catch (err) {
+            console.error("AI suggest error:", err);
+            const backendMsg = err.response?.data?.message;
+            setAiError(backendMsg || "AI service is temporarily unavailable. Please try again.");
+        } finally {
+            setAiLoading(false);
+        }
+    };
 
     const canConfirm = selectedDoctor && selectedType && selectedDate && selectedTime && symptoms.trim();
 
@@ -444,33 +575,132 @@ export default function BookAppointment() {
                         >
                             <div className="flex items-center justify-between mb-4">
                                 <h2 className="font-bold text-lg text-slate-800">Find a Doctor</h2>
-                                <motion.button
-                                    whileHover={{ scale: 1.03 }}
-                                    whileTap={{ scale: 0.96 }}
-                                    onClick={() => setIsChatOpen(true)}
-                                    className="ai-border-glow flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#127fec] bg-white rounded-2xl"
-                                >
-                                    <Sparkles size={12} />
-                                    Suggest best doctor by symptoms
-                                </motion.button>
+                                {!isAiSearchActive && !aiResult && (
+                                    <motion.button
+                                        whileHover={{ scale: 1.03 }}
+                                        whileTap={{ scale: 0.96 }}
+                                        onClick={activateAiSearch}
+                                        className="ai-border-glow flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#127fec] bg-white rounded-2xl"
+                                    >
+                                        <Sparkles size={12} />
+                                        Suggest best doctor by symptoms
+                                    </motion.button>
+                                )}
+                                {aiResult && (
+                                    <motion.button
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        whileHover={{ scale: 1.03 }}
+                                        whileTap={{ scale: 0.96 }}
+                                        onClick={cancelAiSearch}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-500 bg-red-50 border border-red-100 rounded-2xl hover:bg-red-100 transition-colors"
+                                    >
+                                        <X size={12} />
+                                        Clear AI filter
+                                    </motion.button>
+                                )}
                             </div>
+
+                            {/* AI Result Banner */}
+                            <AnimatePresence>
+                                {aiResult && (
+                                    <motion.div
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: "auto" }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="mb-4 overflow-hidden"
+                                    >
+                                        <div className="flex items-start gap-3 p-3.5 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50/80 to-indigo-50/60">
+                                            <div className="w-8 h-8 rounded-xl bg-[#127fec]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                <Sparkles size={14} className="text-[#127fec]" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-bold text-[#127fec] uppercase tracking-wider mb-1">AI Recommendation</p>
+                                                <p className="text-sm text-slate-600 leading-relaxed mb-2">{aiResult.explanation}</p>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {aiResult.specializations.map(spec => (
+                                                        <span key={spec} className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#127fec]/10 text-[#127fec] border border-[#127fec]/20">
+                                                            {spec}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            {/* AI Error */}
+                            <AnimatePresence>
+                                {aiError && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: -4 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -4 }}
+                                        className="mb-4 flex items-center gap-2 px-3 py-2 rounded-xl bg-red-50 border border-red-100 text-red-600 text-xs"
+                                    >
+                                        {aiError}
+                                        <button onClick={() => setAiError("")} className="ml-auto text-red-400 hover:text-red-600"><X size={12} /></button>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
 
                             <div className="flex flex-col sm:flex-row gap-2 mb-4">
                                 <div className="relative flex-1">
-                                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                    {isAiSearchActive ? (
+                                        <Sparkles size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#127fec] animate-pulse" />
+                                    ) : (
+                                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                    )}
                                     <input
-                                        value={search}
-                                        onChange={(e) => setSearch(e.target.value)}
-                                        placeholder="Search by name or specialization"
-                                        className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-[#127fec] focus:ring-2 focus:ring-[#127fec]/20 transition-all"
+                                        ref={searchInputRef}
+                                        value={isAiSearchActive ? aiSearchQuery : search}
+                                        onChange={(e) => isAiSearchActive ? setAiSearchQuery(e.target.value) : setSearch(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (isAiSearchActive && e.key === "Enter") handleAiSearch();
+                                            if (isAiSearchActive && e.key === "Escape") cancelAiSearch();
+                                        }}
+                                        placeholder={isAiSearchActive ? "Describe your symptoms and press Enter..." : "Search by name or specialization"}
+                                        disabled={aiLoading}
+                                        className={`w-full pl-9 pr-${isAiSearchActive ? '20' : '4'} py-2.5 text-sm rounded-xl border transition-all focus:outline-none ${
+                                            isAiSearchActive
+                                                ? "border-[#127fec] bg-blue-50/50 ring-2 ring-[#127fec]/30 shadow-[0_0_16px_rgba(18,127,236,0.15)] placeholder:text-[#127fec]/50"
+                                                : "border-slate-200 bg-slate-50 focus:border-[#127fec] focus:ring-2 focus:ring-[#127fec]/20"
+                                        }`}
                                     />
+                                    {isAiSearchActive && (
+                                        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                            {aiLoading ? (
+                                                <Loader2 size={16} className="animate-spin text-[#127fec]" />
+                                            ) : (
+                                                <>
+                                                    <motion.button
+                                                        whileTap={{ scale: 0.9 }}
+                                                        onClick={handleAiSearch}
+                                                        disabled={!aiSearchQuery.trim()}
+                                                        className="p-1.5 rounded-lg text-white disabled:opacity-40 transition-opacity"
+                                                        style={{ background: "linear-gradient(135deg, #0a5bbf, #127fec)" }}
+                                                    >
+                                                        <Send size={12} />
+                                                    </motion.button>
+                                                    <button
+                                                        onClick={cancelAiSearch}
+                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                                                    >
+                                                        <X size={12} />
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                                 <select
                                     value={dept}
                                     onChange={(e) => setDept(e.target.value)}
                                     className="px-5 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-[#127fec] transition-all text-slate-700 font-medium cursor-pointer"
+                                    disabled={isAiSearchActive}
                                 >
-                                    {DEPARTMENTS.map((d) => (
+                                    {departmentsList.map((d) => (
                                         <option key={d} value={d}>{d === "All" ? "All Departments" : d}</option>
                                     ))}
                                 </select>
@@ -596,13 +826,22 @@ export default function BookAppointment() {
                                         <div className="flex items-center gap-2 mb-2 px-1">
                                             <h2 className="text-base font-bold text-slate-800">Select Date</h2>
                                         </div>
-                                        <MiniCalendar selectedDate={selectedDate} onSelect={(d) => { setSelectedDate(d); setSelectedTime(null); }} />
+                                        <MiniCalendar 
+                                            selectedDate={selectedDate} 
+                                            onSelect={(d) => { setSelectedDate(d); setSelectedTime(null); }} 
+                                            availableDays={selectedDoctor ? Object.keys(selectedDoctor.availability || {}) : []}
+                                        />
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-2 mb-2 px-1">
                                             <h2 className="text-base font-bold text-slate-800">Select Time</h2>
                                         </div>
-                                        <TimeSlotGrid selectedTime={selectedTime} onSelect={setSelectedTime} />
+                                        <TimeSlotGrid 
+                                            selectedTime={selectedTime} 
+                                            onSelect={setSelectedTime} 
+                                            availableSlots={getDynamicSlots()} 
+                                            loading={loadingSlots} 
+                                        />
                                     </div>
                                 </motion.div>
                             )}
@@ -800,32 +1039,6 @@ export default function BookAppointment() {
                 </div>
             </div>
 
-            <AnimatePresence>
-                {isChatOpen && (
-                    <>
-                        <motion.div
-                            key="backdrop"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setIsChatOpen(false)}
-                            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
-                        />
-                        <AIChatPanel key="chat" onClose={() => setIsChatOpen(false)} />
-                    </>
-                )}
-            </AnimatePresence>
-
-            <motion.button
-                whileHover={{ scale: 1.12 }}
-                whileTap={{ scale: 0.93 }}
-                onClick={() => setIsChatOpen(true)}
-                className="ai-float-glow fixed bottom-6 right-6 z-30 w-14 h-14 rounded-full flex items-center justify-center text-white focus:outline-none"
-                style={{ background: "linear-gradient(135deg, #a855f7, #3b82f6, #06b6d4)" }}
-                title="Open AI Health Assistant"
-            >
-                <Bot size={24} />
-            </motion.button>
         </div>
     );
 }

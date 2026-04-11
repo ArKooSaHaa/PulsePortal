@@ -3,28 +3,22 @@
 namespace App\Http\Controllers;
 
 use App\Models\Doctor;
+use App\Http\Services\DoctorService;
 
 class DoctorController extends Controller
 {
-    public function __construct()
+    protected DoctorService $doctorService;
+
+    public function __construct(DoctorService $doctorService)
     {
         $this->middleware('auth:api');
+        $this->doctorService = $doctorService;
     }
 
     // GET /api/doctor/available
     public function index()
     {
-        $doctors = Doctor::with('user')
-            ->where('is_available', true)
-            ->get()
-            ->map(fn($d) => [
-                'id'             => $d->id,
-                'name'           => $d->user->name,
-                'specialization' => $d->specialization,
-                'bio'            => $d->bio,
-                'fee'            => $d->consultation_fee,
-                'availability'   => $d->availability,
-            ]);
+        $doctors = $this->doctorService->getAvailableDoctors();
 
         return response()->json([
             'status' => 'success',

@@ -9,6 +9,8 @@ class Appointment extends Model
 {
     use HasFactory;
 
+    public const UPDATED_AT = null;
+
     protected $fillable = [
         'patient_id',
         'doctor_id',
@@ -18,6 +20,7 @@ class Appointment extends Model
         'status',
         'symptoms',
         'admin_notes',
+        'rating',
     ];
 
     protected $casts = [
@@ -37,5 +40,10 @@ class Appointment extends Model
     public function visitNote()
     {
         return $this->hasOne(VisitNote::class);
+    }
+
+    public function prescriptions()
+    {
+        return $this->hasMany(Prescription::class);
     }
 }

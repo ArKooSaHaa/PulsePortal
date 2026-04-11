@@ -143,8 +143,6 @@ class AdminController extends Controller
     // GET /api/admin/stats
     public function getStats()
     {
-        $today = now()->toDateString();
-
         return response()->json([
             'status' => 'success',
             'data'   => [

@@ -13,6 +13,12 @@ const appointmentService = {
         return response.data.data;
     },
 
+    // Get booked slots for a specific doctor on a specific date
+    getBookedSlots: async (doctorId, date) => {
+        const response = await api.get(`/patient/appointments/booked-slots?doctor_id=${doctorId}&date=${date}`);
+        return response.data.data;
+    },
+
     // Patient fetches their own appointments
     getPatientAppointments: async () => {
         const response = await api.get("/patient/appointments");

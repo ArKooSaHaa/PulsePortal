@@ -12,6 +12,7 @@ use Tymon\JWTAuth\Contracts\JWTSubject;
 class User extends Authenticatable implements JWTSubject
 {
     use HasFactory, Notifiable;
+    public const UPDATED_AT = null;
 
     protected $fillable = [
         'name',
@@ -76,3 +77,4 @@ class User extends Authenticatable implements JWTSubject
         return $this->role === 'admin';
     }
 }
+
