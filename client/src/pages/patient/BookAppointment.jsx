@@ -4,19 +4,7 @@ import AIChatPanel from "../../components/AIChatPanel";
 import appointmentService from "../../api/appointmentService";
 import { Star, CheckCircle2, ChevronLeft, ChevronRight, Bot, Sparkles, Search, CalendarDays, Clock, UserCheck, ArrowRight, Video, MapPin, Loader2 } from "lucide-react";
 
-// ── Keep your existing DEPARTMENTS, TIME_SLOTS, WEEKDAYS constants ──
 const DEPARTMENTS = ["All", "Cardiology", "Neurology", "Pediatrics", "General", "Orthopedics"];
-
-const TIME_SLOTS = [
-    { id: 1, time: "09:00 AM", available: true },
-    { id: 2, time: "09:45 AM", available: false },
-    { id: 3, time: "10:30 AM", available: true },
-    { id: 4, time: "11:15 AM", available: true },
-    { id: 5, time: "02:00 PM", available: true },
-    { id: 6, time: "03:30 PM", available: true },
-    { id: 7, time: "04:15 PM", available: false },
-    { id: 8, time: "05:00 PM", available: true },
-];
 
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
@@ -114,7 +102,7 @@ const MONTH_NAMES = [
     "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December",
 ];
 
-function MiniCalendar({ selectedDate, onSelect }) {
+function MiniCalendar({ selectedDate, onSelect, doctorAvailability = null }) {
     const today = new Date();
     const [view, setView] = useState({ year: today.getFullYear(), month: today.getMonth() });
 
@@ -129,6 +117,13 @@ function MiniCalendar({ selectedDate, onSelect }) {
         setView(v => v.month === 0 ? { year: v.year - 1, month: 11 } : { year: v.year, month: v.month - 1 });
     const nextMonth = () =>
         setView(v => v.month === 11 ? { year: v.year + 1, month: 0 } : { year: v.year, month: v.month + 1 });
+
+    const isAvailableToday = (d) => {
+        if (!doctorAvailability) return true;
+        const date = new Date(view.year, view.month, d);
+        const dayName = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][date.getDay()];
+        return !!doctorAvailability[dayName];
+    };
 
     const isPast = (d) => {
         const cell = new Date(view.year, view.month, d);
@@ -181,21 +176,25 @@ function MiniCalendar({ selectedDate, onSelect }) {
                 {cells.map((day, i) => {
                     if (!day) return <div key={`e-${i}`} />;
                     const past = isPast(day);
+                    const docAvail = isAvailableToday(day);
+                    const disabled = past || !docAvail;
                     const sel = isSelected(day);
                     const tod = isToday(day);
 
                     return (
                         <motion.button
                             key={day}
-                            whileTap={!past ? { scale: 0.9 } : {}}
-                            disabled={past}
-                            onClick={() => !past && onSelect({ year: view.year, month: view.month, day })}
+                            whileTap={!disabled ? { scale: 0.9 } : {}}
+                            disabled={disabled}
+                            onClick={() => !disabled && onSelect({ year: view.year, month: view.month, day })}
                             className={`w-8 h-8 mx-auto rounded-full text-sm font-medium transition-all flex items-center justify-center
-                                ${past ? "text-slate-200 cursor-not-allowed" : "cursor-pointer hover:bg-blue-50 hover:text-[#127fec]"}
+                                ${disabled ? "text-slate-200 cursor-not-allowed" : "cursor-pointer hover:bg-blue-50 hover:text-[#127fec]"}
                                 ${sel ? "!bg-[#127fec] !text-white shadow-md shadow-blue-200 font-bold" : ""}
                                 ${tod && !sel ? "ring-1 ring-[#127fec] text-[#127fec] font-bold" : ""}
-                                ${!past && !sel ? "text-slate-700" : ""}
+                                ${!disabled && !sel ? "text-slate-700" : ""}
+                                ${!past && !docAvail ? "!text-slate-200" : ""}
                             `}
+                            title={!past && !docAvail ? "Doctor not available" : ""}
                         >
                             {day}
                         </motion.button>
@@ -206,33 +205,39 @@ function MiniCalendar({ selectedDate, onSelect }) {
     );
 }
 
-function TimeSlotGrid({ selectedTime, onSelect }) {
+function TimeSlotGrid({ selectedTime, onSelect, slots = [] }) {
     return (
         <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
-            <div className="grid grid-cols-2 gap-2">
-                {TIME_SLOTS.map((slot) => {
-                    const isSel = selectedTime === slot.time;
-                    return (
-                        <motion.button
-                            key={slot.id}
-                            whileTap={slot.available ? { scale: 0.92 } : {}}
-                            whileHover={slot.available && !isSel ? { scale: 1.03 } : {}}
-                            disabled={!slot.available}
-                            onClick={() => slot.available && onSelect(slot.time)}
-                            className={`py-2.5 px-3 rounded-xl text-sm font-semibold transition-all border
-                                ${!slot.available
-                                    ? "border-slate-100 text-slate-300 bg-slate-50 cursor-not-allowed line-through"
-                                    : isSel
-                                        ? "border-[#127fec] text-white shadow-md shadow-blue-200"
-                                        : "border-slate-200 text-slate-700 hover:border-[#127fec] hover:text-[#127fec] bg-white"
-                                }`}
-                            style={isSel ? { background: "linear-gradient(135deg, #0a5bbf, #127fec)" } : {}}
-                        >
-                            {slot.time}
-                        </motion.button>
-                    );
-                })}
-            </div>
+            {slots.length === 0 ? (
+                <div className="text-center py-8">
+                    <p className="text-sm text-slate-400">No slots available for this day.</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-2 gap-2">
+                    {slots.map((slot, i) => {
+                        const isSel = selectedTime === slot.time;
+                        return (
+                            <motion.button
+                                key={i}
+                                whileTap={slot.available ? { scale: 0.92 } : {}}
+                                whileHover={slot.available && !isSel ? { scale: 1.03 } : {}}
+                                disabled={!slot.available}
+                                onClick={() => slot.available && onSelect(slot.time)}
+                                className={`py-2.5 px-3 rounded-xl text-sm font-semibold transition-all border
+                                    ${!slot.available
+                                        ? "border-slate-100 text-slate-300 bg-slate-50 cursor-not-allowed line-through"
+                                        : isSel
+                                            ? "border-[#127fec] text-white shadow-md shadow-blue-200"
+                                            : "border-slate-200 text-slate-700 hover:border-[#127fec] hover:text-[#127fec] bg-white"
+                                    }`}
+                                style={isSel ? { background: "linear-gradient(135deg, #0a5bbf, #127fec)" } : {}}
+                            >
+                                {slot.time}
+                            </motion.button>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }
@@ -309,6 +314,7 @@ export default function BookAppointment() {
             avatar:     d.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(),
             color:      c.color,
             accent:     c.accent,
+            availability: d.availability,
         };
     });
 
@@ -596,13 +602,37 @@ export default function BookAppointment() {
                                         <div className="flex items-center gap-2 mb-2 px-1">
                                             <h2 className="text-base font-bold text-slate-800">Select Date</h2>
                                         </div>
-                                        <MiniCalendar selectedDate={selectedDate} onSelect={(d) => { setSelectedDate(d); setSelectedTime(null); }} />
+                                        <MiniCalendar 
+                                            selectedDate={selectedDate} 
+                                            onSelect={(d) => { setSelectedDate(d); setSelectedTime(null); }} 
+                                            doctorAvailability={selectedDoctor?.availability}
+                                        />
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-2 mb-2 px-1">
                                             <h2 className="text-base font-bold text-slate-800">Select Time</h2>
                                         </div>
-                                        <TimeSlotGrid selectedTime={selectedTime} onSelect={setSelectedTime} />
+                                        <TimeSlotGrid 
+                                            selectedTime={selectedTime} 
+                                            onSelect={setSelectedTime} 
+                                            slots={(() => {
+                                                if (!selectedDoctor || !selectedDate) return [];
+                                                const date = new Date(selectedDate.year, selectedDate.month, selectedDate.day);
+                                                const dayName = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][date.getDay()];
+                                                const range = selectedDoctor.availability?.[dayName];
+                                                if (!range) return [];
+
+                                                const slots = [];
+                                                let curr = new Date(`1970-01-01T${range[0]}:00`);
+                                                const end = new Date(`1970-01-01T${range[1]}:00`);
+                                                while (curr < end) {
+                                                    const timeStr = curr.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+                                                    slots.push({ id: timeStr, time: timeStr, available: true });
+                                                    curr.setMinutes(curr.getMinutes() + 60);
+                                                }
+                                                return slots;
+                                            })()}
+                                        />
                                     </div>
                                 </motion.div>
                             )}

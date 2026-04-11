@@ -42,9 +42,19 @@ export default function AdminAppointments() {
             .finally(() => setLoading(false));
     }, [isSuperAdmin]);
 
-    const filtered = filter === "all"
+    const filtered = (filter === "all"
         ? appointments
-        : appointments.filter((a) => a.status === filter);
+        : appointments.filter((a) => a.status === filter)
+    ).sort((a, b) => {
+        // Priority to pending status
+        if (a.status === "pending" && b.status !== "pending") return -1;
+        if (a.status !== "pending" && b.status === "pending") return 1;
+
+        // Secondary sort by date & time (most recent first)
+        const dateA = new Date(`${a.appointment_date}T${a.appointment_time}`);
+        const dateB = new Date(`${b.appointment_date}T${b.appointment_time}`);
+        return dateB - dateA;
+    });
 
     const totalPages = Math.ceil(filtered.length / PER_PAGE);
     const paginated  = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);

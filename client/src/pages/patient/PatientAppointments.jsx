@@ -77,7 +77,7 @@ function AppointmentCard({ appt, onCancel, cancelling , navigate}) {
                         </p>
                     )}
 
-                    {["pending", "confirmed"].includes(appt.status) && (
+                    {["pending"].includes(appt.status) && (
                         
                         <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-100">
                             <motion.button
@@ -122,6 +122,8 @@ export default function PatientAppointments() {
     const [error, setError]               = useState("");
     const [cancelling, setCancelling]     = useState(null);
     const [filter, setFilter]             = useState("all");
+    const [page, setPage]                 = useState(1);
+    const PER_PAGE = 5;
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -149,6 +151,9 @@ export default function PatientAppointments() {
         ? appointments
         : appointments.filter(a => a.status === filter);
 
+    const totalPages = Math.ceil(filtered.length / PER_PAGE);
+    const paginated  = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
     return (
         <div className="min-h-screen bg-[#eff6ff] px-4 sm:px-8 lg:px-12 py-8">
             <div className="max-w-3xl mx-auto">
@@ -167,7 +172,7 @@ export default function PatientAppointments() {
                     {["all", "pending", "confirmed", "completed", "cancelled"].map(f => (
                         <button
                             key={f}
-                            onClick={() => setFilter(f)}
+                            onClick={() => { setFilter(f); setPage(1); }}
                             className={`px-4 py-1.5 rounded-full text-xs font-semibold capitalize transition-all border ${
                                 filter === f
                                     ? "bg-[#127fec] text-white border-[#127fec] shadow-md"
@@ -193,8 +198,8 @@ export default function PatientAppointments() {
                     </div>
                 ) : (
                     <div className="flex flex-col gap-4">
-                        <AnimatePresence>
-                            {filtered.map(appt => (
+                        <AnimatePresence mode="popLayout">
+                            {paginated.map(appt => (
                                 <AppointmentCard
                                     key={appt.id}
                                     appt={appt}
@@ -204,6 +209,48 @@ export default function PatientAppointments() {
                                 />
                             ))}
                         </AnimatePresence>
+
+                        {/* Pagination UI */}
+                        {totalPages > 1 && (
+                            <div className="flex justify-between items-center mt-8 pt-6 border-t border-slate-200">
+                                <p className="text-sm text-slate-500 font-medium">
+                                    Showing <span className="text-slate-800">{ (page - 1) * PER_PAGE + 1 }</span>–
+                                    <span className="text-slate-800">{ Math.min(page * PER_PAGE, filtered.length) }</span> of 
+                                    <span className="text-slate-800"> { filtered.length }</span>
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                                        disabled={page === 1}
+                                        className="px-4 py-2 text-sm font-semibold rounded-xl border border-slate-200 text-slate-600 bg-white hover:bg-slate-50 hover:border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                                    >
+                                        Previous
+                                    </button>
+                                    <div className="flex items-center gap-1 mx-2">
+                                        {[...Array(totalPages)].map((_, i) => (
+                                            <button
+                                                key={i + 1}
+                                                onClick={() => setPage(i + 1)}
+                                                className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-all ${
+                                                    page === i + 1
+                                                        ? "bg-[#127fec] text-white shadow-sm"
+                                                        : "text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                                                }`}
+                                            >
+                                                {i + 1}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <button
+                                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={page === totalPages}
+                                        className="px-4 py-2 text-sm font-semibold rounded-xl border border-slate-200 text-slate-600 bg-white hover:bg-slate-50 hover:border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
