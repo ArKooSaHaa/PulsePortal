@@ -79,7 +79,7 @@ class AppointmentController extends Controller
         $data = $request->all();
 
         $doctor      = auth()->user()->doctor;
-        $appointment = $this->appointmentService->updateAppointmentStatus($id, $data, $doctor->id);
+        $appointment = $this->appointmentService->updateAppointmentStatus($id, $data['status'], $doctor->id);
 
         if (!$appointment) {
             return response()->json(['status' => 'error', 'message' => 'Appointment not found or unauthorized.'], 404);
