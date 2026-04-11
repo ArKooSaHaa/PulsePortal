@@ -4,7 +4,9 @@ namespace App\Http\Services;
 
 use App\Models\Admin;
 use App\Models\Appointment;
+use Illuminate\Support\Facades\Mail;
 use App\Events\AppointmentRequested;
+use App\Mail\PatientAppointmentDetails;
 use App\Events\AppointmentStatusUpdated;
 
 class AppointmentService
@@ -21,8 +23,10 @@ class AppointmentService
             'status'           => 'pending',
         ]);
 
-        // Notify department admins in real-time
         broadcast(new AppointmentRequested($appointment))->toOthers();
+        
+        $appointment->load(['patient.user', 'doctor.user']);
+        Mail::to($appointment->patient->user->email)->send(new PatientAppointmentDetails($appointment));
 
         return $appointment;
     }
@@ -85,8 +89,14 @@ class AppointmentService
 
         $appointment->update(['status' => $status]);
 
-        // Notify the patient in real-time
+        // Notify the patient via WebSocket
         broadcast(new AppointmentStatusUpdated($appointment))->toOthers();
+
+        // Notify the patient via email for major status changes
+        if (in_array($status, ['confirmed', 'cancelled'])) {
+            $appointment->load(['patient.user', 'doctor.user']);
+            Mail::to($appointment->patient->user->email)->send(new PatientAppointmentDetails($appointment));
+        }
 
         return $appointment;
     }

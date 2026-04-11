@@ -13,7 +13,6 @@ const NAV_LINKS = {
         { name: "Book Appointment", path: "book-appointment" },
     ],
     doctor: [{ name: "Appointments", path: "appointments" }],
-    // Admin links are computed dynamically based on admin_role
 };
 
 function NavLink({ to, children, isActive }) {

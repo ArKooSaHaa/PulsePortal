@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Models\Appointment;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -9,16 +10,18 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class PatientAppointmentDetails extends Mailable
+class PatientAppointmentDetails extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
+
+    public $appointment;
 
     /**
      * Create a new message instance.
      */
-    public function __construct()
+    public function __construct(Appointment $appointment)
     {
-        //
+        $this->appointment = $appointment->load(['patient.user', 'doctor.user']);
     }
 
     /**
@@ -27,7 +30,7 @@ class PatientAppointmentDetails extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Patient Appointment Details',
+            subject: "Hello! {$this->appointment->patient->user->name}, Your Appointment Details.",
         );
     }
 
