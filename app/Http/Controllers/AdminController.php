@@ -21,7 +21,6 @@ class AdminController extends Controller
     // POST /api/admin/doctors  — Super Admin only
     public function createDoctor(Request $request)
     {
-        $this->middleware('admin.super');
 
         $data = $request->validate([
             'name'              => ['required', 'string', 'min:2', 'max:255', 'regex:/^[\pL\s\-\.]+$/u'],
@@ -52,7 +51,6 @@ class AdminController extends Controller
     // POST /api/admin/admins  — Super Admin only
     public function createAdmin(Request $request)
     {
-        $this->middleware('admin.super');
 
         $data = $request->validate([
             'name'       => ['required', 'string', 'min:2', 'max:255', 'regex:/^[\pL\s\-\.]+$/u'],
@@ -148,7 +146,7 @@ class AdminController extends Controller
             'data'   => [
                 'total_doctors'          => \App\Models\Doctor::count(),
                 'total_patients'         => \App\Models\Patient::count(),
-                'appointments_today'     => \App\Models\Appointment::whereDate('appointment_date', $today)->count(),
+                'appointments_today'     => \App\Models\Appointment::whereDate('appointment_date', now()->toDateString())->count(),
                 'upcoming_appointments'  => \App\Models\Appointment::whereIn('status', ['pending', 'confirmed'])->count(),
             ],
         ]);
