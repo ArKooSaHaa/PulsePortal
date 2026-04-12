@@ -44,6 +44,11 @@ class Appointment extends Model
 
     public function prescriptions()
     {
-        return $this->hasMany(Prescription::class);
+        return $this->hasMany(PatientPrescription::class);
+    }
+
+    public function consultation()
+    {
+        return $this->hasOne(Consultation::class);
     }
 }

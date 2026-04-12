@@ -40,6 +40,9 @@ Route::middleware('auth:api')->group(function () {
         Route::get('appointments',               [AppointmentController::class, 'patientIndex']);
         Route::post('appointments',              [AppointmentController::class, 'store']);
         Route::patch('appointments/{id}/cancel', [AppointmentController::class, 'cancel']);
+        
+        // Consultations
+        Route::get('consultations/{appointmentId}', [\App\Http\Controllers\ConsultationController::class, 'patientShow']);
 
         // AI routes
         Route::post('ai/chat',            [AiController::class, 'chat']);
@@ -52,6 +55,10 @@ Route::middleware('auth:api')->group(function () {
         Route::patch('appointments/{id}/status',          [AppointmentController::class, 'updateStatus']);
         Route::post('appointments/{id}/prescription',     [PrescriptionController::class, 'store']);
         Route::get('available',                           [DoctorController::class, 'index']);
+        
+        // Consultations
+        Route::post('consultations/{appointmentId}/start', [\App\Http\Controllers\ConsultationController::class, 'start']);
+        Route::post('consultations/{appointmentId}/end',   [\App\Http\Controllers\ConsultationController::class, 'end']);
     });
 
     // Patient prescription

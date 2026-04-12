@@ -3,6 +3,7 @@ import appointmentService from "../../api/appointmentService";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Loader2, FileText, CheckCircle } from "lucide-react";
 import { motion } from "framer-motion";
+import consultationService from "../../api/consultationService";
 
 export default function DoctorAppointments() {
     const [appointments, setAppointments] = useState([]);
@@ -10,6 +11,7 @@ export default function DoctorAppointments() {
     const location = useLocation();
     const highlightId = location.state?.highlight;
     const [loading, setLoading] = useState(true);
+    const [startingId, setStartingId] = useState(null);
 
     // Today's date string (local)
     const todayObj = new Date();
@@ -181,14 +183,23 @@ export default function DoctorAppointments() {
 
                                 {/* Consultation Action */}
                                 <div>
-                                    {item.type === "online" && item.status === "confirmed" ? (
+                                    {(item.status === "confirmed" || item.status === "in_progress") && item.type === "online" ? (
                                         <button
-                                            onClick={() =>
-                                                navigate(`/doctor/consultation/${item.id}`)
-                                            }
-                                            className="px-4 py-1 rounded-full border text-sm hover:bg-green-100"
+                                            onClick={async () => {
+                                                try {
+                    setStartingId(item.id);
+                    const data = await consultationService.startConsultation(item.id);
+                    navigate(`/doctor/consultation/${item.id}`, { state: { room_name: data.room_name }});
+                                                } catch (e) {
+                                                    alert("Failed to start consultation");
+                } finally {
+                    setStartingId(null);
+                }
+            }}
+            disabled={startingId === item.id}
+            className="px-4 py-1 rounded-full border text-sm font-semibold hover:bg-green-100 disabled:opacity-50"
                                         >
-                                            Start
+                                            {startingId === item.id ? "..." : item.status === "in_progress" ? "Join" : "Start"}
                                         </button>
                                     ) : (
                                         <span className="text-xs text-slate-400">—</span>
