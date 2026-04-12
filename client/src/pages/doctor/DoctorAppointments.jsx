@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import consultationService from "../../api/consultationService";
 import aiService from "../../api/aiService";
 import api from "../../api/axios";
+import MarkdownRenderer from "../../components/MarkdownRenderer";
 
 export default function DoctorAppointments() {
     const [appointments, setAppointments] = useState([]);
@@ -467,9 +468,9 @@ export default function DoctorAppointments() {
                                                 <motion.div 
                                                     initial={{ opacity: 0, scale: 0.98 }}
                                                     animate={{ opacity: 1, scale: 1 }}
-                                                    className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm text-slate-700 leading-relaxed whitespace-pre-wrap shadow-inner"
+                                                    className="bg-slate-50 border border-slate-100 rounded-xl p-4 shadow-inner"
                                                 >
-                                                    {summaryText}
+                                                    <MarkdownRenderer content={summaryText} />
                                                 </motion.div>
                                             )}
                                         </div>
