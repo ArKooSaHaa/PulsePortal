@@ -10,6 +10,7 @@ use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Appointment;
 use App\Models\Consultation;
+use App\Models\Prescription;
 use App\Models\VisitNote;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
@@ -251,11 +252,11 @@ class DatabaseSeeder extends Seeder
         }
 
         // --- 5. APPOINTMENTS (Manual + Random) ---
-        // Completed Appointment with Visit Note
+        // ── Completed Appointment #1 — Chest tightness (14 days ago) ──
         $completedAppt = Appointment::create([
             'patient_id'       => $patient->id,
             'doctor_id'        => $doctorCardio->id,
-            'appointment_date' => now()->subDays(2)->toDateString(),
+            'appointment_date' => now()->subDays(14)->toDateString(),
             'appointment_time' => '10:00:00',
             'type'             => 'in_person',
             'status'           => 'completed',
@@ -266,6 +267,70 @@ class DatabaseSeeder extends Seeder
         VisitNote::create([
             'appointment_id' => $completedAppt->id,
             'doctor_notes'   => 'BP stable at 130/85. ECG normal. Prescribed Amlodipine 5mg once daily.',
+        ]);
+
+        Prescription::create([
+            'appointment_id'     => $completedAppt->id,
+            'disease_or_problem' => 'Mild Hypertension with Chest Tightness',
+            'medication'         => json_encode([
+                ['name' => 'Amlodipine', 'dosage' => '5mg once daily', 'instruction' => 'Take in the morning with water'],
+                ['name' => 'Aspirin', 'dosage' => '75mg once daily', 'instruction' => 'Take after lunch'],
+            ]),
+            'instructions'       => 'Monitor blood pressure daily. Reduce salt intake. Follow up in 2 weeks. Avoid heavy physical exertion.',
+        ]);
+
+        // ── Completed Appointment #2 — Follow-up (7 days ago) ──
+        $followUpAppt = Appointment::create([
+            'patient_id'       => $patient->id,
+            'doctor_id'        => $doctorCardio->id,
+            'appointment_date' => now()->subDays(7)->toDateString(),
+            'appointment_time' => '11:00:00',
+            'type'             => 'in_person',
+            'status'           => 'completed',
+            'symptoms'         => 'Follow-up visit. Occasional dizziness and mild fatigue.',
+        ]);
+
+        VisitNote::create([
+            'appointment_id' => $followUpAppt->id,
+            'doctor_notes'   => 'BP improved to 125/80. Patient reports mild dizziness. Adjusted medication.',
+        ]);
+
+        Prescription::create([
+            'appointment_id'     => $followUpAppt->id,
+            'disease_or_problem' => 'Hypertension Follow-up — Dizziness',
+            'medication'         => json_encode([
+                ['name' => 'Amlodipine', 'dosage' => '2.5mg once daily', 'instruction' => 'Reduced dosage — take in the morning'],
+                ['name' => 'Aspirin', 'dosage' => '75mg once daily', 'instruction' => 'Continue after lunch'],
+                ['name' => 'Vitamin D3', 'dosage' => '2000 IU daily', 'instruction' => 'Take with food'],
+            ]),
+            'instructions'       => 'Dizziness likely from Amlodipine — dosage reduced. Continue monitoring BP. Increase water intake. Get blood work done before next visit.',
+        ]);
+
+        // ── Completed Appointment #3 — Palpitations (3 days ago) ──
+        $palpAppt = Appointment::create([
+            'patient_id'       => $patient->id,
+            'doctor_id'        => $doctorCardio->id,
+            'appointment_date' => now()->subDays(3)->toDateString(),
+            'appointment_time' => '09:30:00',
+            'type'             => 'online',
+            'status'           => 'completed',
+            'symptoms'         => 'Heart palpitations after exercise and trouble sleeping.',
+        ]);
+
+        VisitNote::create([
+            'appointment_id' => $palpAppt->id,
+            'doctor_notes'   => 'ECG shows normal sinus rhythm. Likely stress-related palpitations.',
+        ]);
+
+        Prescription::create([
+            'appointment_id'     => $palpAppt->id,
+            'disease_or_problem' => 'Stress-induced Palpitations & Insomnia',
+            'medication'         => json_encode([
+                ['name' => 'Propranolol', 'dosage' => '10mg as needed', 'instruction' => 'Take when palpitations occur, max 3 times daily'],
+                ['name' => 'Melatonin', 'dosage' => '3mg at bedtime', 'instruction' => 'Take 30 min before sleep'],
+                ['name' => 'Amlodipine', 'dosage' => '2.5mg once daily', 'instruction' => 'Continue morning dose'],
+            ]),
+            'instructions'       => 'Palpitations appear stress-related. Recommend stress management, regular light exercise, consistent sleep schedule. Avoid caffeine after 2 PM. Return if palpitations worsen.',
         ]);
 
         // Specific Pending/Confirmed/Cancelled Entries

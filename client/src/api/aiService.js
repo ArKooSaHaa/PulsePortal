@@ -26,6 +26,26 @@ const aiService = {
         });
         return response.data.data;
     },
+
+    /**
+     * Generate AI clinical summary of a patient's medical history (doctor-side).
+     * @param {number|string} patientId - The patient's ID
+     * @returns {Promise<string>} AI-generated clinical summary
+     */
+    getPatientSummary: async (patientId) => {
+        const response = await api.post(`/doctor/ai/patient-summary/${patientId}`);
+        return response.data.data.summary;
+    },
+
+    /**
+     * Generate AI prescription summary for a patient (patient-side).
+     * @param {number|string} appointmentId - The appointment ID
+     * @returns {Promise<string>} AI-generated prescription explanation
+     */
+    getPrescriptionSummary: async (appointmentId) => {
+        const response = await api.post(`/patient/ai/prescription-summary/${appointmentId}`);
+        return response.data.data.summary;
+    },
 };
 
 export default aiService;

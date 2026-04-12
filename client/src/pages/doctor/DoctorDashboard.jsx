@@ -205,9 +205,6 @@ export default function DoctorDashboard() {
                             <h2 className="text-lg font-semibold text-slate-800">
                                 Today's Schedule
                             </h2>
-                            <button className="text-[#127fec] text-sm font-medium hover:underline">
-                                View Calendar
-                            </button>
                         </div>
 
                         {/* Header Row */}
@@ -487,26 +484,6 @@ export default function DoctorDashboard() {
 
                 {/* RIGHT SIDE */}
                 <div className="space-y-6">
-                    <motion.div
-                        initial={{ opacity: 0, y: 40 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.6 }}
-                        whileHover={{ scale: 1.02 }}
-                        className="rounded-2xl p-6 text-white shadow-lg"
-                        style={{
-                            background:
-                                "linear-gradient(135deg, #0a5bbf, #127fec)",
-                        }}
-                    >
-                        <div className="flex justify-between items-center mb-4">
-                            <p className="font-medium">Weekly Efficiency</p>
-                            <TrendingUp size={20} />
-                        </div>
-                        <h2 className="text-4xl font-bold">94%</h2>
-                        <p className="text-sm opacity-90 mt-2">
-                            You are in the top 5% of efficiency this week.
-                        </p>
-                    </motion.div>
 
                     {/* Appointment breakdown by status */}
                     {/* {!loading && appointments.length > 0 && (

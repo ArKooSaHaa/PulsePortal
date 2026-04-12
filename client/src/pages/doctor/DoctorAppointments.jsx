@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Loader2, FileText, CheckCircle, X, User, Activity, Phone, Droplet, AlertTriangle, MessageSquare, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import consultationService from "../../api/consultationService";
+import aiService from "../../api/aiService";
 import api from "../../api/axios";
 
 export default function DoctorAppointments() {
@@ -91,14 +92,18 @@ export default function DoctorAppointments() {
         }
     };
 
-    const handleGenerateSummary = () => {
+    const handleGenerateSummary = async () => {
+        if (!profilePatient?.id) return;
         setSummaryLoading(true);
         
-        // Dummy frontend logic for now
-        setTimeout(() => {
-             setSummaryText("Patient Clinical Summary:\n\n• Blood Pressure is slightly elevated based on previous visits.\n• The patient was recently prescribed Amoxicillin for a minor infection.\n• No known critical allergies.\n\nRecommendation: Check vitals to ensure blood pressure is stabilized.");
-             setSummaryLoading(false);
-        }, 1200);
+        try {
+            const summary = await aiService.getPatientSummary(profilePatient.id);
+            setSummaryText(summary);
+        } catch (err) {
+            setSummaryText("⚠️ Failed to generate summary. " + (err?.response?.data?.message || "AI service may be temporarily unavailable. Please try again later."));
+        } finally {
+            setSummaryLoading(false);
+        }
     };
 
     const closeProfile = () => {

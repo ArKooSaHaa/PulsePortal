@@ -63,11 +63,7 @@ function DoctorCard({ doctor, selected, onSelect }) {
                     {doctor.specialty} · {doctor.clinic}
                 </p>
                 <div className="flex items-center gap-1 mt-1">
-                    <Star size={11} className="text-amber-400 fill-amber-400" />
-                    <span className="text-xs font-semibold text-slate-700">
-                        {doctor.rating}
-                    </span>
-                    <span className="text-xs text-slate-400 ml-1">
+                    <span className="text-xs text-slate-400">
                         ৳{doctor.fee} fee
                     </span>
                 </div>

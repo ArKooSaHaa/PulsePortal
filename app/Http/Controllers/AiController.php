@@ -176,6 +176,168 @@ PROMPT;
     }
 
     /**
+     * POST /api/doctor/ai/patient-summary/{patientId}
+     * Generate an AI clinical summary of a patient's medical history.
+     * Also persists the summary to the patient's medical_history field.
+     */
+    public function summarizePatientHistory($patientId)
+    {
+        $doctor = auth()->user()->doctor;
+        if (!$doctor) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 403);
+        }
+
+        $patient = Patient::with('user')->find($patientId);
+        if (!$patient) {
+            return response()->json(['status' => 'error', 'message' => 'Patient not found.'], 404);
+        }
+
+        // Gather all completed appointments for this patient (across all doctors)
+        $completedAppointments = Appointment::with(['doctor.user', 'prescriptions'])
+            ->where('patient_id', $patientId)
+            ->where('status', 'completed')
+            ->orderBy('appointment_date', 'asc')
+            ->get();
+
+        if ($completedAppointments->isEmpty()) {
+            return response()->json([
+                'status' => 'success',
+                'data'   => ['summary' => 'No completed appointments found for this patient yet.'],
+            ]);
+        }
+
+        // Build context from appointment records
+        $appointmentSummaries = $completedAppointments->map(function ($appt) {
+            $parts = [
+                "Date: {$appt->appointment_date->format('Y-m-d')}",
+                "Doctor: " . ($appt->doctor->user->name ?? 'Unknown'),
+                "Specialization: " . ($appt->doctor->specialization ?? 'Unknown'),
+                "Symptoms: {$appt->symptoms}",
+            ];
+
+            if ($appt->prescriptions->isNotEmpty()) {
+                foreach ($appt->prescriptions as $p) {
+                    if ($p->disease_or_problem) {
+                        $parts[] = "Diagnosis: {$p->disease_or_problem}";
+                    }
+                    $meds = json_decode($p->medication, true);
+                    if (is_array($meds)) {
+                        $medList = collect($meds)->map(fn($m) => $m['name'] . ($m['dosage'] ? " ({$m['dosage']})" : ''))->implode(', ');
+                        $parts[] = "Medicines: {$medList}";
+                    }
+                    if ($p->instructions) {
+                        $parts[] = "Doctor Notes: {$p->instructions}";
+                    }
+                }
+            }
+
+            return implode(' | ', $parts);
+        })->implode("\n");
+
+        $systemPrompt = <<<PROMPT
+You are a medical records assistant for PulsePortal Hospital. Your job is to write a concise clinical summary of a patient's medical history based on their appointment records.
+
+Guidelines:
+- Write in third person (e.g., "Patient has a history of...")
+- Keep it to 3-5 sentences maximum
+- Highlight key conditions, diagnoses, recurring issues, and treatments
+- Mention relevant specializations consulted
+- Note any prescribed medications and their purposes
+- Be factual, professional, and concise — this will be displayed to doctors
+- If the patient has had only one appointment, still summarize it meaningfully
+- Do NOT include specific dates unless medically relevant
+PROMPT;
+
+        $userMessage = "Generate a clinical summary for patient '{$patient->user->name}' based on these appointment records:\n\n{$appointmentSummaries}";
+
+        try {
+            $summary = $this->aiService->chat($systemPrompt, $userMessage);
+
+            // Persist the summary to the patient's medical_history field
+            $patient->update(['medical_history' => trim($summary)]);
+
+            return response()->json([
+                'status' => 'success',
+                'data'   => ['summary' => trim($summary)],
+            ]);
+        } catch (\Exception $e) {
+            $errorMsg = $this->getUserFriendlyError($e->getMessage());
+            return response()->json(['status' => 'error', 'message' => $errorMsg], 503);
+        }
+    }
+
+    /**
+     * POST /api/patient/ai/prescription-summary/{appointmentId}
+     * Generate an AI patient-friendly summary of a prescription.
+     */
+    public function summarizePrescription($appointmentId)
+    {
+        $patient = auth()->user()->patient;
+        if (!$patient) {
+            return response()->json(['status' => 'error', 'message' => 'Patient profile not found.'], 404);
+        }
+
+        $appointment = Appointment::where('id', $appointmentId)
+            ->where('patient_id', $patient->id)
+            ->with(['doctor.user', 'prescriptions'])
+            ->first();
+
+        if (!$appointment) {
+            return response()->json(['status' => 'error', 'message' => 'Appointment not found.'], 404);
+        }
+
+        $prescription = $appointment->prescriptions->first();
+        if (!$prescription) {
+            return response()->json(['status' => 'error', 'message' => 'No prescription found.'], 404);
+        }
+
+        // Build prescription context
+        $medicines = json_decode($prescription->medication, true) ?? [];
+        $medDetails = collect($medicines)->map(function ($m) {
+            $detail = $m['name'];
+            if (!empty($m['dosage'])) $detail .= " — Dosage: {$m['dosage']}";
+            if (!empty($m['instruction'])) $detail .= " — Instructions: {$m['instruction']}";
+            return $detail;
+        })->implode("\n");
+
+        $context = "Doctor: Dr. {$appointment->doctor->user->name} ({$appointment->doctor->specialization})\n";
+        $context .= "Diagnosis: " . ($prescription->disease_or_problem ?: 'Not specified') . "\n";
+        $context .= "Medicines:\n{$medDetails}\n";
+        $context .= "Doctor's Notes: " . ($prescription->instructions ?: 'None') . "\n";
+
+        $systemPrompt = <<<PROMPT
+You are a patient-friendly health advisor for PulsePortal Hospital. Your job is to explain a prescription in simple, easy-to-understand language for a patient.
+
+Your response MUST include these sections:
+1. **Your Diagnosis**: Briefly explain what condition/disease was diagnosed in simple terms.
+2. **Your Medicines**: For each medicine, explain what it does and why the doctor prescribed it. Include dosage reminders.
+3. **Important Suggestions**: Provide 3-5 practical health suggestions based on the diagnosis and medicines (diet, rest, things to avoid, when to seek further help).
+4. **⚠️ Warnings**: Any side effects to watch for or situations where they should contact their doctor immediately.
+
+Guidelines:
+- Use warm, reassuring, simple language (avoid medical jargon)
+- Keep each section concise (2-3 sentences each)
+- Use bullet points for clarity
+- Remind the patient to follow the doctor's instructions
+- Do NOT contradict or change the doctor's prescription
+PROMPT;
+
+        $userMessage = "Please summarize this prescription for the patient:\n\n{$context}";
+
+        try {
+            $summary = $this->aiService->chat($systemPrompt, $userMessage);
+
+            return response()->json([
+                'status' => 'success',
+                'data'   => ['summary' => trim($summary)],
+            ]);
+        } catch (\Exception $e) {
+            $errorMsg = $this->getUserFriendlyError($e->getMessage());
+            return response()->json(['status' => 'error', 'message' => $errorMsg], 503);
+        }
+    }
+
+    /**
      * Convert raw API error messages into user-friendly text.
      */
     private function getUserFriendlyError(string $rawError): string
@@ -193,3 +355,4 @@ PROMPT;
         return 'AI service is temporarily unavailable. Please try again later.';
     }
 }
+
