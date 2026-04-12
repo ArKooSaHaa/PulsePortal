@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import appointmentService from "../../api/appointmentService";
 import aiService from "../../api/aiService";
+import MarkdownRenderer from "../../components/MarkdownRenderer";
 
 function formatTime(timeStr) {
     if (!timeStr) return "—";
@@ -298,9 +299,9 @@ export default function PatientPrescriptionView() {
                         <motion.div 
                             initial={{ opacity: 0, scale: 0.98 }}
                             animate={{ opacity: 1, scale: 1 }}
-                            className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm text-slate-700 leading-relaxed whitespace-pre-wrap shadow-inner"
+                            className="bg-slate-50 border border-slate-100 rounded-xl p-4 shadow-inner"
                         >
-                            {summaryText}
+                            <MarkdownRenderer content={summaryText} />
                         </motion.div>
                     )}
                 </motion.div>
