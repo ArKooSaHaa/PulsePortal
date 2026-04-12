@@ -356,10 +356,66 @@ class DatabaseSeeder extends Seeder
 
         // Bulk Random Appointments
         $symptomsArr = ['Fever', 'Chest pain', 'Stomach ache', 'Checkup', 'Toothache', 'Migraine'];
+
+        $bulkPrescriptions = [
+            [
+                'disease_or_problem' => 'Acute Fever',
+                'medication'         => [
+                    ['name' => 'Paracetamol', 'dosage' => '500mg every 6 hours', 'instruction' => 'Take with water after meals'],
+                    ['name' => 'Cetirizine', 'dosage' => '10mg once daily', 'instruction' => 'Take at bedtime'],
+                ],
+                'instructions' => 'Rest well and stay hydrated. Avoid cold water. Return if fever exceeds 103°F.',
+            ],
+            [
+                'disease_or_problem' => 'Chest Pain — Musculoskeletal',
+                'medication'         => [
+                    ['name' => 'Ibuprofen', 'dosage' => '400mg twice daily', 'instruction' => 'Take after meals, avoid on empty stomach'],
+                    ['name' => 'Omeprazole', 'dosage' => '20mg once daily', 'instruction' => 'Take 30 min before breakfast'],
+                ],
+                'instructions' => 'Chest pain appears musculoskeletal. Avoid strenuous activity. Follow up if pain persists beyond 5 days.',
+            ],
+            [
+                'disease_or_problem' => 'Acute Gastritis',
+                'medication'         => [
+                    ['name' => 'Omeprazole', 'dosage' => '20mg twice daily', 'instruction' => 'Take before meals'],
+                    ['name' => 'Domperidone', 'dosage' => '10mg three times daily', 'instruction' => 'Take 30 min before meals'],
+                    ['name' => 'Antacid Suspension', 'dosage' => '10ml as needed', 'instruction' => 'Take after meals or when discomfort occurs'],
+                ],
+                'instructions' => 'Avoid spicy and oily food. Eat small frequent meals. Avoid NSAIDs. Follow up in 1 week.',
+            ],
+            [
+                'disease_or_problem' => 'Routine Health Checkup',
+                'medication'         => [
+                    ['name' => 'Multivitamin', 'dosage' => '1 tablet daily', 'instruction' => 'Take with breakfast'],
+                    ['name' => 'Vitamin C', 'dosage' => '500mg once daily', 'instruction' => 'Take after meals'],
+                ],
+                'instructions' => 'All vitals within normal range. Maintain healthy diet and regular exercise. Annual checkup recommended.',
+            ],
+            [
+                'disease_or_problem' => 'Dental Pain — Referred',
+                'medication'         => [
+                    ['name' => 'Amoxicillin', 'dosage' => '500mg three times daily', 'instruction' => 'Complete the full 5-day course'],
+                    ['name' => 'Ibuprofen', 'dosage' => '400mg as needed', 'instruction' => 'Take for pain relief, max 3 times daily'],
+                    ['name' => 'Chlorhexidine Mouthwash', 'dosage' => 'Rinse twice daily', 'instruction' => 'Do not swallow'],
+                ],
+                'instructions' => 'Avoid hard foods. Referred to dentist for follow-up. Complete antibiotic course even if pain subsides.',
+            ],
+            [
+                'disease_or_problem' => 'Migraine',
+                'medication'         => [
+                    ['name' => 'Sumatriptan', 'dosage' => '50mg at onset', 'instruction' => 'Take as soon as migraine starts, may repeat after 2 hrs'],
+                    ['name' => 'Naproxen', 'dosage' => '500mg twice daily', 'instruction' => 'Take with food during migraine episode'],
+                    ['name' => 'Metoclopramide', 'dosage' => '10mg as needed', 'instruction' => 'Take for nausea if present'],
+                ],
+                'instructions' => 'Identify and avoid migraine triggers (stress, bright lights, skipping meals). Rest in a dark, quiet room during episodes. Keep a headache diary.',
+            ],
+        ];
+
         for ($i = 0; $i < 15; $i++) {
             $statusOptions = ['pending', 'confirmed', 'completed', 'cancelled'];
             $status = $statusOptions[array_rand($statusOptions)];
             $doc = $doctorsList[array_rand($doctorsList)];
+            $symptomIndex = array_rand($symptomsArr);
 
             $appt = Appointment::create([
                 'patient_id'       => $patient->id,
@@ -368,7 +424,7 @@ class DatabaseSeeder extends Seeder
                 'appointment_time' => sprintf("%02d:00:00", rand(9, 16)),
                 'type'             => rand(0, 1) ? 'in_person' : 'online',
                 'status'           => $status,
-                'symptoms'         => $symptomsArr[array_rand($symptomsArr)],
+                'symptoms'         => $symptomsArr[$symptomIndex],
                 'rating'           => $status === 'completed' ? rand(4, 5) : null,
             ]);
 
@@ -376,6 +432,14 @@ class DatabaseSeeder extends Seeder
                 VisitNote::create([
                     'appointment_id' => $appt->id,
                     'doctor_notes'   => 'Patient examined and advised rest.',
+                ]);
+
+                $rx = $bulkPrescriptions[$symptomIndex];
+                Prescription::create([
+                    'appointment_id'     => $appt->id,
+                    'disease_or_problem' => $rx['disease_or_problem'],
+                    'medication'         => json_encode($rx['medication']),
+                    'instructions'       => $rx['instructions'],
                 ]);
             }
         }
@@ -447,8 +511,18 @@ class DatabaseSeeder extends Seeder
             'doctor_notes'   => 'Patient recovered well. Previous prescription effective.',
         ]);
 
+        Prescription::create([
+            'appointment_id'     => $pastOffline->id,
+            'disease_or_problem' => 'Routine Cardiac Checkup',
+            'medication'         => json_encode([
+                ['name' => 'Amlodipine', 'dosage' => '2.5mg once daily', 'instruction' => 'Continue morning dose'],
+                ['name' => 'Aspirin', 'dosage' => '75mg once daily', 'instruction' => 'Take after lunch'],
+            ]),
+            'instructions'       => 'Patient doing well on current medication. Maintain lifestyle changes. Follow up in one month.',
+        ]);
+
         // 6. Multiple Confirmed Online for Today (Stress Test)
-        foreach(['16:00:00', '17:00:00', '18:00:00'] as $time) {
+        foreach (['16:00:00', '17:00:00', '18:00:00'] as $time) {
             Appointment::create([
                 'patient_id'       => $patient->id,
                 'doctor_id'        => $doctorCardio->id,
