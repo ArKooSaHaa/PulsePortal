@@ -4,6 +4,7 @@ namespace App\Http\Services;
 
 use App\Models\Appointment;
 use App\Models\Consultation;
+use App\Models\Notification;
 use App\Events\ConsultationStarted;
 use App\Mail\ConsultationStartedMail;
 use Illuminate\Support\Facades\Mail;
@@ -40,6 +41,18 @@ class ConsultationService
             // Broadcast websocket event to patient
             $appointment->load(['patient.user', 'doctor.user']);
             broadcast(new ConsultationStarted($appointment))->toOthers();
+
+            // Persist notification for the patient
+            $doctorName = $appointment->doctor->user->name;
+            Notification::create([
+                'user_id'        => $appointment->patient->user_id,
+                'type'           => 'consultation',
+                'title'          => 'Consultation Started',
+                'message'        => "Dr. {$doctorName} has started your online video consultation.",
+                'appointment_id' => $appointment->id,
+                'link'           => "/patient/consultation/{$appointment->id}",
+                'is_read'        => false,
+            ]);
 
             // Send Email to patient
             Mail::to($appointment->patient->user->email)->queue(new ConsultationStartedMail($appointment));

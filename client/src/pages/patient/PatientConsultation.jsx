@@ -49,7 +49,7 @@ export default function PatientConsultation() {
     return (
         <div className="min-h-screen bg-[#0f172a] p-4 flex gap-4">
             {/* LEFT: FULL VIDEO / JITSI IFRAME */}
-            <div className="flex-1 bg-black rounded-2xl overflow-hidden shadow-xl relative min-h-[500px] border border-slate-800">
+            <div className="flex-1 bg-black rounded-2xl overflow-hidden shadow-xl border border-slate-800 flex flex-col min-h-[500px] relative">
 
                 {status === "loading" && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 gap-3">
@@ -83,17 +83,19 @@ export default function PatientConsultation() {
                 )}
 
                 {status === "started" && roomName && (
-                    <iframe
-                        allow="camera; microphone; display-capture; autoplay; clipboard-write; fullscreen"
-                        src={`https://meet.jit.si/${roomName}?userInfo.displayName="${encodeURIComponent(user?.name || 'Patient')}"`}
-                        className="w-full h-full border-0 absolute top-0 left-0"
-                        title="Jitsi Video Consultation"
-                    ></iframe>
+                    <div className="flex-1 relative w-full h-full min-h-[600px]">
+                        <iframe
+                            allow="camera; microphone; display-capture; autoplay; clipboard-write; fullscreen"
+                            src={`https://meet.jit.si/${roomName}?userInfo.displayName="${encodeURIComponent(user?.name || 'Patient')}"`}
+                            className="w-full h-full border-0 absolute top-0 left-0"
+                            title="Jitsi Video Consultation"
+                        ></iframe>
+                    </div>
                 )}
 
                 {/* Controls */}
                 {status === "started" && (
-                    <div className="absolute bottom-4 w-full flex justify-center gap-4">
+                    <div className="w-full p-4 bg-slate-900 border-t border-slate-800 flex justify-center gap-4 shrink-0">
                         <button onClick={handleLeaveCall}
                             className="px-6 py-3 bg-red-500 hover:bg-red-600 rounded-full text-white font-semibold flex items-center gap-2 shadow-lg shadow-red-500/30 transition">
                             <PhoneOff size={18} />
@@ -117,9 +119,16 @@ export default function PatientConsultation() {
                 <div className="mt-auto bg-slate-800/50 p-4 rounded-xl border border-slate-700">
                     <FileText className="text-[#127fec] mb-2" size={20} />
                     <h4 className="font-semibold text-sm mb-1">Prescriptions & Files</h4>
-                    <p className="text-xs text-slate-400">
-                        If prescribed, files will appear in your main dashboard under view details.
+                    <p className="text-xs text-slate-400 mb-3">
+                        If prescribed, files will appear below when shared by the doctor.
                     </p>
+                    {status === "started" && (
+                        <a href="#" onClick={(e) => { e.preventDefault(); alert("Downloading Prescription Document..."); }} 
+                           className="flex items-center gap-2 text-sm text-[#127fec] hover:underline bg-[#127fec]/10 p-2 rounded-lg transition border border-[#127fec]/20">
+                            <FileText size={16} />
+                            rx_prescription.pdf
+                        </a>
+                    )}
                 </div>
             </div>
         </div>

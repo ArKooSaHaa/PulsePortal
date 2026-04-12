@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { PhoneOff, Video, FileText } from "lucide-react";
+import { PhoneOff, Video, FileText, Upload } from "lucide-react";
 import appointmentService from "../../api/appointmentService";
 import consultationService from "../../api/consultationService";
 import authService from "../../api/authService";
@@ -12,6 +12,7 @@ export default function DoctorConsultation() {
 
     const [appointment, setAppointment] = useState(null);
     const [roomName, setRoomName] = useState(location.state?.room_name || "");
+    const [fileName, setFileName] = useState("");
     const user = authService.getCurrentUser();
 
     useEffect(() => {
@@ -43,17 +44,19 @@ export default function DoctorConsultation() {
         navigate("/doctor/appointments");
     };
 
-    //  Upload Prescription
+    // Restore Upload Prescription Logic
     const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+        const file = e.target.files[0];
+        if (!file) return;
 
-    setFileName(file.name);
+        setFileName(file.name);
 
-    navigate(`/doctor/prescription-preview/${appointment.id}`, {
-    state: { file }, // optional
-});
-};
+        navigate(`/doctor/prescription-preview/${appointment.id}`, {
+            state: { file, appointment },
+        });
+    };
+
+
 
     return (
         <div className="min-h-screen bg-[#f1f5f9] p-6 grid lg:grid-cols-4 gap-6">
@@ -120,16 +123,17 @@ export default function DoctorConsultation() {
                 </button>
 
                 {/* Upload Prescription */}
-                <button
-    onClick={() =>
-        navigate(`/doctor/prescription-preview/${appointment.id}`, {
-            state: { appointment },
-        })
-    }
-    className="border-2 border-dashed p-4 rounded-xl text-center text-sm hover:bg-slate-50 w-full"
->
-    Upload Prescription
-</button>
+                <label className="border-2 border-dashed border-[#127fec] text-[#127fec] p-4 rounded-xl text-center text-sm cursor-pointer hover:bg-blue-50 block transition font-semibold">
+                    <Upload size={20} className="mx-auto mb-2" />
+                    Upload Prescription
+
+                    <input
+                        type="file"
+                        accept="image/*,.pdf"
+                        hidden
+                        onChange={handleFileUpload}
+                    />
+                </label>
 
                 {/* Show file name */}
                 {fileName && (
@@ -137,6 +141,8 @@ export default function DoctorConsultation() {
                         Selected: {fileName}
                     </p>
                 )}
+
+
 
                 {/* Notes */}
                 <textarea
