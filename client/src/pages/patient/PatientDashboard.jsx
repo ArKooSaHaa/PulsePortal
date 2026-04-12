@@ -35,13 +35,15 @@ const STATUS_STYLES = {
 function formatDate(dateStr) {
     if (!dateStr) return "—";
     const date = new Date(
-        dateStr.length === 10 ? dateStr + "T00:00:00" : dateStr
+        dateStr.length === 10 ? dateStr + "T00:00:00" : dateStr,
     );
-    return isNaN(date.getTime()) ? "—" : date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-    });
+    return isNaN(date.getTime())
+        ? "—"
+        : date.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+          });
 }
 
 function formatTime(timeStr) {
@@ -153,7 +155,6 @@ function AppointmentCard({ appt }) {
                             )}
                         </span>
                     </div>
-
                 </div>
             </div>
         </div>
@@ -351,7 +352,11 @@ export default function PatientDashboard() {
                                             {formatDate(item.appointment_date)}
                                         </span>
                                         <button
-                                            onClick={() => navigate(`/patient/prescription/${item.id}`)}
+                                            onClick={() =>
+                                                navigate(
+                                                    `/patient/prescription/${item.id}`,
+                                                )
+                                            }
                                             className="text-xs font-semibold text-[#127fec] hover:underline focus:outline-none whitespace-nowrap"
                                             title="View Prescription"
                                         >
@@ -362,7 +367,7 @@ export default function PatientDashboard() {
                             ))}
                             <div className="text-center mt-2">
                                 <button
-                                    onClick={() => navigate("/patient/history")}
+                                    onClick={() => navigate("/patient/appointments", { state: { filter: "completed" } })}
                                     className="text-xs font-semibold text-[#127fec] hover:underline"
                                 >
                                     View full history →

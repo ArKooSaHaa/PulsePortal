@@ -259,7 +259,6 @@ function MiniCalendar({ selectedDate, onSelect, doctorAvailability = null }) {
         </div>
     );
 }
-
 function TimeSlotGrid({ selectedTime, onSelect, slots = [] }) {
     return (
         <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
@@ -341,12 +340,11 @@ function SummaryRow({ label, value, icon: Icon, done }) {
         </div>
     );
 }
-
 function formatDate(year, month, day) {
     return `${day} ${MONTH_NAMES[month]} ${year}`;
 }
 
-// ── Only the main export changes ──
+
 export default function BookAppointment() {
     const [search, setSearch] = useState("");
     const [dept, setDept] = useState("All");
@@ -363,7 +361,7 @@ export default function BookAppointment() {
     const [bookingError, setBookingError] = useState("");
 
     const [currentPage, setCurrentPage] = useState(1);
-    const doctorsPerPage = 4;
+    const doctorsPerPage = 5;
 
     const [bookedSlots, setBookedSlots] = useState([]);
     const [loadingSlots, setLoadingSlots] = useState(false);
@@ -965,13 +963,13 @@ export default function BookAppointment() {
                                                         </motion.div>
                                                     ))}
                                                 {Math.ceil(filteredDoctors.length / doctorsPerPage) > 1 && (
-                                                    <div className="flex justify-center items-center gap-3 mt-4">
+                                                    <div className="flex justify-between items-center mt-4 px-2">
                                                         <button
                                                             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                                                             disabled={currentPage === 1}
-                                                            className="flex items-center justify-center w-8 h-8 rounded-full border border-slate-200 text-slate-500 disabled:opacity-40 hover:bg-slate-50 transition-colors"
+                                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 text-sm font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50 transition-colors"
                                                         >
-                                                            <ChevronLeft size={16} />
+                                                            <ChevronLeft size={16} /> Previous
                                                         </button>
                                                         <span className="text-xs font-semibold text-slate-500">
                                                             {currentPage} / {Math.ceil(filteredDoctors.length / doctorsPerPage)}
@@ -981,14 +979,14 @@ export default function BookAppointment() {
                                                                 setCurrentPage((p) =>
                                                                     Math.min(
                                                                         Math.ceil(filteredDoctors.length / doctorsPerPage),
-                                                                        p + 1,
+                                                                        p + 1
                                                                     )
                                                                 )
                                                             }
                                                             disabled={currentPage === Math.ceil(filteredDoctors.length / doctorsPerPage)}
-                                                            className="flex items-center justify-center w-8 h-8 rounded-full border border-slate-200 text-slate-500 disabled:opacity-40 hover:bg-slate-50 transition-colors"
+                                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 text-sm font-semibold text-[#127fec] disabled:opacity-40 disabled:text-slate-500 hover:bg-slate-50 transition-colors"
                                                         >
-                                                            <ChevronRight size={16} />
+                                                            Next <ChevronRight size={16} />
                                                         </button>
                                                     </div>
                                                 )}

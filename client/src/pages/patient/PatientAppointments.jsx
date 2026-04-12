@@ -135,12 +135,13 @@ export default function PatientAppointments() {
     const [loading, setLoading]           = useState(true);
     const [error, setError]               = useState("");
     const [cancelling, setCancelling]     = useState(null);
-    const [filter, setFilter]             = useState("all");
     const [page, setPage]                 = useState(1);
     const PER_PAGE = 5;
     const navigate = useNavigate();
     const location = useLocation();
     const highlightId = location.state?.highlight;
+    const defaultFilter = location.state?.filter || "all";
+    const [filter, setFilter]             = useState(defaultFilter);
 
     useEffect(() => {
         if (appointments.length > 0 && highlightId) {
@@ -151,6 +152,12 @@ export default function PatientAppointments() {
             }
         }
     }, [appointments, highlightId]);
+
+    useEffect(() => {
+        if (location.state?.filter) {
+            setFilter(location.state.filter);
+        }
+    }, [location.state]);
 
     useEffect(() => {
         appointmentService.getPatientAppointments()
