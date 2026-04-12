@@ -45,8 +45,9 @@ Route::middleware('auth:api')->group(function () {
         Route::get('consultations/{appointmentId}', [\App\Http\Controllers\ConsultationController::class, 'patientShow']);
 
         // AI routes
-        Route::post('ai/chat',            [AiController::class, 'chat']);
-        Route::post('ai/suggest-doctors', [AiController::class, 'suggestDoctors']);
+        Route::post('ai/chat',                         [AiController::class, 'chat']);
+        Route::post('ai/suggest-doctors',               [AiController::class, 'suggestDoctors']);
+        Route::post('ai/prescription-summary/{id}',    [AiController::class, 'summarizePrescription']);
     });
 
     // Doctor routes
@@ -60,6 +61,9 @@ Route::middleware('auth:api')->group(function () {
         // Consultations
         Route::post('consultations/{appointmentId}/start', [\App\Http\Controllers\ConsultationController::class, 'start']);
         Route::post('consultations/{appointmentId}/end',   [\App\Http\Controllers\ConsultationController::class, 'end']);
+
+        // AI routes
+        Route::post('ai/patient-summary/{patientId}',      [AiController::class, 'summarizePatientHistory']);
     });
 
     // Patient prescription

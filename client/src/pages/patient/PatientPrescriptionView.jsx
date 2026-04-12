@@ -11,9 +11,11 @@ import {
     Stethoscope,
     ClipboardList,
     MessageSquare,
-    Sparkles
+    Sparkles,
+    AlertCircle
 } from "lucide-react";
 import appointmentService from "../../api/appointmentService";
+import aiService from "../../api/aiService";
 
 function formatTime(timeStr) {
     if (!timeStr) return "—";
@@ -50,14 +52,17 @@ export default function PatientPrescriptionView() {
             .finally(() => setLoading(false));
     }, [id]);
 
-    const handleGenerateSummary = () => {
+    const handleGenerateSummary = async () => {
         setSummaryLoading(true);
 
-        // Dummy frontend logic for now
-        setTimeout(() => {
-             setSummaryText("This is an AI-generated simplified summary of your prescription:\n\n• Paracetamol: Take this to manage fever or mild pain. Ensure you take it after meals.\n• Amoxicillin: This is an antibiotic. It is crucial to complete the entire course as prescribed to prevent resistance, even if you start feeling better soon.\n\nPlease follow the doctor's instructions carefully and ensure you rest well for a speedy recovery.");
-             setSummaryLoading(false);
-        }, 1200);
+        try {
+            const summary = await aiService.getPrescriptionSummary(id);
+            setSummaryText(summary);
+        } catch (err) {
+            setSummaryText("⚠️ Failed to generate summary. " + (err?.response?.data?.message || "AI service may be temporarily unavailable. Please try again later."));
+        } finally {
+            setSummaryLoading(false);
+        }
     };
 
     if (loading) {
