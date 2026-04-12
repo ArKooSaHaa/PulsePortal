@@ -128,6 +128,7 @@ class DatabaseSeeder extends Seeder
             'consultation_fee' => 800.00,
             'is_available'     => true,
             'availability'     => [
+                'sun' => ['09:00', '13:00'],
                 'tue' => ['09:00', '13:00'],
                 'wed' => ['13:00', '17:00'],
                 'thu' => ['09:00', '13:00'],

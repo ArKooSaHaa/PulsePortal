@@ -41,11 +41,16 @@ export const NotificationProvider = ({ children }) => {
     const buildRealtimeNotif = useCallback((data, type) => {
         const user = getCurrentUser();
         const role = user?.role || 'patient';
-        const link = getLinkForType(type, role);
+        let link = getLinkForType(type, role);
+        const appointmentId = data.id || data.appointment_id || null;
 
         let title = 'Appointment Updated';
         if (type === 'request')           title = 'New Appointment Request';
         if (type === 'confirmed_doctor')  title = 'New Appointment Confirmed';
+        if (type === 'consultation') {
+            title = 'Consultation Started';
+            link = `/patient/consultation/${appointmentId}`;
+        }
 
         return {
             id:            `rt_${Date.now()}_${Math.random()}`,  // temp ID until refresh
@@ -53,7 +58,7 @@ export const NotificationProvider = ({ children }) => {
             message:        data.message,
             time:           'just now',
             type,
-            appointmentId:  data.id || null,
+            appointmentId,
             link,
             is_read:        false,
         };
@@ -100,6 +105,7 @@ export const NotificationProvider = ({ children }) => {
                     channelRef.current.stopListening('.appointment.requested');
                     channelRef.current.stopListening('.appointment.status.updated');
                     channelRef.current.stopListening('.appointment.confirmed_for_doctor');
+                    channelRef.current.stopListening('.consultation.started');
                 } catch (_) {}
                 channelRef.current = null;
             }
@@ -120,6 +126,7 @@ export const NotificationProvider = ({ children }) => {
                     channelRef.current.stopListening('.appointment.requested');
                     channelRef.current.stopListening('.appointment.status.updated');
                     channelRef.current.stopListening('.appointment.confirmed_for_doctor');
+                    channelRef.current.stopListening('.consultation.started');
                 } catch (_) {}
                 channelRef.current = null;
             }
@@ -147,6 +154,10 @@ export const NotificationProvider = ({ children }) => {
             channel.listen('.appointment.confirmed_for_doctor', (data) => {
                 addRealtimeNotification(buildRealtimeNotif(data, 'confirmed_doctor'));
             });
+
+            channel.listen('.consultation.started', (data) => {
+                addRealtimeNotification(buildRealtimeNotif(data, 'consultation'));
+            });
         }
     }, [loadStoredNotifications, addRealtimeNotification, buildRealtimeNotif]);
 
@@ -162,6 +173,7 @@ export const NotificationProvider = ({ children }) => {
                     channelRef.current.stopListening('.appointment.requested');
                     channelRef.current.stopListening('.appointment.status.updated');
                     channelRef.current.stopListening('.appointment.confirmed_for_doctor');
+                    channelRef.current.stopListening('.consultation.started');
                 } catch (_) {}
             }
         };
