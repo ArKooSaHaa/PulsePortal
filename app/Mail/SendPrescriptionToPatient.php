@@ -14,13 +14,17 @@ class SendPrescriptionToPatient extends Mailable
     use Queueable, SerializesModels;
     
     public $patientName;
-    public $
+    public $prescription;
+    public $pdfContent;
+
     /**
      * Create a new message instance.
      */
-    public function __construct()
+    public function __construct($patientName, $prescription, $pdfContent)
     {
-        //
+        $this->patientName  = $patientName;
+        $this->prescription = $prescription;
+        $this->pdfContent   = $pdfContent;
     }
 
     /**
@@ -50,6 +54,9 @@ class SendPrescriptionToPatient extends Mailable
      */
     public function attachments(): array
     {
-        return [];
+        return [
+            \Illuminate\Mail\Mailables\Attachment::fromData(fn () => $this->pdfContent, 'prescription.pdf')
+                ->withMime('application/pdf'),
+        ];
     }
 }

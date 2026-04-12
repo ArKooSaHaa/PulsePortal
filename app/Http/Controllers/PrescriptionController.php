@@ -6,6 +6,9 @@ use Illuminate\Http\Request;
 use App\Models\Appointment;
 use App\Models\Prescription;
 use App\Models\Notification;
+use App\Mail\SendPrescriptionToPatient;
+use Illuminate\Support\Facades\Mail;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class PrescriptionController extends Controller
 {
@@ -72,6 +75,34 @@ class PrescriptionController extends Controller
             'link'           => '/patient/appointments',
             'is_read'        => false,
         ]);
+
+        // Prepare prescription data for the view
+        $medicines = json_decode($prescription->medication, true) ?? [];
+        $pdfData = (object) [
+            'doctor_name'           => $appointment->doctor->user->name,
+            'doctor_specialization' => $appointment->doctor->specialization,
+            'doctor_license'        => $appointment->doctor->license_number,
+            'patient_name'          => $appointment->patient->user->name,
+            'disease_or_problem'    => $prescription->disease_or_problem,
+            'medicines'             => $medicines,
+            'notes'                 => $prescription->instructions,
+            'appointment_date'      => $appointment->appointment_date,
+            'appointment_time'      => $appointment->appointment_time,
+        ];
+
+        // Generate PDF
+        $pdf = Pdf::loadView('emails.patients.prescription', ['prescription' => $pdfData]);
+        $pdfContent = $pdf->output();
+
+        // Send Email to Patient
+        $patientEmail = $appointment->patient->user->email;
+        if ($patientEmail) {
+            Mail::to($patientEmail)->send(new SendPrescriptionToPatient(
+                $appointment->patient->user->name,
+                $pdfData,
+                $pdfContent
+            ));
+        }
 
         return response()->json([
             'status'  => 'success',

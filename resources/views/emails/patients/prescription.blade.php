@@ -221,9 +221,9 @@
                     <tbody>
                         @foreach($prescription->medicines as $med)
                             <tr>
-                                <td class="med-name">{{ $med->name }}</td>
-                                <td class="med-detail">{{ $med->dosage ?? '—' }}</td>
-                                <td class="med-detail">{{ $med->instruction ?? '—' }}</td>
+                                <td class="med-name">{{ $med['name'] ?? '—' }}</td>
+                                <td class="med-detail">{{ $med['dosage'] ?? '—' }}</td>
+                                <td class="med-detail">{{ $med['instruction'] ?? '—' }}</td>
                             </tr>
                         @endforeach
                     </tbody>
