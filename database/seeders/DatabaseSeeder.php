@@ -9,8 +9,10 @@ use App\Models\Admin;
 use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Appointment;
+use App\Models\Consultation;
 use App\Models\VisitNote;
 use Carbon\Carbon;
+use Illuminate\Support\Str;
 use Faker\Factory as Faker;
 
 class DatabaseSeeder extends Seeder
@@ -311,6 +313,86 @@ class DatabaseSeeder extends Seeder
                     'doctor_notes'   => 'Patient examined and advised rest.',
                 ]);
             }
+        }
+
+        // --- 6. ONLINE SETUP TEST DATA ---
+        // 1. Confirmed Online Appointment (Today, Joinable)
+        $confirmedOnline = Appointment::create([
+            'patient_id'       => $patient->id,
+            'doctor_id'        => $doctorCardio->id,
+            'appointment_date' => now()->toDateString(),
+            'appointment_time' => now()->addHour()->format('H:00:00'),
+            'type'             => 'online',
+            'status'           => 'confirmed',
+            'symptoms'         => 'Test: Regular checkup for online setup validation.',
+        ]);
+
+        // 2. In-Progress Online Appointment (Active Room)
+        $inProgressOnline = Appointment::create([
+            'patient_id'       => $patient->id,
+            'doctor_id'        => $doctorNeuro->id,
+            'appointment_date' => now()->toDateString(),
+            'appointment_time' => now()->subMinutes(10)->format('H:i:00'),
+            'type'             => 'online',
+            'status'           => 'in_progress',
+            'symptoms'         => 'Test: Ongoing consultation test.',
+        ]);
+
+        Consultation::create([
+            'appointment_id' => $inProgressOnline->id,
+            'room_name'      => 'PP-' . Str::random(10) . '-' . $inProgressOnline->id,
+            'started_at'     => now()->subMinutes(10),
+        ]);
+
+        // 3. Pending Online Appointment (Upcoming)
+        Appointment::create([
+            'patient_id'       => $patient->id,
+            'doctor_id'        => $doctorCardio->id,
+            'appointment_date' => now()->addDay()->toDateString(),
+            'appointment_time' => '14:00:00',
+            'type'             => 'online',
+            'status'           => 'pending',
+            'symptoms'         => 'Test: Future online appointment.',
+        ]);
+
+        // 4. Confirmed In-Person Appointment (Today)
+        Appointment::create([
+            'patient_id'       => $patient->id,
+            'doctor_id'        => $doctorCardio->id,
+            'appointment_date' => now()->toDateString(),
+            'appointment_time' => '15:30:00',
+            'type'             => 'in_person',
+            'status'           => 'confirmed',
+            'symptoms'         => 'Test: Offline (In-Person) today.',
+        ]);
+
+        // 5. Completed In-Person Appointment (Yesterday)
+        $pastOffline = Appointment::create([
+            'patient_id'       => $patient->id,
+            'doctor_id'        => $doctorCardio->id,
+            'appointment_date' => now()->subDay()->toDateString(),
+            'appointment_time' => '11:00:00',
+            'type'             => 'in_person',
+            'status'           => 'completed',
+            'symptoms'         => 'Test: Completed offline session.',
+        ]);
+
+        VisitNote::create([
+            'appointment_id' => $pastOffline->id,
+            'doctor_notes'   => 'Patient recovered well. Previous prescription effective.',
+        ]);
+
+        // 6. Multiple Confirmed Online for Today (Stress Test)
+        foreach(['16:00:00', '17:00:00', '18:00:00'] as $time) {
+            Appointment::create([
+                'patient_id'       => $patient->id,
+                'doctor_id'        => $doctorCardio->id,
+                'appointment_date' => now()->toDateString(),
+                'appointment_time' => $time,
+                'type'             => 'online',
+                'status'           => 'confirmed',
+                'symptoms'         => "Test: Stacked online session at {$time}",
+            ]);
         }
     }
 }

@@ -126,4 +126,24 @@ class AppointmentController extends Controller
             'data' => $slots
         ]);
     }
+
+    // GET /api/doctor/patient-profile/{patientId}
+    public function getPatientProfile($patientId)
+    {
+        $doctor = auth()->user()->doctor;
+        if (!$doctor) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 403);
+        }
+
+        $profile = $this->appointmentService->getPatientProfileForDoctor((int)$patientId, $doctor->id);
+        
+        if (!$profile) {
+            return response()->json(['status' => 'error', 'message' => 'Patient not found or no history with this doctor.'], 404);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => $profile,
+        ]);
+    }
 }

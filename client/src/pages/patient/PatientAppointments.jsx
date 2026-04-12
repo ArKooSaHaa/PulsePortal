@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
-import { CalendarDays, AlarmClock, MapPin, Loader2, Video, X } from "lucide-react";
+import { CalendarDays, AlarmClock, MapPin, Loader2, Video, X, FileText } from "lucide-react";
 import appointmentService from "../../api/appointmentService";
 
 const STATUS_STYLES = {
@@ -113,6 +113,19 @@ function AppointmentCard({ appt, onCancel, cancelling , navigate, highlight }) {
                                 </button>
                             </div>
                         )}
+
+                    {appt.status === "completed" && (
+                        <div className="mt-4 pt-3 border-t border-slate-100">
+                            <button
+                                onClick={() =>
+                                    navigate(`/patient/prescription/${appt.id}`)
+                                }
+                                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold text-[#127fec] border border-[#127fec]/40 hover:bg-blue-50 transition"
+                            >
+                                <FileText size={13} /> View Prescription
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </motion.div>
@@ -124,12 +137,13 @@ export default function PatientAppointments() {
     const [loading, setLoading]           = useState(true);
     const [error, setError]               = useState("");
     const [cancelling, setCancelling]     = useState(null);
-    const [filter, setFilter]             = useState("all");
     const [page, setPage]                 = useState(1);
     const PER_PAGE = 5;
     const navigate = useNavigate();
     const location = useLocation();
     const highlightId = location.state?.highlight;
+    const defaultFilter = location.state?.filter || "all";
+    const [filter, setFilter]             = useState(defaultFilter);
 
     useEffect(() => {
         if (appointments.length > 0 && highlightId) {
@@ -140,6 +154,12 @@ export default function PatientAppointments() {
             }
         }
     }, [appointments, highlightId]);
+
+    useEffect(() => {
+        if (location.state?.filter) {
+            setFilter(location.state.filter);
+        }
+    }, [location.state]);
 
     useEffect(() => {
         appointmentService.getPatientAppointments()

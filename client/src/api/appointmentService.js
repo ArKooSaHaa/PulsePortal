@@ -44,6 +44,18 @@ const appointmentService = {
         });
         return response.data.data;
     },
+
+    // Doctor uploads a prescription for an appointment (also marks it completed)
+    uploadPrescription: async (appointmentId, data) => {
+        const response = await api.post(`/doctor/appointments/${appointmentId}/prescription`, data);
+        return response.data;
+    },
+
+    // Patient retrieves their prescription for a completed appointment
+    getPatientPrescription: async (appointmentId) => {
+        const response = await api.get(`/patient/appointments/${appointmentId}/prescription`);
+        return response.data.data;
+    },
 };
 
 export default appointmentService;

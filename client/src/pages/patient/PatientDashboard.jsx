@@ -35,13 +35,15 @@ const STATUS_STYLES = {
 function formatDate(dateStr) {
     if (!dateStr) return "—";
     const date = new Date(
-        dateStr.length === 10 ? dateStr + "T00:00:00" : dateStr
+        dateStr.length === 10 ? dateStr + "T00:00:00" : dateStr,
     );
-    return isNaN(date.getTime()) ? "—" : date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-    });
+    return isNaN(date.getTime())
+        ? "—"
+        : date.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+          });
 }
 
 function formatTime(timeStr) {
@@ -153,7 +155,6 @@ function AppointmentCard({ appt }) {
                             )}
                         </span>
                     </div>
-
                 </div>
             </div>
         </div>
@@ -192,7 +193,7 @@ export default function PatientDashboard() {
             (a, b) =>
                 new Date(b.appointment_date) - new Date(a.appointment_date),
         )
-        .slice(0, 5);
+        .slice(0, 3);
 
     return (
         <div className="min-h-screen bg-[#eff6ff] px-4 sm:px-8 lg:px-12 py-8">
@@ -350,16 +351,28 @@ export default function PatientDashboard() {
                                         <span className="text-xs text-slate-400 hidden sm:block">
                                             {formatDate(item.appointment_date)}
                                         </span>
-                                        {/* Not functional yet */}
                                         <button
-                                            className="text-xs font-semibold text-slate-300 cursor-not-allowed focus:outline-none whitespace-nowrap"
-                                            title="Coming soon"
+                                            onClick={() =>
+                                                navigate(
+                                                    `/patient/prescription/${item.id}`,
+                                                )
+                                            }
+                                            className="text-xs font-semibold text-[#127fec] hover:underline focus:outline-none whitespace-nowrap"
+                                            title="View Prescription"
                                         >
-                                            View Summary
+                                            View Prescription →
                                         </button>
                                     </div>
                                 </motion.div>
                             ))}
+                            <div className="text-center mt-2">
+                                <button
+                                    onClick={() => navigate("/patient/appointments", { state: { filter: "completed" } })}
+                                    className="text-xs font-semibold text-[#127fec] hover:underline"
+                                >
+                                    View full history →
+                                </button>
+                            </div>
                         </div>
                     )}
                 </motion.section>
