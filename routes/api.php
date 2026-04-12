@@ -55,7 +55,8 @@ Route::middleware('auth:api')->group(function () {
         Route::patch('appointments/{id}/status',          [AppointmentController::class, 'updateStatus']);
         Route::post('appointments/{id}/prescription',     [PrescriptionController::class, 'store']);
         Route::get('available',                           [DoctorController::class, 'index']);
-        
+        Route::get('patient-profile/{patientId}',         [AppointmentController::class, 'getPatientProfile']);
+
         // Consultations
         Route::post('consultations/{appointmentId}/start', [\App\Http\Controllers\ConsultationController::class, 'start']);
         Route::post('consultations/{appointmentId}/end',   [\App\Http\Controllers\ConsultationController::class, 'end']);

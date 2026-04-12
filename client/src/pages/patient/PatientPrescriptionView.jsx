@@ -8,9 +8,10 @@ import {
     Pill,
     CalendarDays,
     Loader2,
-    AlertCircle,
     Stethoscope,
     ClipboardList,
+    MessageSquare,
+    Sparkles
 } from "lucide-react";
 import appointmentService from "../../api/appointmentService";
 
@@ -37,6 +38,10 @@ export default function PatientPrescriptionView() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
+    // AI Summary State
+    const [summaryLoading, setSummaryLoading] = useState(false);
+    const [summaryText, setSummaryText] = useState("");
+
     useEffect(() => {
         appointmentService
             .getPatientPrescription(id)
@@ -44,6 +49,16 @@ export default function PatientPrescriptionView() {
             .catch(() => setError("Could not load prescription. It may not exist yet."))
             .finally(() => setLoading(false));
     }, [id]);
+
+    const handleGenerateSummary = () => {
+        setSummaryLoading(true);
+
+        // Dummy frontend logic for now
+        setTimeout(() => {
+             setSummaryText("This is an AI-generated simplified summary of your prescription:\n\n• Paracetamol: Take this to manage fever or mild pain. Ensure you take it after meals.\n• Amoxicillin: This is an antibiotic. It is crucial to complete the entire course as prescribed to prevent resistance, even if you start feeling better soon.\n\nPlease follow the doctor's instructions carefully and ensure you rest well for a speedy recovery.");
+             setSummaryLoading(false);
+        }, 1200);
+    };
 
     if (loading) {
         return (
@@ -243,6 +258,46 @@ export default function PatientPrescriptionView() {
                             </button>
                         </div>
                     </div>
+                </motion.div>
+
+                {/* AI Prescription Summary (Frontend Mockup) */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="mt-6 bg-white rounded-3xl shadow-md border border-slate-100 overflow-hidden p-6"
+                >
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-[#127fec]">
+                            <MessageSquare size={16} />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-slate-800 text-base tracking-wide">Prescription AI Summary</h3>
+                            <p className="text-xs text-slate-500">Get a simplified explanation of your prescription and advice</p>
+                        </div>
+                    </div>
+                    
+                    {!summaryText && !summaryLoading ? (
+                        <button 
+                            onClick={handleGenerateSummary}
+                            className="flex items-center gap-2 bg-blue-50 text-blue-600 border border-blue-200 font-semibold px-4 py-2 rounded-xl text-sm hover:bg-blue-100 transition-colors"
+                        >
+                            <Sparkles size={16} /> Generate Summary
+                        </button>
+                    ) : summaryLoading ? (
+                        <div className="flex items-center gap-2 text-sm text-slate-500 bg-slate-50 p-4 rounded-xl border border-slate-100 w-full lg:w-3/4">
+                            <Loader2 size={16} className="animate-spin text-blue-500" />
+                            Analyzing prescription and generating summary...
+                        </div>
+                    ) : (
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.98 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm text-slate-700 leading-relaxed whitespace-pre-wrap shadow-inner"
+                        >
+                            {summaryText}
+                        </motion.div>
+                    )}
                 </motion.div>
             </div>
         </div>

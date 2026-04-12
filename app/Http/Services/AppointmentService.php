@@ -72,7 +72,7 @@ class AppointmentService
     {
         return Appointment::with(['patient.user', 'prescriptions'])
             ->where('doctor_id', $doctorId)
-            ->where('status', 'confirmed')
+            ->whereIn('status', ['confirmed', 'in_progress', 'completed'])
             ->orderBy('appointment_date', 'asc')
             ->orderBy('appointment_time', 'asc')
             ->get()
@@ -96,6 +96,51 @@ class AppointmentService
             ->orderBy('appointment_time', 'desc')
             ->get()
             ->map(fn($a) => $this->formatAppointmentForAdmin($a));
+    }
+
+    /**
+     * Get a patient's profile and recent history for a specific doctor.
+     */
+    public function getPatientProfileForDoctor(int $patientId, int $doctorId)
+    {
+        $patient = \App\Models\Patient::with('user')->find($patientId);
+        
+        if (!$patient) return null;
+
+        // Verify the doctor has seen this patient (optional security check)
+        $hasHistory = Appointment::where('patient_id', $patientId)->where('doctor_id', $doctorId)->exists();
+        if (!$hasHistory) return null;
+
+        $recentAppointments = Appointment::with(['doctor.user'])
+            ->where('patient_id', $patientId)
+            ->where('doctor_id', $doctorId) // Only history with this doctor
+            ->orderBy('appointment_date', 'desc')
+            ->orderBy('appointment_time', 'desc')
+            ->limit(5)
+            ->get()
+            ->map(function ($a) {
+                return [
+                    'id'               => $a->id,
+                    'doctor_name'      => $a->doctor->user->name ?? 'Unknown',
+                    'appointment_date' => $a->appointment_date->format('Y-m-d'),
+                    'status'           => $a->status,
+                    'symptoms'         => $a->symptoms,
+                ];
+            });
+
+        return [
+            'id'                  => $patient->id,
+            'name'                => $patient->user->name ?? 'Unknown',
+            'email'               => $patient->user->email ?? 'Unknown',
+            'blood_group'         => $patient->blood_group,
+            'dob'                 => $patient->dob ? $patient->dob->format('Y-m-d') : null,
+            'phone'               => $patient->phone,
+            'address'             => $patient->address,
+            'emergency_contact'   => $patient->emergency_contact,
+            'emergency_phone'     => $patient->emergency_phone,
+            'medical_history'     => $patient->medical_history,
+            'recent_appointments' => $recentAppointments,
+        ];
     }
 
     /**
