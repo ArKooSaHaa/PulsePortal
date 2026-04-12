@@ -41,7 +41,7 @@ export default function DoctorConsultation() {
         } catch (e) {
             console.error("Failed to end consultation properly", e);
         }
-        navigate("/doctor/appointments");
+        navigate(`/doctor/prescription-preview/${id}`);
     };
 
     // Restore Upload Prescription Logic
