@@ -28,6 +28,24 @@ const AUTH_ENDPOINTS = {
     refresh: ["/auth/refresh", "/refresh"],
 };
 
+const getAuthPayload = (responseData) => {
+    const nestedPayload =
+        responseData?.data && typeof responseData.data === "object"
+            ? responseData.data
+            : null;
+
+    const token =
+        nestedPayload?.access_token ||
+        nestedPayload?.token ||
+        responseData?.access_token ||
+        responseData?.token ||
+        null;
+
+    const user = nestedPayload?.user || responseData?.user || null;
+
+    return { token, user };
+};
+
 const isMissingAuthEndpointError = (err) => {
     const status = err?.response?.status;
     if ([404, 405].includes(status)) {
@@ -67,8 +85,7 @@ const authService = {
                 password_confirmation: confirmPassword,
             });
 
-            const token = response.data?.access_token;
-            const user = response.data?.user;
+            const { token, user } = getAuthPayload(response.data);
             if (!token || !user) {
                 throw new Error("Unexpected response from register API.");
             }
@@ -88,8 +105,7 @@ const authService = {
                 password,
             });
 
-            const token = response.data?.access_token;
-            const user = response.data?.user;
+            const { token, user } = getAuthPayload(response.data);
             if (!token || !user) {
                 throw new Error("Unexpected response from login API.");
             }
@@ -115,15 +131,15 @@ const authService = {
     refreshToken: async () => {
         try {
             const response = await postWithAuthPathFallback(AUTH_ENDPOINTS.refresh);
-            const token = response.data?.access_token;
-            const user = response.data?.user;
+            const { token, user } = getAuthPayload(response.data);
+            const nextUser = user || authService.getCurrentUser();
 
-            if (!token || !user) {
+            if (!token || !nextUser) {
                 throw new Error("Unexpected response from refresh API.");
             }
 
             localStorage.setItem(SESSION_TOKEN_KEY, token);
-            return saveSessionUser(user);
+            return saveSessionUser(nextUser);
         } catch (err) {
             normalizeApiError(err);
         }

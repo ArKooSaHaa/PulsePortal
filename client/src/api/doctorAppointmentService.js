@@ -39,6 +39,50 @@ const normalizeRoomAdmissionStats = (item) => ({
     totalRoomAdmissions: Number(item.total_room_admissions || 0),
 });
 
+const getNestedPayload = (responseData) => {
+    return responseData?.data && typeof responseData.data === "object"
+        ? responseData.data
+        : null;
+};
+
+const pickArray = (responseData, key) => {
+    const nested = getNestedPayload(responseData);
+
+    if (Array.isArray(responseData?.[key])) {
+        return responseData[key];
+    }
+
+    if (Array.isArray(nested?.[key])) {
+        return nested[key];
+    }
+
+    return [];
+};
+
+const pickObject = (responseData, key) => {
+    const nested = getNestedPayload(responseData);
+
+    if (responseData?.[key] && typeof responseData[key] === "object") {
+        return responseData[key];
+    }
+
+    if (nested?.[key] && typeof nested[key] === "object") {
+        return nested[key];
+    }
+
+    return {};
+};
+
+const isRouteMissingError = (error) => {
+    const statusCode = error?.response?.status;
+    const message = String(error?.response?.data?.message || "").toLowerCase();
+
+    return (
+        [404, 405].includes(statusCode) ||
+        (message.includes("route") && message.includes("could not be found"))
+    );
+};
+
 const doctorAppointmentService = {
     getMyAppointments: async ({ status = "", scope = "all" } = {}) => {
         const normalizedScope = ["upcoming", "today"].includes(scope)
@@ -52,7 +96,7 @@ const doctorAppointmentService = {
             },
         });
 
-        const appointments = response.data?.appointments || [];
+        const appointments = pickArray(response.data, "appointments");
         return appointments.map(normalizeAppointment);
     },
 
@@ -64,27 +108,49 @@ const doctorAppointmentService = {
             },
         );
 
-        return normalizeAppointment(response.data?.appointment || {});
+        return normalizeAppointment(pickObject(response.data, "appointment"));
     },
 
     getRoomAdmissionsSummary: async ({ limit = 5 } = {}) => {
-        const response = await api.get("/doctor/room-admissions/summary", {
-            params: {
-                limit,
-            },
-        });
+        try {
+            const response = await api.get("/doctor/room-admissions/summary", {
+                params: {
+                    limit,
+                },
+            });
 
-        return {
-            stats: normalizeRoomAdmissionStats(response.data?.stats || {}),
-            roomAdmissions: (response.data?.room_admissions || []).map(
-                normalizeRoomAdmission,
-            ),
-        };
+            return {
+                stats: normalizeRoomAdmissionStats(pickObject(response.data, "stats")),
+                roomAdmissions: pickArray(response.data, "room_admissions").map(
+                    normalizeRoomAdmission,
+                ),
+            };
+        } catch (error) {
+            if (!isRouteMissingError(error)) {
+                throw error;
+            }
+
+            return {
+                stats: {
+                    activeRoomAdmissions: 0,
+                    totalRoomAdmissions: 0,
+                },
+                roomAdmissions: [],
+            };
+        }
     },
 
     getRoomAdmissionDetails: async (admissionId) => {
-        const response = await api.get(`/doctor/room-admissions/${admissionId}`);
-        return normalizeRoomAdmission(response.data?.room_admission || {});
+        try {
+            const response = await api.get(`/doctor/room-admissions/${admissionId}`);
+            return normalizeRoomAdmission(pickObject(response.data, "room_admission"));
+        } catch (error) {
+            if (!isRouteMissingError(error)) {
+                throw error;
+            }
+
+            throw new Error("Room admission details are not available right now.");
+        }
     },
 };
 

@@ -187,6 +187,78 @@ const normalizeRoomAdmissionStats = (item) => ({
     totalRoomAdmissions: Number(item.total_room_admissions || 0),
 });
 
+const getNestedPayload = (responseData) => {
+    return responseData?.data && typeof responseData.data === "object"
+        ? responseData.data
+        : null;
+};
+
+const pickArray = (responseData, key) => {
+    const nested = getNestedPayload(responseData);
+
+    if (Array.isArray(responseData?.[key])) {
+        return responseData[key];
+    }
+
+    if (Array.isArray(nested?.[key])) {
+        return nested[key];
+    }
+
+    return [];
+};
+
+const pickObject = (responseData, key) => {
+    const nested = getNestedPayload(responseData);
+
+    if (responseData?.[key] && typeof responseData[key] === "object") {
+        return responseData[key];
+    }
+
+    if (nested?.[key] && typeof nested[key] === "object") {
+        return nested[key];
+    }
+
+    return {};
+};
+
+const isRouteMissingError = (error) => {
+    const statusCode = error?.response?.status;
+    const message = String(error?.response?.data?.message || "").toLowerCase();
+
+    return (
+        [404, 405].includes(statusCode) ||
+        (message.includes("route") && message.includes("could not be found"))
+    );
+};
+
+const isValidDateValue = (value) => {
+    if (!value) {
+        return false;
+    }
+
+    const parsed = new Date(value);
+    return !Number.isNaN(parsed.getTime());
+};
+
+const toTimestamp = (value) => {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+};
+
+const normalizePositiveLimit = (value, fallback = 5) => {
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+        return fallback;
+    }
+
+    return parsed;
+};
+
+const fetchAllAppointments = async () => {
+    const response = await api.get("/patient/appointments");
+    return pickArray(response.data, "appointments").map(normalizeAppointment);
+};
+
 const patientAppointmentService = {
     getDoctors: async ({ search = "", department = "" } = {}) => {
         const response = await api.get("/patient/doctors", {
@@ -196,7 +268,7 @@ const patientAppointmentService = {
             },
         });
 
-        const doctors = response.data?.doctors || [];
+        const doctors = pickArray(response.data, "doctors");
         return doctors.map(normalizeDoctor);
     },
 
@@ -207,72 +279,171 @@ const patientAppointmentService = {
             appointment_date: appointmentDate,
         });
 
-        return normalizeAppointment(response.data?.appointment || {});
+        return normalizeAppointment(pickObject(response.data, "appointment"));
     },
 
     getMyAppointments: async () => {
-        const response = await api.get("/patient/appointments");
-        const appointments = response.data?.appointments || [];
-
-        return appointments.map(normalizeAppointment);
+        return fetchAllAppointments();
     },
 
     getUpcomingAppointments: async ({ limit = 5 } = {}) => {
-        const response = await api.get("/patient/appointments/upcoming", {
-            params: {
-                limit,
-            },
-        });
+        const normalizedLimit = normalizePositiveLimit(limit);
 
-        const appointments = response.data?.appointments || [];
+        try {
+            const response = await api.get("/patient/appointments/upcoming", {
+                params: {
+                    limit: normalizedLimit,
+                },
+            });
 
-        return appointments.map(normalizeAppointment);
+            const appointments = pickArray(response.data, "appointments");
+
+            return appointments.map(normalizeAppointment);
+        } catch (error) {
+            if (!isRouteMissingError(error)) {
+                throw error;
+            }
+
+            const appointments = await fetchAllAppointments();
+            const now = Date.now();
+
+            return appointments
+                .filter((item) => {
+                    const status = String(item.status || "pending").toLowerCase();
+                    return (
+                        isValidDateValue(item.appointmentDate) &&
+                        toTimestamp(item.appointmentDate) >= now &&
+                        status !== "cancelled"
+                    );
+                })
+                .sort((a, b) => toTimestamp(a.appointmentDate) - toTimestamp(b.appointmentDate))
+                .slice(0, normalizedLimit);
+        }
     },
 
     getRoomAdmissionsSummary: async ({ limit = 5 } = {}) => {
-        const response = await api.get("/patient/room-admissions/summary", {
-            params: {
-                limit,
-            },
-        });
+        const normalizedLimit = normalizePositiveLimit(limit);
 
-        return {
-            stats: normalizeRoomAdmissionStats(response.data?.stats || {}),
-            roomAdmissions: (response.data?.room_admissions || []).map(
-                normalizeRoomAdmission,
-            ),
-        };
+        try {
+            const response = await api.get("/patient/room-admissions/summary", {
+                params: {
+                    limit: normalizedLimit,
+                },
+            });
+
+            return {
+                stats: normalizeRoomAdmissionStats(pickObject(response.data, "stats")),
+                roomAdmissions: pickArray(response.data, "room_admissions")
+                    .map(normalizeRoomAdmission)
+                    .slice(0, normalizedLimit),
+            };
+        } catch (error) {
+            if (!isRouteMissingError(error)) {
+                throw error;
+            }
+
+            return {
+                stats: {
+                    activeRoomAdmissions: 0,
+                    totalRoomAdmissions: 0,
+                },
+                roomAdmissions: [],
+            };
+        }
     },
 
     getRoomAdmissionDetails: async (admissionId) => {
-        const response = await api.get(`/patient/room-admissions/${admissionId}`);
-        return normalizeRoomAdmission(response.data?.room_admission || {});
+        try {
+            const response = await api.get(`/patient/room-admissions/${admissionId}`);
+            return normalizeRoomAdmission(pickObject(response.data, "room_admission"));
+        } catch (error) {
+            if (!isRouteMissingError(error)) {
+                throw error;
+            }
+
+            throw new Error("Room admission details are not available right now.");
+        }
     },
 
     getRecentHistory: async ({ limit = 5 } = {}) => {
-        const response = await api.get("/patient/appointments/history", {
-            params: {
-                limit,
-            },
-        });
+        const normalizedLimit = normalizePositiveLimit(limit);
 
-        const appointments = response.data?.appointments || [];
+        try {
+            const response = await api.get("/patient/appointments/history", {
+                params: {
+                    limit: normalizedLimit,
+                },
+            });
 
-        return appointments.map(normalizeAppointment);
+            const appointments = pickArray(response.data, "appointments");
+
+            return appointments.map(normalizeAppointment);
+        } catch (error) {
+            if (!isRouteMissingError(error)) {
+                throw error;
+            }
+
+            const appointments = await fetchAllAppointments();
+            const now = Date.now();
+
+            return appointments
+                .filter((item) => {
+                    const status = String(item.status || "pending").toLowerCase();
+                    return (
+                        !isValidDateValue(item.appointmentDate) ||
+                        toTimestamp(item.appointmentDate) < now ||
+                        ["completed", "cancelled"].includes(status)
+                    );
+                })
+                .sort((a, b) => toTimestamp(b.appointmentDate) - toTimestamp(a.appointmentDate))
+                .slice(0, normalizedLimit);
+        }
     },
 
     getAppointmentDetails: async (appointmentId) => {
-        const response = await api.get(`/patient/appointments/${appointmentId}`);
+        try {
+            const response = await api.get(`/patient/appointments/${appointmentId}`);
 
-        return normalizeAppointment(response.data?.appointment || {});
+            return normalizeAppointment(pickObject(response.data, "appointment"));
+        } catch (error) {
+            if (!isRouteMissingError(error)) {
+                throw error;
+            }
+
+            const appointments = await fetchAllAppointments();
+            const found = appointments.find((item) => item.id === Number(appointmentId));
+
+            if (found) {
+                return found;
+            }
+
+            throw new Error("Appointment details are not available right now.");
+        }
     },
 
     getAppointmentSummary: async (appointmentId) => {
-        const response = await api.get(
-            `/patient/appointments/${appointmentId}/summary`,
-        );
+        try {
+            const response = await api.get(
+                `/patient/appointments/${appointmentId}/summary`,
+            );
 
-        return normalizeAppointment(response.data?.appointment || {});
+            return normalizeAppointment(pickObject(response.data, "appointment"));
+        } catch (error) {
+            if (!isRouteMissingError(error)) {
+                throw error;
+            }
+
+            const details = await patientAppointmentService.getAppointmentDetails(
+                appointmentId,
+            );
+
+            return {
+                ...details,
+                summaryNote:
+                    details.summaryNote ||
+                    "Visit details are available in your appointment history.",
+            };
+        }
     },
 
     cancelAppointment: async (appointmentId) => {
@@ -280,7 +451,7 @@ const patientAppointmentService = {
             `/patient/appointments/${appointmentId}/cancel`,
         );
 
-        return normalizeAppointment(response.data?.appointment || {});
+        return normalizeAppointment(pickObject(response.data, "appointment"));
     },
 };
 

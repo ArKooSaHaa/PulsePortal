@@ -221,6 +221,24 @@ const requestRefreshToken = async (baseUrl, currentToken) => {
     throw lastError;
 };
 
+const getRefreshPayload = (responseData) => {
+    const nestedPayload =
+        responseData?.data && typeof responseData.data === "object"
+            ? responseData.data
+            : null;
+
+    const token =
+        nestedPayload?.access_token ||
+        nestedPayload?.token ||
+        responseData?.access_token ||
+        responseData?.token ||
+        null;
+
+    const user = nestedPayload?.user || responseData?.user || null;
+
+    return { token, user };
+};
+
 const refreshSessionToken = async (baseUrlOverride = "") => {
     if (refreshSessionPromise) {
         return refreshSessionPromise;
@@ -235,13 +253,13 @@ const refreshSessionToken = async (baseUrlOverride = "") => {
         const baseUrl = baseUrlOverride || (await resolveApiBaseUrl());
         const response = await requestRefreshToken(baseUrl, currentToken);
 
-        const refreshedToken = response.data?.access_token;
+        const { token: refreshedToken, user } = getRefreshPayload(response.data);
         if (!refreshedToken || typeof refreshedToken !== "string") {
             throw new Error("Refresh endpoint did not return a valid access token.");
         }
 
         localStorage.setItem(SESSION_TOKEN_KEY, refreshedToken);
-        saveSessionUser(response.data?.user);
+        saveSessionUser(user);
 
         return refreshedToken;
     })().finally(() => {
