@@ -2057,30 +2057,30 @@ GO
 --------------------------------------------------
 
 -- VIEW: ROOM ADMISSION ANALYTICS (LEFT JOIN + AGGREGATES + GROUP BY + HAVING)
-CREATE VIEW vw_room_admission_analytics
+CREATE VIEW vw_room_admission_analytics -- VIEW
 AS
 SELECT
 	hr.id AS room_id,
 	hr.room_number,
 	hr.room_type,
 	hr.floor_number,
-	COUNT(ra.id) AS total_admissions,
-	SUM(CASE WHEN ra.status = 'admitted' AND ra.discharged_at IS NULL THEN 1 ELSE 0 END) AS active_admissions,
-	AVG(CASE WHEN ra.admitted_at IS NOT NULL THEN DATEDIFF(HOUR, ra.admitted_at, ISNULL(ra.discharged_at, GETDATE())) * 1.0 END) AS avg_stay_hours,
-	MIN(ra.admitted_at) AS first_admission_at,
-	MAX(ISNULL(ra.discharged_at, ra.admitted_at)) AS last_admission_at
+	COUNT(ra.id) AS total_admissions, -- COUNT
+	SUM(CASE WHEN ra.status = 'admitted' AND ra.discharged_at IS NULL THEN 1 ELSE 0 END) AS active_admissions, -- SUM
+	AVG(CASE WHEN ra.admitted_at IS NOT NULL THEN DATEDIFF(HOUR, ra.admitted_at, ISNULL(ra.discharged_at, GETDATE())) * 1.0 END) AS avg_stay_hours, -- AVG
+	MIN(ra.admitted_at) AS first_admission_at, -- MIN + FIRST equivalent in SQL Server
+	MAX(ISNULL(ra.discharged_at, ra.admitted_at)) AS last_admission_at -- MAX + LAST equivalent in SQL Server
 FROM hospital_rooms hr
-LEFT JOIN room_admissions ra ON ra.room_id = hr.id
+LEFT JOIN room_admissions ra ON ra.room_id = hr.id -- LEFT JOIN
 GROUP BY
 	hr.id,
 	hr.room_number,
 	hr.room_type,
-	hr.floor_number
-HAVING COUNT(ra.id) >= 0;
+	hr.floor_number -- GROUP BY
+HAVING COUNT(ra.id) >= 0; -- HAVING
 GO
 
 -- TRIGGER: KEEP ROOM STATUS IN SYNC WITH ACTIVE ADMISSIONS
-CREATE TRIGGER trg_sync_room_status_from_admissions
+CREATE TRIGGER trg_sync_room_status_from_admissions -- TRIGGER
 ON room_admissions
 AFTER INSERT, UPDATE, DELETE
 AS
@@ -2114,7 +2114,7 @@ END;
 GO
 
 -- PROCEDURE: TRANSACTIONAL ROOM TRANSFER
-CREATE PROCEDURE sp_transfer_room_admission
+CREATE PROCEDURE sp_transfer_room_admission -- PROCEDURE
 	@admission_id BIGINT,
 	@to_room_id BIGINT
 AS
@@ -2124,7 +2124,7 @@ BEGIN
 	DECLARE @from_room_id BIGINT;
 
 	BEGIN TRY
-		BEGIN TRANSACTION;
+		BEGIN TRANSACTION; -- TRANSACTION START
 
 		SELECT TOP 1 @from_room_id = room_id
 		FROM room_admissions
@@ -2160,12 +2160,12 @@ BEGIN
 
 		-- Trigger keeps room statuses synchronized after this update.
 
-		COMMIT TRANSACTION;
+		COMMIT TRANSACTION; -- TRANSACTION COMMIT
 	END TRY
 	BEGIN CATCH
 		IF @@TRANCOUNT > 0
 		BEGIN
-			ROLLBACK TRANSACTION;
+			ROLLBACK TRANSACTION; -- TRANSACTION ROLLBACK
 		END
 
 		THROW;
@@ -2190,7 +2190,7 @@ END;
 GO
 
 -- PROCEDURE: SQL FEATURE REPORT (INNER/LEFT/RIGHT/FULL JOIN + SUBQUERY + AGGREGATES)
-CREATE PROCEDURE sp_get_sql_feature_report
+CREATE PROCEDURE sp_get_sql_feature_report -- PROCEDURE
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -2203,9 +2203,9 @@ BEGIN
 		a.status,
 		a.appointment_date
 	FROM appointments a
-	INNER JOIN patients p ON p.id = a.patient_id
-	INNER JOIN doctors d ON d.id = a.doctor_id
-	WHERE a.patient_id IN (
+	INNER JOIN patients p ON p.id = a.patient_id -- INNER JOIN
+	INNER JOIN doctors d ON d.id = a.doctor_id -- INNER JOIN
+	WHERE a.patient_id IN ( -- SUBQUERY
 		SELECT id
 		FROM patients
 		WHERE deleted_at IS NULL
@@ -2219,7 +2219,7 @@ BEGIN
 		ra.id AS admission_id,
 		ra.status AS admission_status
 	FROM room_admissions ra
-	RIGHT JOIN hospital_rooms hr ON hr.id = ra.room_id
+	RIGHT JOIN hospital_rooms hr ON hr.id = ra.room_id -- RIGHT JOIN
 	ORDER BY hr.room_number ASC;
 
 	-- FULL JOIN
@@ -2229,20 +2229,21 @@ BEGIN
 		ra.id AS admission_id,
 		ra.status AS admission_status
 	FROM doctors d
-	FULL JOIN room_admissions ra ON ra.doctor_id = d.id
+	FULL JOIN room_admissions ra ON ra.doctor_id = d.id -- FULL JOIN
 	ORDER BY ISNULL(ra.updated_at, d.updated_at) DESC;
 
 	-- AGGREGATES + GROUP BY + HAVING
+	-- NOTE: SQL Server has no FIRST()/LAST() aggregate functions; MIN/MAX are used as equivalents.
 	SELECT
 		hr.room_type,
-		COUNT(*) AS total_rows,
-		SUM(CASE WHEN ra.status = 'admitted' AND ra.discharged_at IS NULL THEN 1 ELSE 0 END) AS active_rows,
-		AVG(CASE WHEN ra.admitted_at IS NOT NULL THEN DATEDIFF(HOUR, ra.admitted_at, ISNULL(ra.discharged_at, GETDATE())) * 1.0 END) AS avg_stay_hours,
-		MIN(ra.admitted_at) AS first_admission_at,
-		MAX(ISNULL(ra.discharged_at, ra.admitted_at)) AS last_admission_at
+		COUNT(*) AS total_rows, -- COUNT
+		SUM(CASE WHEN ra.status = 'admitted' AND ra.discharged_at IS NULL THEN 1 ELSE 0 END) AS active_rows, -- SUM
+		AVG(CASE WHEN ra.admitted_at IS NOT NULL THEN DATEDIFF(HOUR, ra.admitted_at, ISNULL(ra.discharged_at, GETDATE())) * 1.0 END) AS avg_stay_hours, -- AVG
+		MIN(ra.admitted_at) AS first_admission_at, -- MIN + FIRST equivalent
+		MAX(ISNULL(ra.discharged_at, ra.admitted_at)) AS last_admission_at -- MAX + LAST equivalent
 	FROM hospital_rooms hr
-	LEFT JOIN room_admissions ra ON ra.room_id = hr.id
-	GROUP BY hr.room_type
-	HAVING COUNT(*) >= 1;
+	LEFT JOIN room_admissions ra ON ra.room_id = hr.id -- LEFT JOIN
+	GROUP BY hr.room_type -- GROUP BY
+	HAVING COUNT(*) >= 1; -- HAVING
 END;
 GO

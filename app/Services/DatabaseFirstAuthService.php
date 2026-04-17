@@ -138,8 +138,15 @@ class DatabaseFirstAuthService
             return false;
         }
 
-        return Hash::check($plainPassword, $storedPassword)
-            || hash_equals($storedPassword, $plainPassword);
+        if (hash_equals($storedPassword, $plainPassword)) {
+            return true;
+        }
+
+        try {
+            return Hash::check($plainPassword, $storedPassword);
+        } catch (RuntimeException) {
+            return false;
+        }
     }
 
     private function fetchOne(string $procedure, array $namedParameters): ?object

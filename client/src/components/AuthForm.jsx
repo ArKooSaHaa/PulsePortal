@@ -218,6 +218,7 @@ export default function AuthForm({ activeRole, onRoleChange }) {
                 // ── Role tab enforcement ──────────────────────────────
                 if (user.role !== role) {
                     localStorage.removeItem("user");
+                    localStorage.removeItem("token");
                     setError(
                         `No ${role} account found with these credentials.`,
                     );

@@ -1,5 +1,8 @@
 import axios from "axios";
 
+const SESSION_TOKEN_KEY = "token";
+const SESSION_USER_KEY = "user";
+
 const normalizeApiBaseUrl = (value) => {
     if (!value || typeof value !== "string") {
         return "";
@@ -66,6 +69,31 @@ const candidateApiBaseUrls = Array.from(
 
 let resolvedApiBaseUrl = configuredApiBaseUrl || candidateApiBaseUrls[0] || "";
 let resolveApiBaseUrlPromise = null;
+let refreshSessionPromise = null;
+
+const clearSession = () => {
+    localStorage.removeItem(SESSION_TOKEN_KEY);
+    localStorage.removeItem(SESSION_USER_KEY);
+};
+
+const redirectToAuthIfNeeded = () => {
+    if (typeof window === "undefined") {
+        return;
+    }
+
+    const currentPath = String(window.location.pathname || "");
+    if (!currentPath.startsWith("/auth")) {
+        window.location.assign("/auth");
+    }
+};
+
+const saveSessionUser = (user) => {
+    if (!user || typeof user !== "object") {
+        return;
+    }
+
+    localStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
+};
 
 const updateResolvedBaseUrl = (nextBaseUrl) => {
     if (!nextBaseUrl) {
@@ -133,6 +161,96 @@ const resolveApiBaseUrl = async () => {
     return resolveApiBaseUrlPromise;
 };
 
+const isMissingAuthEndpointError = (error) => {
+    const statusCode = error?.response?.status;
+    if ([404, 405].includes(statusCode)) {
+        return true;
+    }
+
+    const message = String(error?.response?.data?.message || "").toLowerCase();
+    return message.includes("route") && message.includes("could not be found");
+};
+
+const AUTH_PATH_SUFFIXES = [
+    "/auth/login",
+    "/auth/register",
+    "/auth/refresh",
+    "/auth/logout",
+    "/login",
+    "/register",
+    "/refresh",
+    "/logout",
+];
+
+const shouldAttemptTokenRefresh = (requestConfig, statusCode) => {
+    if (statusCode !== 401 || !requestConfig || requestConfig.__isRetryAfterRefresh) {
+        return false;
+    }
+
+    const token = localStorage.getItem(SESSION_TOKEN_KEY);
+    if (!token) {
+        return false;
+    }
+
+    const url = String(requestConfig.url || "");
+
+    return !AUTH_PATH_SUFFIXES.some((path) => url.endsWith(path));
+};
+
+const requestRefreshToken = async (baseUrl, currentToken) => {
+    let lastError;
+    const refreshPaths = ["/auth/refresh", "/refresh"];
+
+    for (const refreshPath of refreshPaths) {
+        try {
+            return await axios.post(`${baseUrl}${refreshPath}`, null, {
+                timeout: 10000,
+                headers: {
+                    Accept: "application/json",
+                    Authorization: `Bearer ${currentToken}`,
+                },
+            });
+        } catch (error) {
+            lastError = error;
+            if (!isMissingAuthEndpointError(error)) {
+                throw error;
+            }
+        }
+    }
+
+    throw lastError;
+};
+
+const refreshSessionToken = async (baseUrlOverride = "") => {
+    if (refreshSessionPromise) {
+        return refreshSessionPromise;
+    }
+
+    refreshSessionPromise = (async () => {
+        const currentToken = localStorage.getItem(SESSION_TOKEN_KEY);
+        if (!currentToken) {
+            throw new Error("No session token available for refresh.");
+        }
+
+        const baseUrl = baseUrlOverride || (await resolveApiBaseUrl());
+        const response = await requestRefreshToken(baseUrl, currentToken);
+
+        const refreshedToken = response.data?.access_token;
+        if (!refreshedToken || typeof refreshedToken !== "string") {
+            throw new Error("Refresh endpoint did not return a valid access token.");
+        }
+
+        localStorage.setItem(SESSION_TOKEN_KEY, refreshedToken);
+        saveSessionUser(response.data?.user);
+
+        return refreshedToken;
+    })().finally(() => {
+        refreshSessionPromise = null;
+    });
+
+    return refreshSessionPromise;
+};
+
 const api = axios.create({
     timeout: 10000,
     headers: {
@@ -152,7 +270,7 @@ api.interceptors.request.use(async (config) => {
         }
     }
 
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem(SESSION_TOKEN_KEY);
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
     }
@@ -163,11 +281,12 @@ api.interceptors.response.use(
     (response) => response,
     async (error) => {
         const requestConfig = error.config;
+        const statusCode = error.response?.status;
 
         const shouldRetryWithNextBaseUrl =
             requestConfig &&
             !requestConfig.__apiBaseRetried &&
-            (!error.response || [404, 405].includes(error.response?.status));
+            (!error.response || [404, 405].includes(statusCode));
 
         if (shouldRetryWithNextBaseUrl) {
             const currentBaseUrl = requestConfig.baseURL || resolvedApiBaseUrl;
@@ -181,10 +300,27 @@ api.interceptors.response.use(
             }
         }
 
-        if (error.response?.status === 401) {
-            localStorage.removeItem("token");
-            localStorage.removeItem("user");
+        if (shouldAttemptTokenRefresh(requestConfig, statusCode)) {
+            try {
+                const refreshedToken = await refreshSessionToken(
+                    requestConfig.baseURL || resolvedApiBaseUrl,
+                );
+
+                requestConfig.__isRetryAfterRefresh = true;
+                requestConfig.headers = requestConfig.headers || {};
+                requestConfig.headers.Authorization = `Bearer ${refreshedToken}`;
+
+                return api.request(requestConfig);
+            } catch {
+                clearSession();
+            }
         }
+
+        if (statusCode === 401) {
+            clearSession();
+            redirectToAuthIfNeeded();
+        }
+
         return Promise.reject(error);
     },
 );
