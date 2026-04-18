@@ -11,6 +11,7 @@ use App\Http\Controllers\AiController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PrescriptionController;
 use App\Http\Controllers\RoomAdmissionController;
+use App\Http\Controllers\AdmissionPortalController;
 
 // ── Auth routes ───────────────────────────────────────────────
 Route::prefix('auth')->group(function () {
@@ -39,6 +40,7 @@ Route::middleware('auth:api')->group(function () {
     Route::prefix('patient')->group(function () {
         Route::get('appointments/booked-slots', [AppointmentController::class, 'getBookedSlots']);
         Route::get('appointments',               [AppointmentController::class, 'patientIndex']);
+        Route::get('room-admissions',            [AdmissionPortalController::class, 'patientAdmissions']);
         Route::post('appointments',              [AppointmentController::class, 'store']);
         Route::patch('appointments/{id}/cancel', [AppointmentController::class, 'cancel']);
         
@@ -54,6 +56,7 @@ Route::middleware('auth:api')->group(function () {
     // Doctor routes
     Route::prefix('doctor')->group(function () {
         Route::get('appointments',                        [AppointmentController::class, 'doctorIndex']);
+        Route::get('room-admissions',                     [AdmissionPortalController::class, 'doctorAdmissions']);
         Route::patch('appointments/{id}/status',          [AppointmentController::class, 'updateStatus']);
         Route::post('appointments/{id}/prescription',     [PrescriptionController::class, 'store']);
         Route::get('available',                           [DoctorController::class, 'index']);

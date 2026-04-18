@@ -14,11 +14,16 @@ import {
     Phone,
     AlertTriangle,
     Sparkles,
+    BedDouble,
+    Building2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import appointmentService from "../../api/appointmentService";
 import authService from "../../api/authService";
 import api from "../../api/axios";
+import roomAdmissionService from "../../api/roomAdmissionService";
+
+const Motion = motion;
 
 const cardVariant = {
     hidden: { opacity: 0, y: 30 },
@@ -27,6 +32,14 @@ const cardVariant = {
         y: 0,
         transition: { delay: i * 0.1, duration: 0.4, ease: "easeOut" },
     }),
+};
+
+const ADMISSION_STATUS_STYLES = {
+    pending: "bg-amber-50 text-amber-700 border border-amber-100",
+    admitted: "bg-emerald-50 text-emerald-700 border border-emerald-100",
+    transfer: "bg-sky-50 text-sky-700 border border-sky-100",
+    discharged: "bg-slate-100 text-slate-600 border border-slate-200",
+    cancelled: "bg-rose-50 text-rose-600 border border-rose-100",
 };
 
 // Greeting based on time of day
@@ -44,9 +57,26 @@ function formatTime(t) {
     return `${hour > 12 ? hour - 12 : hour || 12}:${m} ${hour >= 12 ? "PM" : "AM"}`;
 }
 
+function formatDateTime(value) {
+    if (!value) return "—";
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+
+    return date.toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+    });
+}
+
 export default function DoctorDashboard() {
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [admissions, setAdmissions] = useState([]);
+    const [admissionsLoading, setAdmissionsLoading] = useState(true);
     const navigate = useNavigate();
 
     const user = authService.getCurrentUser();
@@ -59,6 +89,14 @@ export default function DoctorDashboard() {
             .finally(() => setLoading(false));
     }, []);
 
+    useEffect(() => {
+        roomAdmissionService
+            .getDoctorAdmissions()
+            .then(setAdmissions)
+            .catch(() => {})
+            .finally(() => setAdmissionsLoading(false));
+    }, []);
+
     // Fix: use local date not UTC
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
@@ -69,6 +107,13 @@ export default function DoctorDashboard() {
     const upcomingCount = appointments.filter(
         (a) => !["cancelled", "completed"].includes(a.status),
     ).length;
+    const activeAdmissions = admissions.filter((admission) =>
+        ["pending", "admitted", "transfer"].includes(admission.status),
+    );
+    const admissionPreview =
+        activeAdmissions.length > 0
+            ? activeAdmissions.slice(0, 5)
+            : admissions.slice(0, 5);
 
     // Pagination for Today's Appointments
     const [currentPage, setCurrentPage] = useState(1);
@@ -157,7 +202,7 @@ export default function DoctorDashboard() {
                 {/* LEFT SIDE */}
                 <div className="lg:col-span-2 space-y-6">
                     {/* Stats Cards */}
-                    <div className="grid md:grid-cols-2 gap-6">
+                    <div className="grid md:grid-cols-3 gap-6">
                         {[
                             {
                                 title: "Appointments Today",
@@ -168,6 +213,11 @@ export default function DoctorDashboard() {
                                 title: "Upcoming",
                                 value: loading ? "—" : upcomingCount,
                                 icon: <Users size={22} />,
+                            },
+                            {
+                                title: "Active Inpatients",
+                                value: admissionsLoading ? "—" : activeAdmissions.length,
+                                icon: <BedDouble size={22} />,
                             },
                         ].map((item, i) => (
                             <motion.div
@@ -193,6 +243,86 @@ export default function DoctorDashboard() {
                             </motion.div>
                         ))}
                     </div>
+
+                    <motion.div
+                        initial={{ opacity: 0, y: 30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.22 }}
+                        className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6"
+                    >
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-lg font-semibold text-slate-800">
+                                Assigned Room Admissions
+                            </h2>
+                            {!admissionsLoading && (
+                                <span className="text-xs text-slate-500">
+                                    {admissions.length} total record
+                                    {admissions.length === 1 ? "" : "s"}
+                                </span>
+                            )}
+                        </div>
+
+                        {admissionsLoading ? (
+                            <div className="flex items-center justify-center py-8 text-slate-400 gap-2">
+                                <Loader2 size={16} className="animate-spin" />
+                                <span className="text-sm">Loading admissions...</span>
+                            </div>
+                        ) : admissionPreview.length === 0 ? (
+                            <div className="text-center py-8 text-sm text-slate-400">
+                                No room admission assigned to you yet.
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {activeAdmissions.length === 0 && (
+                                    <p className="text-xs text-slate-500 px-1">
+                                        No active inpatient under your name. Showing recent records.
+                                    </p>
+                                )}
+
+                                {admissionPreview.map((admission) => {
+                                    const statusClass =
+                                        ADMISSION_STATUS_STYLES[admission.status] ||
+                                        ADMISSION_STATUS_STYLES.pending;
+
+                                    return (
+                                        <motion.div
+                                            key={admission.id}
+                                            whileHover={{ backgroundColor: "#f8fafc" }}
+                                            className="border border-slate-100 rounded-xl p-4"
+                                        >
+                                            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                                <p className="font-semibold text-slate-700 text-sm">
+                                                    {admission.patient_name}
+                                                </p>
+                                                <span
+                                                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide capitalize ${statusClass}`}
+                                                >
+                                                    {admission.status}
+                                                </span>
+                                            </div>
+
+                                            <div className="flex flex-wrap gap-2 mb-2">
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
+                                                    <Building2 size={12} className="text-[#127fec]" />
+                                                    {admission.room_number || "Room pending"} · Bed {admission.bed_label || "—"}
+                                                </span>
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
+                                                    {admission.admission_no}
+                                                </span>
+                                            </div>
+
+                                            <p className="text-xs text-slate-500">
+                                                {admission.department || "General"} · {admission.admission_type || "General"} · {admission.priority || "Normal"}
+                                            </p>
+                                            <p className="text-xs text-slate-400 mt-1">
+                                                Updated {formatDateTime(admission.updated_at)}
+                                            </p>
+                                        </motion.div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </motion.div>
 
                     {/* Schedule Table */}
                     <motion.div

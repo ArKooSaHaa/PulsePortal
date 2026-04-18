@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Admin;
+use App\Models\Doctor;
+use App\Models\Patient;
 use App\Models\Room;
 use App\Models\RoomAdmission;
 use App\Models\RoomBed;
@@ -287,6 +289,111 @@ class RoomAdmissionApiTest extends TestCase
         $this->assertSame(['pending'], array_values($statuses));
     }
 
+    public function test_patient_can_view_linked_room_admission_on_dashboard(): void
+    {
+        $superAdminUser = $this->createAdminUser(
+            name: 'Portal Seed Admin',
+            email: 'portal.patient.seed@pulseportal.test',
+            adminRole: 'Super Admin',
+        );
+        $superAdmin = $superAdminUser->admin;
+
+        $patientUser = $this->createPatientUser(
+            name: 'Rianto Khan',
+            email: 'rianto.khan@pulseportal.test',
+            phone: '01867747162',
+        );
+
+        $matchedRoom = $this->createRoomWithBeds('TEST-PD-401', 'Cardiology', 1);
+        $otherRoom = $this->createRoomWithBeds('TEST-PD-402', 'Cardiology', 1);
+
+        $matchedAdmission = $this->createAdmissionRecord(
+            room: $matchedRoom,
+            bed: $matchedRoom->beds()->firstOrFail(),
+            admin: $superAdmin,
+            overrides: [
+                'patient_name' => 'Rianto Khan',
+                'patient_identifier' => 'PT-' . str_pad((string) $patientUser->patient->id, 5, '0', STR_PAD_LEFT),
+                'contact_phone' => '01867747162',
+                'attending_doctor' => 'Dr. Linked Physician',
+                'status' => 'admitted',
+            ],
+        );
+
+        $this->createAdmissionRecord(
+            room: $otherRoom,
+            bed: $otherRoom->beds()->firstOrFail(),
+            admin: $superAdmin,
+            overrides: [
+                'patient_name' => 'Another Patient',
+                'patient_identifier' => 'PT-99999',
+                'contact_phone' => '01900000000',
+                'attending_doctor' => 'Dr. Linked Physician',
+                'status' => 'admitted',
+            ],
+        );
+
+        $response = $this->actingAs($patientUser, 'api')
+            ->getJson('/api/patient/room-admissions');
+
+        $response->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $matchedAdmission->id)
+            ->assertJsonPath('data.0.patient_name', 'Rianto Khan')
+            ->assertJsonPath('data.0.room_number', 'TEST-PD-401');
+    }
+
+    public function test_doctor_can_view_assigned_room_admission_on_dashboard(): void
+    {
+        $superAdminUser = $this->createAdminUser(
+            name: 'Portal Seed Admin Two',
+            email: 'portal.doctor.seed@pulseportal.test',
+            adminRole: 'Super Admin',
+        );
+        $superAdmin = $superAdminUser->admin;
+
+        $doctorUser = $this->createDoctorUser(
+            name: 'Rezaul Karim',
+            email: 'rezaul.karim@pulseportal.test',
+        );
+
+        $matchedRoom = $this->createRoomWithBeds('TEST-DD-401', 'Cardiology', 1);
+        $otherRoom = $this->createRoomWithBeds('TEST-DD-402', 'Cardiology', 1);
+
+        $matchedAdmission = $this->createAdmissionRecord(
+            room: $matchedRoom,
+            bed: $matchedRoom->beds()->firstOrFail(),
+            admin: $superAdmin,
+            overrides: [
+                'patient_name' => 'Assigned Patient',
+                'attending_doctor' => 'Dr. Rezaul Karim',
+                'status' => 'admitted',
+            ],
+        );
+
+        $this->createAdmissionRecord(
+            room: $otherRoom,
+            bed: $otherRoom->beds()->firstOrFail(),
+            admin: $superAdmin,
+            overrides: [
+                'patient_name' => 'Not Assigned Patient',
+                'attending_doctor' => 'Dr. Another Physician',
+                'status' => 'admitted',
+            ],
+        );
+
+        $response = $this->actingAs($doctorUser, 'api')
+            ->getJson('/api/doctor/room-admissions');
+
+        $response->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $matchedAdmission->id)
+            ->assertJsonPath('data.0.attending_doctor', 'Dr. Rezaul Karim')
+            ->assertJsonPath('data.0.room_number', 'TEST-DD-401');
+    }
+
     private function createAdminUser(
         string $name,
         string $email,
@@ -307,6 +414,42 @@ class RoomAdmissionApiTest extends TestCase
         ]);
 
         return $user;
+    }
+
+    private function createPatientUser(string $name, string $email, ?string $phone = null): User
+    {
+        $user = User::create([
+            'name' => $name,
+            'email' => $email,
+            'password' => bcrypt('Password123'),
+            'role' => 'patient',
+        ]);
+
+        Patient::create([
+            'user_id' => $user->id,
+            'phone' => $phone,
+        ]);
+
+        return $user->fresh('patient');
+    }
+
+    private function createDoctorUser(string $name, string $email, string $department = 'Cardiology'): User
+    {
+        $user = User::create([
+            'name' => $name,
+            'email' => $email,
+            'password' => bcrypt('Password123'),
+            'role' => 'doctor',
+        ]);
+
+        Doctor::create([
+            'user_id' => $user->id,
+            'specialization' => 'General Medicine',
+            'department' => $department,
+            'is_available' => true,
+        ]);
+
+        return $user->fresh('doctor');
     }
 
     private function createRoomWithBeds(

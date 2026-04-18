@@ -7,7 +7,8 @@ import {
     MapPin,
     ChevronRight,
     Stethoscope,
-    HeartPulse,
+    BedDouble,
+    Building2,
     CalendarDays,
     AlarmClock,
     Sparkles,
@@ -18,6 +19,9 @@ import { useNavigate } from "react-router-dom";
 import AIChatPanel from "../../components/AIChatPanel";
 import appointmentService from "../../api/appointmentService";
 import authService from "../../api/authService";
+import roomAdmissionService from "../../api/roomAdmissionService";
+
+const Motion = motion;
 
 const TODAY = new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -30,6 +34,14 @@ const STATUS_STYLES = {
     pending: "bg-amber-50 text-amber-600 border border-amber-100",
     completed: "bg-green-50 text-green-600 border border-green-100",
     cancelled: "bg-red-50 text-red-400 border border-red-100",
+};
+
+const ADMISSION_STATUS_STYLES = {
+    pending: "bg-amber-50 text-amber-700 border border-amber-100",
+    admitted: "bg-emerald-50 text-emerald-700 border border-emerald-100",
+    transfer: "bg-sky-50 text-sky-700 border border-sky-100",
+    discharged: "bg-slate-100 text-slate-600 border border-slate-200",
+    cancelled: "bg-rose-50 text-rose-600 border border-rose-100",
 };
 
 function formatDate(dateStr) {
@@ -53,7 +65,24 @@ function formatTime(timeStr) {
     return `${hour > 12 ? hour - 12 : hour || 12}:${m} ${hour >= 12 ? "PM" : "AM"}`;
 }
 
+function formatDateTime(value) {
+    if (!value) return "—";
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+
+    return date.toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+    });
+}
+
 function ActionCard({ icon: Icon, title, description, label, onClick, isAI }) {
+    const IconComponent = Icon;
+
     return (
         <motion.div
             whileHover={{ y: -3 }}
@@ -69,7 +98,7 @@ function ActionCard({ icon: Icon, title, description, label, onClick, isAI }) {
                 </span>
             )}
             <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-blue-50 text-[#127fec]">
-                <Icon size={22} />
+                <IconComponent size={22} />
             </div>
             <div>
                 <p className="text-[15px] font-semibold text-slate-800">
@@ -161,10 +190,53 @@ function AppointmentCard({ appt }) {
     );
 }
 
+function AdmissionCard({ admission }) {
+    const statusCls =
+        ADMISSION_STATUS_STYLES[admission.status] ||
+        ADMISSION_STATUS_STYLES.pending;
+
+    return (
+        <div className="bg-white/90 rounded-2xl shadow-sm border border-slate-100 p-5">
+            <div className="flex items-start justify-between gap-3">
+                <div>
+                    <p className="text-sm font-semibold text-slate-800">
+                        {admission.room_number || "Room pending"} · Bed {admission.bed_label || "—"}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                        {admission.admission_no} · {admission.department || "General"}
+                    </p>
+                </div>
+                <span
+                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide capitalize ${statusCls}`}
+                >
+                    {admission.status}
+                </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
+                    <Building2 size={13} className="text-[#127fec]" />
+                    {admission.attending_doctor || "Doctor not assigned"}
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
+                    <BedDouble size={13} className="text-[#127fec]" />
+                    {admission.admission_type || "General"} · {admission.priority || "Normal"}
+                </span>
+            </div>
+
+            <p className="text-xs text-slate-400 mt-3">
+                Updated {formatDateTime(admission.updated_at)}
+            </p>
+        </div>
+    );
+}
+
 export default function PatientDashboard() {
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [admissions, setAdmissions] = useState([]);
+    const [admissionsLoading, setAdmissionsLoading] = useState(true);
     const navigate = useNavigate();
 
     const user = authService.getCurrentUser();
@@ -175,6 +247,14 @@ export default function PatientDashboard() {
             .then(setAppointments)
             .catch(() => {})
             .finally(() => setLoading(false));
+    }, []);
+
+    useEffect(() => {
+        roomAdmissionService
+            .getPatientAdmissions()
+            .then(setAdmissions)
+            .catch(() => {})
+            .finally(() => setAdmissionsLoading(false));
     }, []);
 
     // Upcoming = pending or confirmed, sorted by date ascending
@@ -194,6 +274,15 @@ export default function PatientDashboard() {
                 new Date(b.appointment_date) - new Date(a.appointment_date),
         )
         .slice(0, 3);
+
+    const activeAdmissionStatuses = ["pending", "admitted", "transfer"];
+    const activeAdmissions = admissions.filter((admission) =>
+        activeAdmissionStatuses.includes(admission.status),
+    );
+    const admissionPreview =
+        activeAdmissions.length > 0
+            ? activeAdmissions.slice(0, 3)
+            : admissions.slice(0, 3);
 
     return (
         <div className="min-h-screen bg-[#eff6ff] px-4 sm:px-8 lg:px-12 py-8">
@@ -248,6 +337,47 @@ export default function PatientDashboard() {
                         onClick={() => setIsChatOpen(true)}
                     />
                 </motion.div>
+
+                <motion.section
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: 0.12 }}
+                >
+                    <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-lg font-bold text-slate-800">
+                            Room Admission Updates
+                        </h2>
+                    </div>
+
+                    {admissionsLoading ? (
+                        <div className="flex items-center justify-center py-8 text-slate-400 gap-2">
+                            <Loader2 size={18} className="animate-spin" />
+                            <span className="text-sm">
+                                Loading admission details...
+                            </span>
+                        </div>
+                    ) : admissionPreview.length === 0 ? (
+                        <div className="bg-white/80 rounded-2xl border border-slate-100 p-6 text-center">
+                            <p className="text-slate-400 text-sm">
+                                No room admission record linked to your account.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {activeAdmissions.length === 0 && (
+                                <p className="text-xs text-slate-500 px-1">
+                                    You currently have no active room admission. Showing recent room history.
+                                </p>
+                            )}
+                            {admissionPreview.map((admission) => (
+                                <AdmissionCard
+                                    key={admission.id}
+                                    admission={admission}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </motion.section>
 
                 {/* Upcoming Appointments */}
                 <motion.section

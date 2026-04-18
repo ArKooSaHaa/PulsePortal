@@ -189,6 +189,28 @@ const roomAdmissionService = {
         }
     },
 
+    getPatientAdmissions: async () => {
+        try {
+            const response = await api.get("/patient/room-admissions");
+            return (response.data.data || []).map(normalizeAdmission);
+        } catch (error) {
+            throw new Error(
+                parseApiError(error, "Unable to load your room admission records."),
+            );
+        }
+    },
+
+    getDoctorAdmissions: async () => {
+        try {
+            const response = await api.get("/doctor/room-admissions");
+            return (response.data.data || []).map(normalizeAdmission);
+        } catch (error) {
+            throw new Error(
+                parseApiError(error, "Unable to load assigned room admissions."),
+            );
+        }
+    },
+
     createAdmission: async (payload) => {
         try {
             const response = await api.post("/admin/room-admissions", payload);
