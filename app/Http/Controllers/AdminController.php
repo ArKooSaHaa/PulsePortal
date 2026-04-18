@@ -33,6 +33,8 @@ class AdminController extends Controller
             'consultation_fee'  => 'nullable|numeric|min:0',
             'availability_days' => 'nullable|array',
             'availability_days.*' => 'string|in:SUN,MON,TUE,WED,THU,FRI,SAT',
+            'service_start_time' => 'nullable|date_format:H:i',
+            'service_end_time' => 'nullable|date_format:H:i|after:service_start_time',
         ], [
             'email.regex'    => 'Only gmail.com, yahoo.com, outlook.com, aust.edu, and pulseportal.com emails are allowed.',
             'password.regex' => 'Password must contain at least one uppercase letter, one lowercase letter, and one number.',

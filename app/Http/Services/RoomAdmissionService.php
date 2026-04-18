@@ -42,7 +42,7 @@ class RoomAdmissionService
         }
 
         $query = RoomAdmission::query()
-            ->with(['room', 'bed', 'events'])
+            ->with(['room', 'bed', 'events', 'patient.user', 'doctor.user'])
             ->orderByDesc('updated_at');
 
         $this->applyDepartmentScope($query, $admin);
@@ -141,7 +141,7 @@ class RoomAdmissionService
         $patient->loadMissing('user');
 
         $query = RoomAdmission::query()
-            ->with(['room', 'bed'])
+            ->with(['room', 'bed', 'patient.user', 'doctor.user'])
             ->orderByDesc('updated_at');
 
         $this->applyPatientScope($query, $patient);
@@ -158,7 +158,7 @@ class RoomAdmissionService
         $doctor->loadMissing('user');
 
         $query = RoomAdmission::query()
-            ->with(['room', 'bed'])
+            ->with(['room', 'bed', 'patient.user', 'doctor.user'])
             ->orderByDesc('updated_at');
 
         $this->applyDoctorScope($query, $doctor);
@@ -211,12 +211,16 @@ class RoomAdmissionService
             }
 
             $admissionNo = $this->nextAdmissionNo();
-            $patientIdentifier = $this->resolvePatientIdentifier($data, $admissionNo);
+            $linkedPatientId = $this->resolveLinkedPatientId($data);
+            $linkedDoctor = $this->resolveLinkedDoctor($data);
+            $patientIdentifier = $this->resolvePatientIdentifier($data, $admissionNo, $linkedPatientId);
+            $resolvedDoctorName = $this->resolveAttendingDoctorName($data, $linkedDoctor);
 
             $admission = RoomAdmission::create([
                 'admission_no' => $admissionNo,
                 'patient_name' => $data['patient_name'],
                 'patient_identifier' => $patientIdentifier,
+                'patient_id' => $linkedPatientId,
                 'patient_age' => $data['patient_age'],
                 'patient_gender' => $data['patient_gender'],
                 'contact_phone' => $data['contact_phone'],
@@ -224,7 +228,8 @@ class RoomAdmissionService
                 'emergency_contact_phone' => $data['emergency_contact_phone'],
                 'admission_type' => $data['admission_type'],
                 'department' => $department,
-                'attending_doctor' => $data['attending_doctor'],
+                'attending_doctor' => $resolvedDoctorName,
+                'doctor_id' => $linkedDoctor?->id,
                 'room_id' => $room->id,
                 'bed_id' => $bed->id,
                 'payer_type' => $data['payer_type'],
@@ -253,7 +258,7 @@ class RoomAdmissionService
                 ],
             );
 
-            return $admission->fresh(['room', 'bed', 'events']);
+            return $admission->fresh(['room', 'bed', 'events', 'patient.user', 'doctor.user']);
         });
 
         return $this->mapAdmission($admission);
@@ -480,6 +485,8 @@ class RoomAdmissionService
                 ->orWhere('patient_identifier', 'like', $searchLike)
                 ->orWhere('admission_no', 'like', $searchLike)
                 ->orWhere('attending_doctor', 'like', $searchLike)
+                ->orWhereHas('patient.user', fn (Builder $patientQuery) => $patientQuery->where('name', 'like', $searchLike))
+                ->orWhereHas('doctor.user', fn (Builder $doctorQuery) => $doctorQuery->where('name', 'like', $searchLike))
                 ->orWhereHas('room', fn (Builder $roomQuery) => $roomQuery->where('room_number', 'like', $searchLike))
                 ->orWhereHas('bed', fn (Builder $bedQuery) => $bedQuery->where('bed_code', 'like', $searchLike));
         });
@@ -491,32 +498,38 @@ class RoomAdmissionService
         $phone = $this->normalizePhone($patient->phone);
         $identifierCandidates = $this->resolvePatientIdentifierCandidates($patient);
 
-        if ($patientName === null && $phone === null && $identifierCandidates === []) {
-            $query->whereRaw('1 = 0');
-            return;
-        }
+        $query->where(function (Builder $builder) use ($patient, $patientName, $phone, $identifierCandidates) {
+            $builder->where('patient_id', $patient->id);
 
-        $query->where(function (Builder $builder) use ($patientName, $phone, $identifierCandidates) {
-            $hasCondition = false;
-
-            if ($patientName !== null) {
-                $builder->whereRaw('LOWER(patient_name) = ?', [$patientName]);
-                $hasCondition = true;
+            $hasLegacyHints = $patientName !== null || $phone !== null || $identifierCandidates !== [];
+            if (!$hasLegacyHints) {
+                return;
             }
 
-            if ($phone !== null) {
-                $method = $hasCondition ? 'orWhereRaw' : 'whereRaw';
-                $builder->{$method}(
-                    "REPLACE(REPLACE(REPLACE(contact_phone, ' ', ''), '-', ''), '+', '') = ?",
-                    [$phone],
-                );
-                $hasCondition = true;
-            }
+            $builder->orWhere(function (Builder $legacyBuilder) use ($patientName, $phone, $identifierCandidates) {
+                $legacyBuilder->whereNull('patient_id');
 
-            if ($identifierCandidates !== []) {
-                $method = $hasCondition ? 'orWhereIn' : 'whereIn';
-                $builder->{$method}('patient_identifier', $identifierCandidates);
-            }
+                $hasCondition = false;
+
+                if ($patientName !== null) {
+                    $legacyBuilder->whereRaw('LOWER(patient_name) = ?', [$patientName]);
+                    $hasCondition = true;
+                }
+
+                if ($phone !== null) {
+                    $method = $hasCondition ? 'orWhereRaw' : 'whereRaw';
+                    $legacyBuilder->{$method}(
+                        "REPLACE(REPLACE(REPLACE(contact_phone, ' ', ''), '-', ''), '+', '') = ?",
+                        [$phone],
+                    );
+                    $hasCondition = true;
+                }
+
+                if ($identifierCandidates !== []) {
+                    $method = $hasCondition ? 'orWhereIn' : 'whereIn';
+                    $legacyBuilder->{$method}('patient_identifier', $identifierCandidates);
+                }
+            });
         });
     }
 
@@ -524,23 +537,29 @@ class RoomAdmissionService
     {
         $doctorNameCandidates = $this->resolveDoctorNameCandidates($doctor->user?->name);
 
-        if ($doctorNameCandidates === []) {
-            $query->whereRaw('1 = 0');
-            return;
-        }
+        $query->where(function (Builder $builder) use ($doctor, $doctorNameCandidates) {
+            $builder->where('doctor_id', $doctor->id);
 
-        $query->where(function (Builder $builder) use ($doctorNameCandidates) {
-            $hasCondition = false;
-
-            foreach ($doctorNameCandidates as $doctorName) {
-                if (!$hasCondition) {
-                    $builder->whereRaw('LOWER(attending_doctor) = ?', [$doctorName]);
-                    $hasCondition = true;
-                    continue;
-                }
-
-                $builder->orWhereRaw('LOWER(attending_doctor) = ?', [$doctorName]);
+            if ($doctorNameCandidates === []) {
+                return;
             }
+
+            $builder->orWhere(function (Builder $legacyBuilder) use ($doctorNameCandidates) {
+                $legacyBuilder->whereNull('doctor_id')
+                    ->where(function (Builder $doctorNameQuery) use ($doctorNameCandidates) {
+                        $hasCondition = false;
+
+                        foreach ($doctorNameCandidates as $doctorName) {
+                            if (!$hasCondition) {
+                                $doctorNameQuery->whereRaw('LOWER(attending_doctor) = ?', [$doctorName]);
+                                $hasCondition = true;
+                                continue;
+                            }
+
+                            $doctorNameQuery->orWhereRaw('LOWER(attending_doctor) = ?', [$doctorName]);
+                        }
+                    });
+            });
         });
     }
 
@@ -639,11 +658,156 @@ class RoomAdmissionService
         return array_values(array_unique(array_filter($candidates)));
     }
 
-    private function resolvePatientIdentifier(array $data, string $admissionNo): string
+    private function resolveLinkedPatientId(array $data): ?int
     {
-        $providedIdentifier = isset($data['patient_id']) ? trim((string) $data['patient_id']) : '';
+        $rawPatientId = $data['patient_id'] ?? null;
+        $parsedPatientId = $this->normalizeRelationalId($rawPatientId);
+
+        if ($parsedPatientId !== null) {
+            return Patient::query()->whereKey($parsedPatientId)->exists()
+                ? $parsedPatientId
+                : null;
+        }
+
+        $patientName = $this->normalizePersonName($data['patient_name'] ?? null);
+        $phone = $this->normalizePhone($data['contact_phone'] ?? null);
+
+        if ($patientName === null && $phone === null) {
+            return null;
+        }
+
+        $query = Patient::query();
+
+        if ($patientName !== null) {
+            $query->whereHas('user', fn (Builder $userQuery) => $userQuery->whereRaw('LOWER(name) = ?', [$patientName]));
+        }
+
+        if ($phone !== null) {
+            $query->whereRaw(
+                "REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = ?",
+                [$phone],
+            );
+        }
+
+        $matches = $query->limit(2)->pluck('id')->values();
+
+        if ($matches->count() !== 1) {
+            return null;
+        }
+
+        return (int) $matches->first();
+    }
+
+    private function resolveLinkedDoctor(array $data): ?Doctor
+    {
+        $parsedDoctorId = $this->normalizeRelationalId($data['doctor_id'] ?? null);
+        if ($parsedDoctorId !== null) {
+            return Doctor::query()->with('user')->whereKey($parsedDoctorId)->lockForUpdate()->first();
+        }
+
+        $attendingDoctor = $data['attending_doctor'] ?? null;
+        if (!is_string($attendingDoctor) || trim($attendingDoctor) === '') {
+            return null;
+        }
+
+        $doctorNameCandidates = $this->resolveDoctorNameCandidates($attendingDoctor);
+        if ($doctorNameCandidates === []) {
+            return null;
+        }
+
+        $matches = Doctor::query()
+            ->with('user')
+            ->whereHas('user', function (Builder $userQuery) use ($doctorNameCandidates) {
+                $hasCondition = false;
+
+                foreach ($doctorNameCandidates as $doctorName) {
+                    if (!$hasCondition) {
+                        $userQuery->whereRaw('LOWER(name) = ?', [$doctorName]);
+                        $hasCondition = true;
+                        continue;
+                    }
+
+                    $userQuery->orWhereRaw('LOWER(name) = ?', [$doctorName]);
+                }
+            })
+            ->lockForUpdate()
+            ->get();
+
+        if ($matches->count() !== 1) {
+            return null;
+        }
+
+        return $matches->first();
+    }
+
+    private function resolveAttendingDoctorName(array $data, ?Doctor $linkedDoctor): string
+    {
+        if ($linkedDoctor && is_string($linkedDoctor->user?->name)) {
+            return $this->formatDoctorDisplayName($linkedDoctor->user->name);
+        }
+
+        $providedDoctorName = isset($data['attending_doctor'])
+            ? trim((string) $data['attending_doctor'])
+            : '';
+
+        if ($providedDoctorName !== '') {
+            return $providedDoctorName;
+        }
+
+        throw ValidationException::withMessages([
+            'attending_doctor' => 'Attending doctor is required.',
+        ]);
+    }
+
+    private function normalizeRelationalId(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value > 0 ? $value : null;
+        }
+
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+        if ($trimmed === '' || !ctype_digit($trimmed)) {
+            return null;
+        }
+
+        $parsed = (int) $trimmed;
+        return $parsed > 0 ? $parsed : null;
+    }
+
+    private function formatDoctorDisplayName(string $doctorName): string
+    {
+        $trimmed = trim($doctorName);
+        if ($trimmed === '') {
+            return $trimmed;
+        }
+
+        if (preg_match('/^dr\.?\s+/i', $trimmed) === 1) {
+            return preg_replace('/^dr\.?\s+/i', 'Dr. ', $trimmed) ?? $trimmed;
+        }
+
+        return 'Dr. ' . $trimmed;
+    }
+
+    private function resolvePatientIdentifier(array $data, string $admissionNo, ?int $linkedPatientId): string
+    {
+        $providedIdentifier = isset($data['patient_identifier'])
+            ? trim((string) $data['patient_identifier'])
+            : '';
         if ($providedIdentifier !== '') {
             return $providedIdentifier;
+        }
+
+        $legacyIdentifier = isset($data['patient_id']) ? trim((string) $data['patient_id']) : '';
+        if ($legacyIdentifier !== '' && $this->normalizeRelationalId($legacyIdentifier) === null) {
+            return $legacyIdentifier;
+        }
+
+        if ($linkedPatientId !== null) {
+            return 'PT-' . str_pad((string) $linkedPatientId, 5, '0', STR_PAD_LEFT);
         }
 
         if (preg_match('/^ADM-(\d+)$/', $admissionNo, $matches) === 1) {
@@ -655,13 +819,19 @@ class RoomAdmissionService
 
     private function mapDashboardAdmission(RoomAdmission $admission): array
     {
-        $admission->loadMissing(['room', 'bed']);
+        $admission->loadMissing(['room', 'bed', 'patient.user', 'doctor.user']);
+
+        $resolvedDoctorName = $admission->attending_doctor;
+        if ((!is_string($resolvedDoctorName) || trim($resolvedDoctorName) === '') && $admission->doctor?->user?->name) {
+            $resolvedDoctorName = $this->formatDoctorDisplayName($admission->doctor->user->name);
+        }
 
         return [
             'id' => $admission->id,
             'admission_no' => $admission->admission_no,
             'patient_name' => $admission->patient_name,
-            'patient_id' => $admission->patient_identifier,
+            'patient_id' => $admission->patient_id,
+            'patient_identifier' => $admission->patient_identifier,
             'patient_age' => $admission->patient_age,
             'patient_gender' => $admission->patient_gender,
             'contact_phone' => $admission->contact_phone,
@@ -669,7 +839,8 @@ class RoomAdmissionService
             'emergency_contact_phone' => $admission->emergency_contact_phone,
             'admission_type' => $admission->admission_type,
             'department' => $admission->department,
-            'attending_doctor' => $admission->attending_doctor,
+            'doctor_id' => $admission->doctor_id,
+            'attending_doctor' => $resolvedDoctorName,
             'room_id' => $admission->room_id,
             'room_number' => $admission->room?->room_number,
             'bed_id' => $admission->bed_id,
@@ -688,13 +859,19 @@ class RoomAdmissionService
 
     private function mapAdmission(RoomAdmission $admission): array
     {
-        $admission->loadMissing(['room', 'bed', 'events']);
+        $admission->loadMissing(['room', 'bed', 'events', 'patient.user', 'doctor.user']);
+
+        $resolvedDoctorName = $admission->attending_doctor;
+        if ((!is_string($resolvedDoctorName) || trim($resolvedDoctorName) === '') && $admission->doctor?->user?->name) {
+            $resolvedDoctorName = $this->formatDoctorDisplayName($admission->doctor->user->name);
+        }
 
         return [
             'id' => $admission->id,
             'admission_no' => $admission->admission_no,
             'patient_name' => $admission->patient_name,
-            'patient_id' => $admission->patient_identifier,
+            'patient_id' => $admission->patient_id,
+            'patient_identifier' => $admission->patient_identifier,
             'patient_age' => $admission->patient_age,
             'patient_gender' => $admission->patient_gender,
             'contact_phone' => $admission->contact_phone,
@@ -702,7 +879,8 @@ class RoomAdmissionService
             'emergency_contact_phone' => $admission->emergency_contact_phone,
             'admission_type' => $admission->admission_type,
             'department' => $admission->department,
-            'attending_doctor' => $admission->attending_doctor,
+            'doctor_id' => $admission->doctor_id,
+            'attending_doctor' => $resolvedDoctorName,
             'room_id' => $admission->room_id,
             'room_number' => $admission->room?->room_number,
             'bed_id' => $admission->bed_id,

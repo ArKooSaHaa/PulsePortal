@@ -108,6 +108,7 @@ const EMPTY_AUTO_FILLED_PATIENT_PROFILE = {
 function createInitialForm(scopedDepartment = "") {
     return {
         patient_name: "",
+        patient_id: "",
         patient_age: "",
         patient_gender: "",
         contact_phone: "",
@@ -115,6 +116,7 @@ function createInitialForm(scopedDepartment = "") {
         emergency_contact_phone: "",
         admission_type: "",
         department: scopedDepartment,
+        doctor_id: "",
         attending_doctor: "",
         room_id: "",
         bed_id: "",
@@ -328,6 +330,7 @@ export default function RoomAdmissions() {
             department: scopedDepartment,
             room_id: "",
             bed_id: "",
+            doctor_id: "",
             attending_doctor: "",
         }));
     }, [scopedDepartment]);
@@ -490,6 +493,10 @@ export default function RoomAdmissions() {
                 ? patientDirectoryByName.get(normalizedPatientName) || []
                 : [];
         const matchedPatient = matchedPatients.length === 1 ? matchedPatients[0] : null;
+        const selectedDoctor =
+            name === "doctor_id"
+                ? doctorsForDepartment.find((doctor) => doctor.id === value) || null
+                : null;
         const matchedProfileAutoFill = matchedPatient
             ? {
                 contact_phone: matchedPatient.phone || "",
@@ -540,12 +547,15 @@ export default function RoomAdmissions() {
             const next = { ...prev, [name]: value };
 
             if (name === "patient_name" && matchedPatient) {
+                next.patient_id = matchedPatient.id || "";
                 next.contact_phone = matchedProfileAutoFill.contact_phone;
                 next.emergency_contact_name = matchedProfileAutoFill.emergency_contact_name;
                 next.emergency_contact_phone = matchedProfileAutoFill.emergency_contact_phone;
             }
 
             if (name === "patient_name" && !matchedPatient) {
+                next.patient_id = "";
+
                 if (
                     autoFilledPatientProfile.contact_phone &&
                     prev.contact_phone === autoFilledPatientProfile.contact_phone
@@ -569,9 +579,14 @@ export default function RoomAdmissions() {
             }
 
             if (name === "department") {
+                next.doctor_id = "";
                 next.attending_doctor = "";
                 next.room_id = "";
                 next.bed_id = "";
+            }
+
+            if (name === "doctor_id") {
+                next.attending_doctor = selectedDoctor?.name || "";
             }
 
             if (name === "room_id") {
@@ -583,6 +598,10 @@ export default function RoomAdmissions() {
 
         if (errors[name]) {
             setErrors((prev) => ({ ...prev, [name]: "" }));
+        }
+
+        if (name === "doctor_id" && errors.attending_doctor) {
+            setErrors((prev) => ({ ...prev, attending_doctor: "" }));
         }
 
         if (name === "patient_name" && matchedPatient) {
@@ -617,11 +636,9 @@ export default function RoomAdmissions() {
         if (requiresDepartmentSelection && !form.department) {
             nextErrors.department = "Department is required.";
         }
-        if (!form.attending_doctor) nextErrors.attending_doctor = "Attending doctor is required.";
-        if (
-            form.attending_doctor &&
-            !doctorsForDepartment.some((doctor) => doctor.name === form.attending_doctor)
-        ) {
+        if (!form.doctor_id) {
+            nextErrors.attending_doctor = "Attending doctor is required.";
+        } else if (!doctorsForDepartment.some((doctor) => doctor.id === form.doctor_id)) {
             nextErrors.attending_doctor = "Select a registered doctor from the list.";
         }
         if (!form.room_id) nextErrors.room_id = "Room is required.";
@@ -671,9 +688,19 @@ export default function RoomAdmissions() {
             const selectedRoomForPayload = rooms.find((room) => room.id === form.room_id);
             const resolvedDepartment =
                 form.department || selectedRoomForPayload?.department || "";
+            const normalizedPatientId =
+                form.patient_id && !Number.isNaN(Number(form.patient_id))
+                    ? Number(form.patient_id)
+                    : undefined;
+            const normalizedDoctorId =
+                form.doctor_id && !Number.isNaN(Number(form.doctor_id))
+                    ? Number(form.doctor_id)
+                    : undefined;
 
             await roomAdmissionService.createAdmission({
                 ...form,
+                patient_id: normalizedPatientId,
+                doctor_id: normalizedDoctorId,
                 department: resolvedDepartment,
                 actor: currentUser?.name || currentUser?.admin_role || "Admin",
             });
@@ -1072,8 +1099,8 @@ export default function RoomAdmissions() {
                                 error={errors.attending_doctor}
                             >
                                 <select
-                                    name="attending_doctor"
-                                    value={form.attending_doctor}
+                                    name="doctor_id"
+                                    value={form.doctor_id}
                                     onChange={handleFormChange}
                                     disabled={
                                         !canCreateAdmission ||
@@ -1085,7 +1112,7 @@ export default function RoomAdmissions() {
                                     {doctorsForDepartment.map((doctor) => (
                                         <option
                                             key={doctor.id || `${doctor.name}-${doctor.department}`}
-                                            value={doctor.name}
+                                            value={doctor.id}
                                         >
                                             {doctor.name}
                                             {doctor.specialization

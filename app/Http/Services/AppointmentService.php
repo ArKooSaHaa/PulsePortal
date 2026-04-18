@@ -5,6 +5,7 @@ namespace App\Http\Services;
 use App\Models\Admin;
 use App\Models\Appointment;
 use App\Models\Notification;
+use App\Models\Patient;
 use Illuminate\Support\Facades\Mail;
 use App\Events\AppointmentRequested;
 use App\Mail\PatientAppointmentDetails;
@@ -72,7 +73,7 @@ class AppointmentService
     {
         return Appointment::with(['patient.user', 'prescriptions'])
             ->where('doctor_id', $doctorId)
-            ->whereIn('status', ['confirmed', 'in_progress', 'completed'])
+            ->whereIn('status', ['pending', 'confirmed', 'in_progress', 'completed'])
             ->orderBy('appointment_date', 'asc')
             ->orderBy('appointment_time', 'asc')
             ->get()
@@ -122,7 +123,7 @@ class AppointmentService
                 return [
                     'id'               => $a->id,
                     'doctor_name'      => $a->doctor->user->name ?? 'Unknown',
-                    'appointment_date' => $a->appointment_date->format('Y-m-d'),
+                    'appointment_date' => $this->formatAppointmentDate($a->appointment_date),
                     'status'           => $a->status,
                     'symptoms'         => $a->symptoms,
                 ];
@@ -189,7 +190,7 @@ class AppointmentService
 
                 // Persist notification for the doctor
                 $patientName  = $appointment->patient->user->name;
-                $appointDate  = $appointment->appointment_date->format('Y-m-d');
+                $appointDate  = $this->formatAppointmentDate($appointment->appointment_date);
                 $appointTime  = $appointment->appointment_time;
                 Notification::create([
                     'user_id'        => $appointment->doctor->user_id,
@@ -227,7 +228,7 @@ class AppointmentService
         // Build a context string from appointment data
         $appointmentSummaries = $completedAppointments->map(function ($appt) {
             $parts = [
-                "Date: {$appt->appointment_date->format('Y-m-d')}",
+                "Date: {$this->formatAppointmentDate($appt->appointment_date)}",
                 "Doctor: " . ($appt->doctor->user->name ?? 'Unknown'),
                 "Specialization: " . ($appt->doctor->specialization ?? 'Unknown'),
                 "Symptoms: {$appt->symptoms}",
@@ -309,18 +310,71 @@ PROMPT;
 
     private function formatAppointment(Appointment $a): array
     {
+        $serviceHoursLabel = $this->resolveDoctorServiceHoursLabel($a->doctor?->availability);
+
         return [
             'id'               => $a->id,
             'doctor_id'        => $a->doctor_id,
             'doctor_name'      => $a->doctor->user->name ?? 'Unknown',
             'specialization'   => $a->doctor->specialization ?? '',
             'department'       => $a->doctor->department ?? '',
-            'appointment_date' => $a->appointment_date->format('Y-m-d'),
+            'doctor_service_hours' => $serviceHoursLabel,
+            'appointment_date' => $this->formatAppointmentDate($a->appointment_date),
             'appointment_time' => $a->appointment_time,
             'type'             => $a->type,
             'status'           => $a->status,
             'symptoms'         => $a->symptoms,
         ];
+    }
+
+    private function resolveDoctorServiceHoursLabel(?array $availability): ?string
+    {
+        if (!is_array($availability)) {
+            return null;
+        }
+
+        $serviceHours = $availability['service_hours'] ?? null;
+        if (
+            is_array($serviceHours) &&
+            !empty($serviceHours['start']) &&
+            !empty($serviceHours['end'])
+        ) {
+            return $this->formatHourRange((string) $serviceHours['start'], (string) $serviceHours['end']);
+        }
+
+        $dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+        $ranges = collect($dayKeys)
+            ->map(fn ($day) => $availability[$day] ?? null)
+            ->filter(fn ($range) => is_array($range) && count($range) === 2)
+            ->values();
+
+        if ($ranges->isEmpty()) {
+            return null;
+        }
+
+        $starts = $ranges->map(fn ($range) => (string) $range[0])->sort()->values();
+        $ends = $ranges->map(fn ($range) => (string) $range[1])->sort()->values();
+
+        return $this->formatHourRange((string) $starts->first(), (string) $ends->last());
+    }
+
+    private function formatHourRange(string $start, string $end): string
+    {
+        $startLabel = date('h:i A', strtotime($start));
+        $endLabel = date('h:i A', strtotime($end));
+
+        return "{$startLabel} - {$endLabel}";
+    }
+
+    private function formatAppointmentDate($value): string
+    {
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d');
+        }
+
+        $timestamp = strtotime((string) $value);
+
+        return $timestamp !== false ? date('Y-m-d', $timestamp) : '';
     }
 
     private function formatAppointmentForDoctor(Appointment $a): array
@@ -329,7 +383,7 @@ PROMPT;
             'id'               => $a->id,
             'patient_id'       => $a->patient_id,
             'patient_name'     => $a->patient->user->name ?? 'Unknown',
-            'appointment_date' => $a->appointment_date->format('Y-m-d'),
+            'appointment_date' => $this->formatAppointmentDate($a->appointment_date),
             'appointment_time' => $a->appointment_time,
             'type'             => $a->type,
             'status'           => $a->status,
@@ -346,7 +400,7 @@ PROMPT;
             'doctor_name'      => $a->doctor->user->name ?? 'Unknown',
             'specialization'   => $a->doctor->specialization ?? '',
             'department'       => $a->doctor->department ?? '',
-            'appointment_date' => $a->appointment_date->format('Y-m-d'),
+            'appointment_date' => $this->formatAppointmentDate($a->appointment_date),
             'appointment_time' => $a->appointment_time,
             'type'             => $a->type,
             'status'           => $a->status,

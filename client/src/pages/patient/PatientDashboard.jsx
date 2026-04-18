@@ -183,6 +183,12 @@ function AppointmentCard({ appt }) {
                                 </>
                             )}
                         </span>
+                        {appt.doctor_service_hours && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
+                                <AlarmClock size={13} className="text-[#127fec]" />
+                                Service {appt.doctor_service_hours}
+                            </span>
+                        )}
                     </div>
                 </div>
             </div>
@@ -476,6 +482,11 @@ export default function PatientDashboard() {
                                                 ? "In-Person"
                                                 : "Online"}
                                         </p>
+                                        {item.doctor_service_hours && (
+                                            <p className="text-xs text-slate-400 truncate mt-1">
+                                                Service hours: {item.doctor_service_hours}
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="flex items-center gap-4 flex-shrink-0 text-right">
                                         <span className="text-xs text-slate-400 hidden sm:block">

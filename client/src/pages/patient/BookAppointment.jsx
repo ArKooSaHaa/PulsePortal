@@ -20,9 +20,41 @@ import {
     Send,
 } from "lucide-react";
 
+const Motion = motion;
+
 // Departments are now built dynamically from the doctors loaded from the API
 
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+
+function to12HourLabel(timeValue) {
+    if (!timeValue) return null;
+
+    const [rawHour, rawMinute] = String(timeValue).split(":");
+    const hour = Number(rawHour);
+    const minute = Number(rawMinute);
+
+    if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
+
+    const period = hour >= 12 ? "PM" : "AM";
+    const displayHour = hour % 12 || 12;
+
+    return `${String(displayHour).padStart(2, "0")}:${String(minute).padStart(2, "0")} ${period}`;
+}
+
+function formatServiceHoursLabel(serviceHours) {
+    if (!serviceHours || !serviceHours.start || !serviceHours.end) {
+        return null;
+    }
+
+    const startLabel = to12HourLabel(serviceHours.start);
+    const endLabel = to12HourLabel(serviceHours.end);
+
+    if (!startLabel || !endLabel) {
+        return null;
+    }
+
+    return `${startLabel} - ${endLabel}`;
+}
 
 function DoctorCard({ doctor, selected, onSelect }) {
     return (
@@ -67,6 +99,14 @@ function DoctorCard({ doctor, selected, onSelect }) {
                         ৳{doctor.fee} fee
                     </span>
                 </div>
+                {doctor.serviceHoursLabel && (
+                    <div className="flex items-center gap-1 mt-1">
+                        <Clock size={12} className="text-slate-400" />
+                        <span className="text-[11px] text-slate-500">
+                            Service hours: {doctor.serviceHoursLabel}
+                        </span>
+                    </div>
+                )}
             </div>
 
             {/* Select indicator */}
@@ -255,10 +295,15 @@ function MiniCalendar({ selectedDate, onSelect, doctorAvailability = null }) {
         </div>
     );
 }
-function TimeSlotGrid({ selectedTime, onSelect, slots = [] }) {
+function TimeSlotGrid({ selectedTime, onSelect, slots = [], loading = false }) {
     return (
         <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
-            {slots.length === 0 ? (
+            {loading ? (
+                <div className="text-center py-8 text-slate-400 flex items-center justify-center gap-2">
+                    <Loader2 size={16} className="animate-spin" />
+                    <p className="text-sm">Loading available slots...</p>
+                </div>
+            ) : slots.length === 0 ? (
                 <div className="text-center py-8">
                     <p className="text-sm text-slate-400">
                         No slots available for this day.
@@ -463,6 +508,9 @@ export default function BookAppointment() {
             { color: "#fce7f3", accent: "#db2777" },
         ];
         const c = COLORS[i % COLORS.length];
+        const resolvedServiceHours =
+            d.service_hours || d.availability?.service_hours || null;
+
         return {
             id: d.id,
             name: d.name,
@@ -480,6 +528,10 @@ export default function BookAppointment() {
             color: c.color,
             accent: c.accent,
             availability: d.availability,
+            serviceHours: resolvedServiceHours,
+            serviceHoursLabel:
+                d.service_hours_label ||
+                formatServiceHoursLabel(resolvedServiceHours),
         };
     });
 
@@ -662,6 +714,16 @@ export default function BookAppointment() {
                                 </p>
                             </div>
                         </div>
+                        {selectedDoctor?.serviceHoursLabel && (
+                            <div>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                                    Service Hours
+                                </p>
+                                <p className="text-sm font-semibold text-slate-800">
+                                    {selectedDoctor.serviceHoursLabel}
+                                </p>
+                            </div>
+                        )}
                     </div>
 
                     <motion.button
@@ -1014,15 +1076,13 @@ export default function BookAppointment() {
                                                 id: "online",
                                                 label: "Online",
                                                 sub: "Video consultation",
-                                                Icon: Video,
                                             },
                                             {
                                                 id: "in-person",
                                                 label: "In-Person",
                                                 sub: "Visit the clinic",
-                                                Icon: MapPin,
                                             },
-                                        ].map(({ id, label, sub, Icon }) => {
+                                        ].map(({ id, label, sub }) => {
                                             const sel = selectedType === id;
                                             return (
                                                 <motion.div
@@ -1053,7 +1113,11 @@ export default function BookAppointment() {
                                                                 : "bg-slate-100 text-slate-400"
                                                         }`}
                                                     >
-                                                        <Icon size={18} />
+                                                        {id === "online" ? (
+                                                            <Video size={18} />
+                                                        ) : (
+                                                            <MapPin size={18} />
+                                                        )}
                                                     </div>
                                                     <div className="min-w-0">
                                                         <p
@@ -1114,6 +1178,12 @@ export default function BookAppointment() {
                                                 Select Date
                                             </h2>
                                         </div>
+                                        {selectedDoctor?.serviceHoursLabel && (
+                                            <p className="text-xs text-slate-500 mb-2 px-1 inline-flex items-center gap-1.5">
+                                                <Clock size={13} className="text-[#127fec]" />
+                                                Service hours: {selectedDoctor.serviceHoursLabel}
+                                            </p>
+                                        )}
                                         <MiniCalendar
                                             selectedDate={selectedDate}
                                             onSelect={(d) => {
@@ -1134,61 +1204,8 @@ export default function BookAppointment() {
                                         <TimeSlotGrid
                                             selectedTime={selectedTime}
                                             onSelect={setSelectedTime}
-                                            slots={(() => {
-                                                if (
-                                                    !selectedDoctor ||
-                                                    !selectedDate
-                                                )
-                                                    return [];
-                                                const date = new Date(
-                                                    selectedDate.year,
-                                                    selectedDate.month,
-                                                    selectedDate.day,
-                                                );
-                                                const dayName = [
-                                                    "sun",
-                                                    "mon",
-                                                    "tue",
-                                                    "wed",
-                                                    "thu",
-                                                    "fri",
-                                                    "sat",
-                                                ][date.getDay()];
-                                                const range =
-                                                    selectedDoctor
-                                                        .availability?.[
-                                                        dayName
-                                                    ];
-                                                if (!range) return [];
-
-                                                const slots = [];
-                                                let curr = new Date(
-                                                    `1970-01-01T${range[0]}:00`,
-                                                );
-                                                const end = new Date(
-                                                    `1970-01-01T${range[1]}:00`,
-                                                );
-                                                while (curr < end) {
-                                                    const timeStr =
-                                                        curr.toLocaleTimeString(
-                                                            "en-US",
-                                                            {
-                                                                hour: "2-digit",
-                                                                minute: "2-digit",
-                                                                hour12: true,
-                                                            },
-                                                        );
-                                                    slots.push({
-                                                        id: timeStr,
-                                                        time: timeStr,
-                                                        available: true,
-                                                    });
-                                                    curr.setMinutes(
-                                                        curr.getMinutes() + 60,
-                                                    );
-                                                }
-                                                return slots;
-                                            })()}
+                                            loading={loadingSlots}
+                                            slots={getDynamicSlots()}
                                         />
                                     </div>
                                 </motion.div>
@@ -1274,6 +1291,11 @@ export default function BookAppointment() {
                                                 <p className="text-xs text-slate-500 truncate">
                                                     {selectedDoctor.specialty}
                                                 </p>
+                                                {selectedDoctor.serviceHoursLabel && (
+                                                    <p className="text-[11px] text-slate-500 mt-1 truncate">
+                                                        Service: {selectedDoctor.serviceHoursLabel}
+                                                    </p>
+                                                )}
                                             </div>
                                         </motion.div>
                                     ) : (

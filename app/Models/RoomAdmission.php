@@ -13,6 +13,7 @@ class RoomAdmission extends Model
         'admission_no',
         'patient_name',
         'patient_identifier',
+        'patient_id',
         'patient_age',
         'patient_gender',
         'contact_phone',
@@ -21,6 +22,7 @@ class RoomAdmission extends Model
         'admission_type',
         'department',
         'attending_doctor',
+        'doctor_id',
         'room_id',
         'bed_id',
         'payer_type',
@@ -35,11 +37,23 @@ class RoomAdmission extends Model
     ];
 
     protected $casts = [
+        'patient_id' => 'integer',
+        'doctor_id' => 'integer',
         'patient_age' => 'integer',
         'estimated_stay_days' => 'integer',
         'admitted_at' => 'datetime',
         'discharged_at' => 'datetime',
     ];
+
+    public function patient()
+    {
+        return $this->belongsTo(Patient::class);
+    }
+
+    public function doctor()
+    {
+        return $this->belongsTo(Doctor::class);
+    }
 
     public function room()
     {

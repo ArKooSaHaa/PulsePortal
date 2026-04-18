@@ -57,6 +57,27 @@ function formatTime(t) {
     return `${hour > 12 ? hour - 12 : hour || 12}:${m} ${hour >= 12 ? "PM" : "AM"}`;
 }
 
+function formatDate(value) {
+    if (!value) return "—";
+
+    const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return "—";
+
+    return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+    });
+}
+
+function appointmentDateTime(appointment) {
+    const datePart = String(appointment?.appointment_date || "").slice(0, 10);
+    const timePart = appointment?.appointment_time || "00:00:00";
+
+    const parsed = new Date(`${datePart}T${timePart}`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 function formatDateTime(value) {
     if (!value) return "—";
 
@@ -104,9 +125,17 @@ export default function DoctorDashboard() {
     const todayAppts = appointments.filter(
         (a) => String(a.appointment_date).slice(0, 10) === todayStr,
     );
-    const upcomingCount = appointments.filter(
-        (a) => !["cancelled", "completed"].includes(a.status),
-    ).length;
+    const now = new Date();
+    const upcomingAppointments = [...appointments]
+        .filter((a) => !["cancelled", "completed"].includes(a.status))
+        .filter((a) => {
+            const dateTime = appointmentDateTime(a);
+            return dateTime && dateTime >= now;
+        })
+        .sort((a, b) => appointmentDateTime(a) - appointmentDateTime(b));
+    const upcomingCount = upcomingAppointments.length;
+    const nextUpcomingAppointment = upcomingAppointments[0] || null;
+    const upcomingPreview = upcomingAppointments.slice(0, 5);
     const activeAdmissions = admissions.filter((admission) =>
         ["pending", "admitted", "transfer"].includes(admission.status),
     );
@@ -360,8 +389,60 @@ export default function DoctorDashboard() {
                                     </span>
                                 </div>
                             ) : todayAppts.length === 0 ? (
-                                <div className="text-center py-8 text-sm text-slate-400">
-                                    No appointments today.
+                                <div className="py-8 space-y-4">
+                                    <div className="text-center text-sm text-slate-400 space-y-2">
+                                        <p>No appointments today.</p>
+                                        {nextUpcomingAppointment && (
+                                            <p className="text-xs text-slate-500">
+                                                Next booking: {nextUpcomingAppointment.patient_name} on {formatDate(nextUpcomingAppointment.appointment_date)} at {formatTime(nextUpcomingAppointment.appointment_time)}.
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {upcomingPreview.length > 0 && (
+                                        <div className="max-w-2xl mx-auto rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                                                    Upcoming Appointments
+                                                </p>
+                                                <button
+                                                    onClick={() => navigate("/doctor/appointments")}
+                                                    className="text-xs font-semibold text-[#127fec] hover:underline"
+                                                >
+                                                    View all
+                                                </button>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                {upcomingPreview.map((item) => (
+                                                    <div
+                                                        key={item.id}
+                                                        className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-white border border-slate-100"
+                                                    >
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-semibold text-slate-700 truncate">
+                                                                {item.patient_name}
+                                                            </p>
+                                                            <p className="text-xs text-slate-500 truncate">
+                                                                {formatDate(item.appointment_date)} at {formatTime(item.appointment_time)} · {item.type === "in_person" ? "In-Person" : "Online"}
+                                                            </p>
+                                                        </div>
+                                                        <span
+                                                            className={`px-2.5 py-1 rounded-full text-[11px] font-medium capitalize whitespace-nowrap ${
+                                                                item.status === "confirmed"
+                                                                    ? "bg-blue-100 text-blue-600"
+                                                                    : item.status === "in_progress"
+                                                                      ? "bg-violet-100 text-violet-600"
+                                                                      : "bg-yellow-100 text-yellow-700"
+                                                            }`}
+                                                        >
+                                                            {item.status === "in_progress" ? "In Progress" : item.status}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
                                 paginatedData.map((item) => (

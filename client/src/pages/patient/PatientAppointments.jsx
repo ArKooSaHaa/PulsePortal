@@ -4,6 +4,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { CalendarDays, AlarmClock, MapPin, Loader2, Video, X, FileText } from "lucide-react";
 import appointmentService from "../../api/appointmentService";
 
+const Motion = motion;
+
 const STATUS_STYLES = {
     pending:   "bg-amber-50 text-amber-600 border border-amber-100",
     confirmed: "bg-blue-50 text-blue-600 border border-blue-100",
@@ -70,6 +72,12 @@ function AppointmentCard({ appt, onCancel, cancelling , navigate, highlight }) {
                                 : <><MapPin size={13} className="text-[#127fec]" /> In-Person Visit</>
                             }
                         </span>
+                        {appt.doctor_service_hours && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
+                                <AlarmClock size={13} className="text-[#127fec]" />
+                                Service {appt.doctor_service_hours}
+                            </span>
+                        )}
                     </div>
 
                     {appt.symptoms && (

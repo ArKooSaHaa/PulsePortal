@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import adminService from "../../api/adminService";
 
+const Motion = motion;
+
 const DEPARTMENTS = [
     "Anesthesiology",
     "Breast Surgery",
@@ -96,6 +98,8 @@ export default function AddDoctor() {
         bio: "",
         consultation_fee: "",
         availability_days: [],
+        service_start_time: "09:00",
+        service_end_time: "17:00",
     });
 
     const [errors, setErrors] = useState({});
@@ -129,6 +133,19 @@ export default function AddDoctor() {
             e.password = "Password must be at least 8 characters.";
         if (!form.specialization.trim())
             e.specialization = "Department / Specialization is required.";
+        if (form.availability_days.length > 0 && !form.service_start_time) {
+            e.service_start_time = "Service start time is required when availability days are selected.";
+        }
+        if (form.availability_days.length > 0 && !form.service_end_time) {
+            e.service_end_time = "Service end time is required when availability days are selected.";
+        }
+        if (
+            form.service_start_time &&
+            form.service_end_time &&
+            form.service_start_time >= form.service_end_time
+        ) {
+            e.service_end_time = "Service end time must be after start time.";
+        }
         return e;
     };
 
@@ -161,6 +178,8 @@ export default function AddDoctor() {
                 bio: "",
                 consultation_fee: "",
                 availability_days: [],
+                service_start_time: "09:00",
+                service_end_time: "17:00",
             });
         } catch (err) {
             if (err.response?.data?.errors) {
@@ -374,6 +393,25 @@ export default function AddDoctor() {
                                         </motion.button>
                                     ))}
                                 </div>
+                            </div>
+
+                            <div className="grid sm:grid-cols-2 gap-3 mt-4">
+                                <Input
+                                    label="Service Starts"
+                                    name="service_start_time"
+                                    type="time"
+                                    value={form.service_start_time}
+                                    onChange={handleChange}
+                                    error={errors.service_start_time}
+                                />
+                                <Input
+                                    label="Service Ends"
+                                    name="service_end_time"
+                                    type="time"
+                                    value={form.service_end_time}
+                                    onChange={handleChange}
+                                    error={errors.service_end_time}
+                                />
                             </div>
                         </div>
                     </div>

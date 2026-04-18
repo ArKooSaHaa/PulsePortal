@@ -81,7 +81,8 @@ class RoomAdmissionController extends Controller
 
         $data = $request->validate([
             'patient_name' => 'required|string|max:255',
-            'patient_id' => 'nullable|string|max:100',
+            'patient_id' => 'nullable',
+            'patient_identifier' => 'nullable|string|max:100',
             'patient_age' => 'required|integer|min:0|max:120',
             'patient_gender' => 'required|in:Male,Female,Other',
             'contact_phone' => 'required|string|max:25',
@@ -89,7 +90,8 @@ class RoomAdmissionController extends Controller
             'emergency_contact_phone' => 'required|string|max:25',
             'admission_type' => 'required|string|max:100',
             'department' => 'nullable|string|max:120',
-            'attending_doctor' => 'required|string|max:255',
+            'attending_doctor' => 'required_without:doctor_id|string|max:255',
+            'doctor_id' => 'nullable|integer|exists:doctors,id',
             'room_id' => 'required|integer|exists:rooms,id',
             'bed_id' => 'required|integer|exists:room_beds,id',
             'payer_type' => 'required|string|max:50',

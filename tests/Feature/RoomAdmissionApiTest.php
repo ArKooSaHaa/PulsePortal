@@ -39,17 +39,29 @@ class RoomAdmissionApiTest extends TestCase
 
         $sourceBed = $sourceRoom->beds()->orderBy('id')->firstOrFail();
         $targetBed = $targetRoom->beds()->orderBy('id')->firstOrFail();
+        $patientUser = $this->createPatientUser(
+            name: 'Lifecycle Patient',
+            email: 'lifecycle.patient@pulseportal.test',
+            phone: '01700000001',
+        );
+        $doctorUser = $this->createDoctorUser(
+            name: 'Rezaul Karim',
+            email: 'rezaul.lifecycle@pulseportal.test',
+            department: 'Cardiology',
+        );
 
         $createResponse = $this->actingAs($frontDeskUser, 'api')
             ->postJson('/api/admin/room-admissions', [
                 'patient_name' => 'Lifecycle Patient',
-                'patient_id' => 'PT-LIFE-001',
+                'patient_id' => $patientUser->patient->id,
+                'patient_identifier' => 'PT-LIFE-001',
                 'patient_age' => 41,
                 'patient_gender' => 'Male',
                 'contact_phone' => '01700000001',
                 'emergency_contact_name' => 'Relative One',
                 'emergency_contact_phone' => '01800000001',
                 'admission_type' => 'Emergency',
+                'doctor_id' => $doctorUser->doctor->id,
                 'attending_doctor' => 'Dr. Rezaul Karim',
                 'room_id' => $sourceRoom->id,
                 'bed_id' => $sourceBed->id,
@@ -70,6 +82,8 @@ class RoomAdmissionApiTest extends TestCase
             'id' => $admissionId,
             'status' => 'pending',
             'department' => 'Cardiology',
+            'patient_id' => $patientUser->patient->id,
+            'doctor_id' => $doctorUser->doctor->id,
         ]);
 
         $this->assertDatabaseHas('room_beds', [
@@ -312,9 +326,10 @@ class RoomAdmissionApiTest extends TestCase
             bed: $matchedRoom->beds()->firstOrFail(),
             admin: $superAdmin,
             overrides: [
-                'patient_name' => 'Rianto Khan',
+                'patient_name' => 'Legacy Label Mismatch',
+                'patient_id' => $patientUser->patient->id,
                 'patient_identifier' => 'PT-' . str_pad((string) $patientUser->patient->id, 5, '0', STR_PAD_LEFT),
-                'contact_phone' => '01867747162',
+                'contact_phone' => '01919999999',
                 'attending_doctor' => 'Dr. Linked Physician',
                 'status' => 'admitted',
             ],
@@ -340,7 +355,7 @@ class RoomAdmissionApiTest extends TestCase
             ->assertJsonPath('status', 'success')
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $matchedAdmission->id)
-            ->assertJsonPath('data.0.patient_name', 'Rianto Khan')
+            ->assertJsonPath('data.0.patient_id', $patientUser->patient->id)
             ->assertJsonPath('data.0.room_number', 'TEST-PD-401');
     }
 
@@ -367,7 +382,8 @@ class RoomAdmissionApiTest extends TestCase
             admin: $superAdmin,
             overrides: [
                 'patient_name' => 'Assigned Patient',
-                'attending_doctor' => 'Dr. Rezaul Karim',
+                'doctor_id' => $doctorUser->doctor->id,
+                'attending_doctor' => '',
                 'status' => 'admitted',
             ],
         );
@@ -390,6 +406,7 @@ class RoomAdmissionApiTest extends TestCase
             ->assertJsonPath('status', 'success')
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $matchedAdmission->id)
+            ->assertJsonPath('data.0.doctor_id', $doctorUser->doctor->id)
             ->assertJsonPath('data.0.attending_doctor', 'Dr. Rezaul Karim')
             ->assertJsonPath('data.0.room_number', 'TEST-DD-401');
     }
