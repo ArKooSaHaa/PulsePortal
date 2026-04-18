@@ -245,7 +245,7 @@ npm install pusher-js laravel-echo
 | Frontend (React)        | http://localhost:5173     | Main user interface          |
 | Backend API             | http://localhost:8000/api | API root                     |
 | Mailpit (Email Catcher) | http://localhost:8025     | View outgoing emails locally |
-| MySQL (DB Client only)  | localhost:3307            | Direct database access       |
+| MySQL (DB Client only)  | localhost:3308            | Direct database access       |
 
 > Connect to MySQL using a client like DBeaver or TablePlus with username `root` and password `root`.
 

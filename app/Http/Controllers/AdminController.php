@@ -57,13 +57,17 @@ class AdminController extends Controller
             'email'      => ['required', 'email', 'unique:users,email', 'regex:/^[a-zA-Z0-9._%+\-]+@(gmail\.com|yahoo\.com|outlook\.com|aust\.edu|pulseportal\.com)$/'],
             'password'   => ['required', 'string', 'min:8', 'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/'],
             'admin_role' => 'required|string|max:100',
-            'department' => 'required_unless:admin_role,Super Admin|nullable|string|max:100',
+            'department' => 'required_unless:admin_role,Super Admin,Front Desk Admin|nullable|string|max:100',
             'phone'      => 'nullable|string|max:20',
         ], [
             'email.regex'    => 'Only gmail.com, yahoo.com, outlook.com, aust.edu, and pulseportal.com emails are allowed.',
             'password.regex' => 'Password must contain at least one uppercase letter, one lowercase letter, and one number.',
             'name.regex'     => 'Name can only contain letters, spaces, hyphens, and dots.',
         ]);
+
+        if (in_array($data['admin_role'], ['Super Admin', 'Front Desk Admin'], true)) {
+            $data['department'] = null;
+        }
 
         $result = $this->adminService->createAdmin($data);
 

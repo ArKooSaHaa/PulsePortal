@@ -5,13 +5,14 @@ namespace App\Http\Services;
 use App\Models\User;
 use App\Models\Doctor;
 use App\Models\Admin;
+use App\Models\Patient;
+use App\Models\Appointment;
 use App\Mail\WelcomeDoctorMail;
 use App\Mail\AdminWelcomMail;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
-
-use Mail;
 
 class AdminService
 {
@@ -86,6 +87,11 @@ class AdminService
         ])->validate();
 
         return DB::transaction(function () use ($validatedData, $data) {
+            $department = $data['department'] ?? null;
+            if (is_string($department) && trim($department) === '') {
+                $department = null;
+            }
+
             $user = User::create([
                 'name' => $validatedData['name'],
                 'email' => $validatedData['email'],
@@ -96,10 +102,10 @@ class AdminService
             Admin::create([
                 'user_id' => $user->id,
                 'admin_role' => $data['admin_role'],
-                'department' => $data['department'],
+                'department' => $department,
             ]);
 
-            Mail::to($data['email'])->queue(new AdminWelcomMail($data['name'], $data['email'], $data['admin_role'], $data['department'], $data['password']));
+            Mail::to($data['email'])->queue(new AdminWelcomMail($data['name'], $data['email'], $data['admin_role'], $department ?? 'Not Assigned', $data['password']));
 
             return [
                 'id' => $user->id,
@@ -137,9 +143,13 @@ class AdminService
             ->get()
             ->map(fn($p) => [
                 'id' => $p->id,
+                'patient_id' => 'PT-' . str_pad((string) $p->id, 5, '0', STR_PAD_LEFT),
                 'user_id' => $p->user_id,
                 'name' => $p->user->name,
                 'email' => $p->user->email,
+                'phone' => $p->phone,
+                'emergency_contact' => $p->emergency_contact,
+                'emergency_phone' => $p->emergency_phone,
             ])
             ->toArray();
     }

@@ -25,13 +25,14 @@ class DatabaseSeeder extends Seeder
     {
         $faker = Faker::create('en_US');
         $allowedDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'aust.edu', 'pulseportal.com'];
+        $seedPassword = 'password123';
 
         // --- 1. ADMINS (Super & Department Specific) ---
-        $superAdminUser = User::firstOrCreate(
+        $superAdminUser = User::updateOrCreate(
             ['email' => 'admin@pulseportal.com'],
             [
                 'name'     => 'System Admin',
-                'password' => Hash::make('Password123'),
+                'password' => Hash::make($seedPassword),
                 'role'     => 'admin',
             ]
         );
@@ -43,11 +44,43 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        $cardioAdminUser = User::firstOrCreate(
+        $frontDeskAdminUser = User::updateOrCreate(
+            ['email' => 'frontdesk@pulseportal.com'],
+            [
+                'name'     => 'Front Desk Admin',
+                'password' => Hash::make($seedPassword),
+                'role'     => 'admin',
+            ]
+        );
+        Admin::firstOrCreate(
+            ['user_id' => $frontDeskAdminUser->id],
+            [
+                'admin_role' => 'Front Desk Admin',
+                'department' => null,
+            ]
+        );
+
+        $tonimaFrontDeskAdminUser = User::updateOrCreate(
+            ['email' => 'tonima2011@gmail.com'],
+            [
+                'name'     => 'Tonima',
+                'password' => Hash::make($seedPassword),
+                'role'     => 'admin',
+            ]
+        );
+        Admin::firstOrCreate(
+            ['user_id' => $tonimaFrontDeskAdminUser->id],
+            [
+                'admin_role' => 'Front Desk Admin',
+                'department' => null,
+            ]
+        );
+
+        $cardioAdminUser = User::updateOrCreate(
             ['email' => 'cardio@pulseportal.com'],
             [
                 'name'     => 'Cardio Admin',
-                'password' => Hash::make('password123'),
+                'password' => Hash::make($seedPassword),
                 'role'     => 'admin',
             ]
         );
@@ -59,11 +92,11 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        $neuroAdminUser = User::firstOrCreate(
+        $neuroAdminUser = User::updateOrCreate(
             ['email' => 'neuro@pulseportal.com'],
             [
                 'name'     => 'Neuro Admin',
-                'password' => Hash::make('password123'),
+                'password' => Hash::make($seedPassword),
                 'role'     => 'admin',
             ]
         );
@@ -80,11 +113,11 @@ class DatabaseSeeder extends Seeder
             $slug = strtolower(str_replace([' ', '&'], ['_', 'n'], $dept));
             $email = $slug . '_admin@pulseportal.com';
 
-            $user = User::firstOrCreate(
+            $user = User::updateOrCreate(
                 ['email' => $email],
                 [
                     'name'     => $dept . ' Admin',
-                    'password' => Hash::make('password123'),
+                    'password' => Hash::make($seedPassword),
                     'role'     => 'admin',
                 ]
             );
@@ -98,13 +131,16 @@ class DatabaseSeeder extends Seeder
         }
 
         // --- 2. SAMPLE PATIENT ---
-        $patientUser = User::create([
-            'name'     => 'Shahadat Hasan',
+        $patientUser = User::updateOrCreate([
             'email'    => 'patient@pulseportal.com',
-            'password' => Hash::make('password123'),
+        ], [
+            'name'     => 'Shahadat Hasan',
+            'password' => Hash::make($seedPassword),
             'role'     => 'patient',
         ]);
-        $patient = Patient::create([
+        $patient = Patient::updateOrCreate([
+            'user_id'           => $patientUser->id,
+        ], [
             'user_id'           => $patientUser->id,
             'dob'               => '2001-12-26',
             'blood_group'       => 'A+',
@@ -116,13 +152,16 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // --- 3. SPECIFIC DOCTORS (Manual Entry) ---
-        $doctorUser = User::create([
-            'name'     => 'Dr. Maliha Khanam',
+        $doctorUser = User::updateOrCreate([
             'email'    => 'doctor@pulseportal.com',
-            'password' => Hash::make('password123'),
+        ], [
+            'name'     => 'Dr. Maliha Khanam',
+            'password' => Hash::make($seedPassword),
             'role'     => 'doctor',
         ]);
-        $doctorCardio = Doctor::create([
+        $doctorCardio = Doctor::updateOrCreate([
+            'user_id'          => $doctorUser->id,
+        ], [
             'user_id'          => $doctorUser->id,
             'specialization'   => 'Cardiology',
             'department'       => 'Cardiology',
@@ -142,13 +181,16 @@ class DatabaseSeeder extends Seeder
             'reviews_count'    => 120,
         ]);
 
-        $neuroDoctorUser = User::create([
-            'name'     => 'Dr. James Wilson',
+        $neuroDoctorUser = User::updateOrCreate([
             'email'    => 'neuro_doc@pulseportal.com',
-            'password' => Hash::make('password123'),
+        ], [
+            'name'     => 'Dr. James Wilson',
+            'password' => Hash::make($seedPassword),
             'role'     => 'doctor',
         ]);
-        $doctorNeuro = Doctor::create([
+        $doctorNeuro = Doctor::updateOrCreate([
+            'user_id'          => $neuroDoctorUser->id,
+        ], [
             'user_id'          => $neuroDoctorUser->id,
             'specialization'   => 'Neurology',
             'department'       => 'Neurology',
@@ -223,7 +265,7 @@ class DatabaseSeeder extends Seeder
                 $user = User::create([
                     'name'     => 'Dr. ' . $cleanName,
                     'email'    => $emailPrefix . '@' . $emailDomain,
-                    'password' => Hash::make('password123'),
+                    'password' => Hash::make($seedPassword),
                     'role'     => 'doctor',
                 ]);
 

@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import adminService from "../../api/adminService";
 
+const ROLES_WITHOUT_DEPARTMENT = new Set(["Super Admin", "Front Desk Admin"]);
+
 function Input({ icon, error, ...props }) {
     return (
         <div className="relative">
@@ -86,8 +88,8 @@ export default function AddAdmin() {
         const { name, value } = e.target;
         let newForm = { ...form, [name]: value };
 
-        // If Super Admin is selected, force department to empty
-        if (name === "admin_role" && value === "Super Admin") {
+        // Roles with global scope don't require department
+        if (name === "admin_role" && ROLES_WITHOUT_DEPARTMENT.has(value)) {
             newForm.department = "";
         }
 
@@ -106,8 +108,8 @@ export default function AddAdmin() {
             e.password = "Password must be at least 8 characters.";
         if (!form.admin_role) e.admin_role = "Admin role is required.";
 
-        // Department is required only if NOT a Super Admin
-        if (form.admin_role !== "Super Admin" && !form.department) {
+        // Department is required only for department-scoped admin roles
+        if (!ROLES_WITHOUT_DEPARTMENT.has(form.admin_role) && !form.department) {
             e.department = "Department is required.";
         }
         return e;
@@ -313,11 +315,11 @@ export default function AddAdmin() {
                             label="Department"
                             icon={<Building2 size={16} />}
                             name="department"
-                            value={form.admin_role === "Super Admin" ? "" : form.department}
+                            value={ROLES_WITHOUT_DEPARTMENT.has(form.admin_role) ? "" : form.department}
                             onChange={handleChange}
                             error={errors.department}
-                            disabled={form.admin_role === "Super Admin"}
-                            placeholder={form.admin_role === "Super Admin" ? "All Departments (Default)" : "Select Department"}
+                            disabled={ROLES_WITHOUT_DEPARTMENT.has(form.admin_role)}
+                            placeholder={ROLES_WITHOUT_DEPARTMENT.has(form.admin_role) ? "Department Not Required" : "Select Department"}
                             options={[
                                 "Anesthesiology",
                                 "Breast Surgery",

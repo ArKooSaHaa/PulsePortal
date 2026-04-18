@@ -4,6 +4,7 @@ services:
             context: .
             dockerfile: docker/php/Dockerfile
         container_name: pulseportal_app
+        command: sh -c "chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache && chmod -R ug+rwx /var/www/storage /var/www/bootstrap/cache && php-fpm"
         volumes:
             - ./:/var/www
         networks:
@@ -30,7 +31,7 @@ services:
             MYSQL_DATABASE: pulse_portal
             MYSQL_ROOT_PASSWORD: root
         ports:
-            - "3307:3306"
+            - "3308:3306"
         networks:
             - pulseportal
 

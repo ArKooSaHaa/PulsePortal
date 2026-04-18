@@ -74,7 +74,10 @@ export default function Navbar() {
 
     // Compute admin nav links dynamically based on role
     const getAdminLinks = () => {
-        const links = [{ name: "Appointments", path: "all-appointments" }];
+        const links = [
+            { name: "Room Admission", path: "room-admissions" },
+            { name: "Appointments", path: "all-appointments" },
+        ];
         if (isSuperAdmin) {
             links.unshift(
                 { name: "Add Doctor", path: "add-doctor" },
