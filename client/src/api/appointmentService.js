@@ -51,6 +51,14 @@ const appointmentService = {
         return response.data;
     },
 
+    // Doctor retrieves printable prescription PDF for an appointment
+    getDoctorPrescriptionPdf: async (appointmentId) => {
+        const response = await api.get(`/doctor/appointments/${appointmentId}/prescription/pdf`, {
+            responseType: "blob",
+        });
+        return response.data;
+    },
+
     // Patient retrieves their prescription for a completed appointment
     getPatientPrescription: async (appointmentId) => {
         const response = await api.get(`/patient/appointments/${appointmentId}/prescription`);

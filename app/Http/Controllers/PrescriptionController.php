@@ -76,21 +76,7 @@ class PrescriptionController extends Controller
             'is_read'        => false,
         ]);
 
-        // Prepare prescription data for the view
-        $medicines = json_decode($prescription->medication, true) ?? [];
-        $pdfData = (object) [
-            'doctor_name'           => $appointment->doctor->user->name,
-            'doctor_specialization' => $appointment->doctor->specialization,
-            'doctor_license'        => $appointment->doctor->license_number,
-            'patient_name'          => $appointment->patient->user->name,
-            'disease_or_problem'    => $prescription->disease_or_problem,
-            'medicines'             => $medicines,
-            'notes'                 => $prescription->instructions,
-            'appointment_date'      => $appointment->appointment_date,
-            'appointment_time'      => $appointment->appointment_time,
-        ];
-
-        // Generate PDF
+        $pdfData = $this->buildPdfData($appointment, $prescription);
         $pdf = Pdf::loadView('emails.patients.prescription', ['prescription' => $pdfData]);
         $pdfContent = $pdf->output();
 
@@ -111,6 +97,45 @@ class PrescriptionController extends Controller
                 'prescription_id' => $prescription->id,
                 'appointment_id'  => $appointment->id,
             ],
+        ]);
+    }
+
+    /**
+     * GET /api/doctor/appointments/{id}/prescription/pdf
+     * Doctor prints/downloads prescription PDF for own appointment.
+     */
+    public function doctorPdf($id)
+    {
+        $doctor = auth()->user()->doctor;
+
+        if (!$doctor) {
+            return response()->json(['status' => 'error', 'message' => 'Doctor profile not found.'], 404);
+        }
+
+        $appointment = Appointment::where('id', $id)
+            ->where('doctor_id', $doctor->id)
+            ->with(['patient.user', 'doctor.user', 'prescriptions'])
+            ->first();
+
+        if (!$appointment) {
+            return response()->json(['status' => 'error', 'message' => 'Appointment not found or unauthorized.'], 404);
+        }
+
+        $prescription = $appointment->prescriptions->sortByDesc('id')->first();
+
+        if (!$prescription) {
+            return response()->json(['status' => 'error', 'message' => 'No prescription found for this appointment.'], 404);
+        }
+
+        $pdfData = $this->buildPdfData($appointment, $prescription);
+        $pdf = Pdf::loadView('emails.patients.prescription', ['prescription' => $pdfData]);
+        $fileName = "prescription-{$appointment->id}.pdf";
+
+        return response($pdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => "inline; filename=\"{$fileName}\"",
+            'Cache-Control' => 'no-store, no-cache, must-revalidate',
+            'Pragma' => 'no-cache',
         ]);
     }
 
@@ -161,5 +186,22 @@ class PrescriptionController extends Controller
                 'appointment_time'   => $appointment->appointment_time,
             ],
         ]);
+    }
+
+    private function buildPdfData(Appointment $appointment, Prescription $prescription): object
+    {
+        $medicines = json_decode($prescription->medication, true) ?? [];
+
+        return (object) [
+            'doctor_name'           => $appointment->doctor->user->name,
+            'doctor_specialization' => $appointment->doctor->specialization,
+            'doctor_license'        => $appointment->doctor->license_number,
+            'patient_name'          => $appointment->patient->user->name,
+            'disease_or_problem'    => $prescription->disease_or_problem,
+            'medicines'             => $medicines,
+            'notes'                 => $prescription->instructions,
+            'appointment_date'      => $appointment->appointment_date,
+            'appointment_time'      => $appointment->appointment_time,
+        ];
     }
 }

@@ -1,8 +1,20 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, CheckCircle, Loader2, ArrowLeft, FileText, User, Pill } from "lucide-react";
+import {
+    Plus,
+    Trash2,
+    CheckCircle,
+    Loader2,
+    ArrowLeft,
+    FileText,
+    User,
+    Pill,
+    Printer,
+} from "lucide-react";
 import appointmentService from "../../api/appointmentService";
+
+const Motion = motion;
 
 export default function PrescriptionPreview() {
     const { id } = useParams();
@@ -12,6 +24,7 @@ export default function PrescriptionPreview() {
     const [loadingAppt, setLoadingAppt] = useState(true);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [printing, setPrinting] = useState(false);
     const [error, setError] = useState("");
 
     const [diagnosis, setDiagnosis] = useState("");
@@ -61,13 +74,43 @@ export default function PrescriptionPreview() {
                 notes,
             });
             setSaved(true);
-            setTimeout(() => navigate("/doctor/appointments"), 1800);
         } catch (err) {
             setError(
                 err?.response?.data?.message || "Failed to save prescription. Please try again."
             );
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handlePrintPdf = async () => {
+        setError("");
+        setPrinting(true);
+
+        try {
+            const pdfBlob = await appointmentService.getDoctorPrescriptionPdf(id);
+            const pdfUrl = URL.createObjectURL(pdfBlob);
+            const printWindow = window.open(pdfUrl, "_blank", "noopener,noreferrer");
+
+            if (!printWindow) {
+                URL.revokeObjectURL(pdfUrl);
+                setError("Popup blocked. Please allow popups and try again.");
+                return;
+            }
+
+            printWindow.onload = () => {
+                printWindow.focus();
+                printWindow.print();
+            };
+
+            setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000);
+        } catch (err) {
+            setError(
+                err?.response?.data?.message ||
+                    "Failed to generate printable PDF. Please try again.",
+            );
+        } finally {
+            setPrinting(false);
         }
     };
 
@@ -102,15 +145,47 @@ export default function PrescriptionPreview() {
                         <motion.div
                             initial={{ scale: 0.8, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
-                            className="bg-white rounded-3xl p-10 flex flex-col items-center gap-4 shadow-2xl"
+                            className="bg-white rounded-3xl p-10 flex flex-col items-center gap-4 shadow-2xl w-[92%] max-w-md"
                         >
                             <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center">
                                 <CheckCircle size={36} className="text-green-500" />
                             </div>
                             <p className="text-xl font-bold text-slate-800">Prescription Saved!</p>
-                            <p className="text-sm text-slate-500">
-                                Appointment marked as completed. Redirecting...
+                            <p className="text-sm text-slate-500 text-center">
+                                Appointment marked as completed. You can print the prescription PDF now.
                             </p>
+
+                            <div className="w-full flex flex-col sm:flex-row gap-3 mt-2">
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.97 }}
+                                    onClick={handlePrintPdf}
+                                    disabled={printing}
+                                    className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-white shadow-md disabled:opacity-70 disabled:cursor-not-allowed"
+                                    style={{
+                                        background:
+                                            "linear-gradient(135deg, #127fec, #0a5bbf)",
+                                    }}
+                                >
+                                    {printing ? (
+                                        <>
+                                            <Loader2 size={15} className="animate-spin" />
+                                            Preparing PDF...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Printer size={15} />
+                                            Print PDF
+                                        </>
+                                    )}
+                                </motion.button>
+                                <button
+                                    onClick={() => navigate("/doctor/appointments")}
+                                    className="flex-1 px-5 py-2.5 rounded-full text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
+                                >
+                                    Back to Appointments
+                                </button>
+                            </div>
                         </motion.div>
                     </motion.div>
                 )}

@@ -59,6 +59,7 @@ Route::middleware('auth:api')->group(function () {
         Route::get('room-admissions',                     [AdmissionPortalController::class, 'doctorAdmissions']);
         Route::patch('appointments/{id}/status',          [AppointmentController::class, 'updateStatus']);
         Route::post('appointments/{id}/prescription',     [PrescriptionController::class, 'store']);
+        Route::get('appointments/{id}/prescription/pdf',  [PrescriptionController::class, 'doctorPdf']);
         Route::get('available',                           [DoctorController::class, 'index']);
         Route::get('patient-profile/{patientId}',         [AppointmentController::class, 'getPatientProfile']);
 
