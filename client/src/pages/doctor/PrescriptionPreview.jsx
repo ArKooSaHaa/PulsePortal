@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -15,6 +15,34 @@ import {
 import appointmentService from "../../api/appointmentService";
 
 const Motion = motion;
+const RECENT_MEDICINE_STORAGE_KEY = "pulseportal_recent_medicine_suggestions";
+const MAX_RECENT_MEDICINES = 8;
+
+function highlightSuggestionText(label, query) {
+    const safeLabel = String(label || "");
+    const safeQuery = String(query || "").trim();
+
+    if (!safeLabel || !safeQuery) {
+        return safeLabel;
+    }
+
+    const startIndex = safeLabel.toLowerCase().indexOf(safeQuery.toLowerCase());
+    if (startIndex < 0) {
+        return safeLabel;
+    }
+
+    const before = safeLabel.slice(0, startIndex);
+    const matched = safeLabel.slice(startIndex, startIndex + safeQuery.length);
+    const after = safeLabel.slice(startIndex + safeQuery.length);
+
+    return (
+        <>
+            {before}
+            <span className="font-extrabold text-[#0a5bbf]">{matched}</span>
+            {after}
+        </>
+    );
+}
 
 export default function PrescriptionPreview() {
     const { id } = useParams();
@@ -31,7 +59,15 @@ export default function PrescriptionPreview() {
     const [medicines, setMedicines] = useState([
         { name: "", dosage: "", instruction: "" },
     ]);
+    const [recommendedTests, setRecommendedTests] = useState("");
     const [notes, setNotes] = useState("");
+    const [medicineSuggestions, setMedicineSuggestions] = useState({});
+    const [medicineLoading, setMedicineLoading] = useState({});
+    const [focusedMedicineIndex, setFocusedMedicineIndex] = useState(null);
+    const [highlightedSuggestionIndex, setHighlightedSuggestionIndex] = useState({});
+    const [recentMedicineSuggestions, setRecentMedicineSuggestions] = useState([]);
+    const suggestionCacheRef = useRef(new Map());
+    const debounceTimerRef = useRef(null);
 
     useEffect(() => {
         appointmentService
@@ -44,11 +80,141 @@ export default function PrescriptionPreview() {
             .finally(() => setLoadingAppt(false));
     }, [id]);
 
-    const addMedicine = () =>
-        setMedicines((prev) => [...prev, { name: "", dosage: "", instruction: "" }]);
+    useEffect(() => {
+        return () => {
+            if (debounceTimerRef.current) {
+                clearTimeout(debounceTimerRef.current);
+            }
+        };
+    }, []);
 
-    const removeMedicine = (i) =>
-        setMedicines((prev) => prev.filter((_, idx) => idx !== i));
+    useEffect(() => {
+        try {
+            const raw = window.localStorage.getItem(RECENT_MEDICINE_STORAGE_KEY);
+            if (!raw) {
+                return;
+            }
+
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) {
+                return;
+            }
+
+            const sanitized = parsed
+                .filter((item) => item && typeof item.display === "string")
+                .slice(0, MAX_RECENT_MEDICINES)
+                .map((item) => ({
+                    name: item.name || item.display,
+                    strength: item.strength || null,
+                    form: item.form || null,
+                    display: item.display,
+                    url: item.url || null,
+                    source: "recent",
+                }));
+
+            setRecentMedicineSuggestions(sanitized);
+        } catch {
+            setRecentMedicineSuggestions([]);
+        }
+    }, []);
+
+    const persistRecentMedicineSuggestions = (items) => {
+        try {
+            window.localStorage.setItem(
+                RECENT_MEDICINE_STORAGE_KEY,
+                JSON.stringify(items.slice(0, MAX_RECENT_MEDICINES)),
+            );
+        } catch {
+            // Ignore persistence issues silently.
+        }
+    };
+
+    const buildRecentFallbackSuggestions = (query, sourceItems = recentMedicineSuggestions) => {
+        const normalized = String(query || "").trim().toLowerCase();
+
+        if (!normalized) {
+            return sourceItems.slice(0, MAX_RECENT_MEDICINES);
+        }
+
+        return sourceItems
+            .filter((item) => {
+                const label = String(item?.display || item?.name || "").toLowerCase();
+                return label.includes(normalized);
+            })
+            .slice(0, MAX_RECENT_MEDICINES);
+    };
+
+    const registerRecentSuggestion = (suggestion) => {
+        const display = String(suggestion?.display || suggestion?.name || "").trim();
+        if (!display) {
+            return;
+        }
+
+        const normalizedDisplay = display.toLowerCase();
+
+        setRecentMedicineSuggestions((prev) => {
+            const entry = {
+                name: suggestion?.name || display,
+                strength: suggestion?.strength || null,
+                form: suggestion?.form || null,
+                display,
+                url: suggestion?.url || null,
+                source: "recent",
+            };
+
+            const merged = [
+                entry,
+                ...prev.filter(
+                    (item) => String(item?.display || "").toLowerCase() !== normalizedDisplay,
+                ),
+            ].slice(0, MAX_RECENT_MEDICINES);
+
+            persistRecentMedicineSuggestions(merged);
+            return merged;
+        });
+    };
+
+    const resetRowAutocomplete = (rowIndex) => {
+        setMedicineSuggestions((prev) => {
+            if (prev[rowIndex] === undefined) {
+                return prev;
+            }
+            const next = { ...prev };
+            delete next[rowIndex];
+            return next;
+        });
+
+        setMedicineLoading((prev) => {
+            if (prev[rowIndex] === undefined) {
+                return prev;
+            }
+            const next = { ...prev };
+            delete next[rowIndex];
+            return next;
+        });
+
+        setHighlightedSuggestionIndex((prev) => {
+            if (prev[rowIndex] === undefined) {
+                return prev;
+            }
+            const next = { ...prev };
+            delete next[rowIndex];
+            return next;
+        });
+    };
+
+    const addMedicine = () => {
+        setMedicines((prev) => [...prev, { name: "", dosage: "", instruction: "" }]);
+        setFocusedMedicineIndex(null);
+    };
+
+    const removeMedicine = (rowIndex) => {
+        setMedicines((prev) => prev.filter((_, idx) => idx !== rowIndex));
+        setFocusedMedicineIndex((prev) => (prev === rowIndex ? null : prev));
+        setMedicineSuggestions({});
+        setMedicineLoading({});
+        setHighlightedSuggestionIndex({});
+    };
 
     const handleChange = (index, field, value) => {
         setMedicines((prev) => {
@@ -56,6 +222,155 @@ export default function PrescriptionPreview() {
             updated[index] = { ...updated[index], [field]: value };
             return updated;
         });
+    };
+
+    const fetchMedicineSuggestions = async (rowIndex, query) => {
+        const normalizedQuery = query.trim();
+        if (normalizedQuery.length < 2) {
+            const fallbackItems = buildRecentFallbackSuggestions(normalizedQuery);
+            setMedicineSuggestions((prev) => ({
+                ...prev,
+                [rowIndex]: fallbackItems,
+            }));
+            setHighlightedSuggestionIndex((prev) => ({
+                ...prev,
+                [rowIndex]: fallbackItems.length > 0 ? 0 : -1,
+            }));
+            return;
+        }
+
+        const cacheKey = normalizedQuery.toLowerCase();
+        if (suggestionCacheRef.current.has(cacheKey)) {
+            const cachedItems = suggestionCacheRef.current.get(cacheKey);
+            const fallbackItems = cachedItems.length > 0
+                ? cachedItems
+                : buildRecentFallbackSuggestions(normalizedQuery);
+            setMedicineSuggestions((prev) => ({
+                ...prev,
+                [rowIndex]: fallbackItems,
+            }));
+            setHighlightedSuggestionIndex((prev) => ({
+                ...prev,
+                [rowIndex]: fallbackItems.length > 0 ? 0 : -1,
+            }));
+            return;
+        }
+
+        setMedicineLoading((prev) => ({ ...prev, [rowIndex]: true }));
+        try {
+            const remoteItems = await appointmentService.getMedicineSuggestions(normalizedQuery);
+            const suggestionItems = Array.isArray(remoteItems)
+                ? remoteItems.slice(0, 10).map((item) => ({
+                    ...item,
+                    source: item?.source || "medex",
+                }))
+                : [];
+            const effectiveItems = suggestionItems.length > 0
+                ? suggestionItems
+                : buildRecentFallbackSuggestions(normalizedQuery);
+
+            suggestionCacheRef.current.set(cacheKey, suggestionItems);
+            setMedicineSuggestions((prev) => ({
+                ...prev,
+                [rowIndex]: effectiveItems,
+            }));
+            setHighlightedSuggestionIndex((prev) => ({
+                ...prev,
+                [rowIndex]: effectiveItems.length > 0 ? 0 : -1,
+            }));
+        } catch {
+            const fallbackItems = buildRecentFallbackSuggestions(normalizedQuery);
+            setMedicineSuggestions((prev) => ({ ...prev, [rowIndex]: fallbackItems }));
+            setHighlightedSuggestionIndex((prev) => ({
+                ...prev,
+                [rowIndex]: fallbackItems.length > 0 ? 0 : -1,
+            }));
+        } finally {
+            setMedicineLoading((prev) => ({ ...prev, [rowIndex]: false }));
+        }
+    };
+
+    const handleMedicineNameChange = (rowIndex, value) => {
+        handleChange(rowIndex, "name", value);
+        setFocusedMedicineIndex(rowIndex);
+
+        if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
+        }
+
+        const normalizedQuery = value.trim();
+        if (normalizedQuery.length < 2) {
+            fetchMedicineSuggestions(rowIndex, normalizedQuery);
+            return;
+        }
+
+        debounceTimerRef.current = setTimeout(() => {
+            fetchMedicineSuggestions(rowIndex, normalizedQuery);
+        }, 280);
+    };
+
+    const applySuggestionToMedicine = (rowIndex, suggestion) => {
+        setMedicines((prev) => {
+            const updated = [...prev];
+            if (!updated[rowIndex]) {
+                return prev;
+            }
+
+            updated[rowIndex] = {
+                ...updated[rowIndex],
+                name: suggestion?.display || suggestion?.name || updated[rowIndex].name,
+                dosage: updated[rowIndex].dosage || suggestion?.strength || "",
+            };
+
+            return updated;
+        });
+
+        resetRowAutocomplete(rowIndex);
+        setFocusedMedicineIndex(null);
+        registerRecentSuggestion(suggestion);
+    };
+
+    const handleMedicineNameKeyDown = (event, rowIndex) => {
+        const rowSuggestions = medicineSuggestions[rowIndex] || [];
+        const currentHighlight = highlightedSuggestionIndex[rowIndex] ?? -1;
+
+        if (event.key === "Escape") {
+            event.preventDefault();
+            resetRowAutocomplete(rowIndex);
+            setFocusedMedicineIndex(null);
+            return;
+        }
+
+        if (rowSuggestions.length === 0) {
+            return;
+        }
+
+        if (event.key === "ArrowDown") {
+            event.preventDefault();
+            setHighlightedSuggestionIndex((prev) => ({
+                ...prev,
+                [rowIndex]: Math.min(currentHighlight + 1, rowSuggestions.length - 1),
+            }));
+            return;
+        }
+
+        if (event.key === "ArrowUp") {
+            event.preventDefault();
+            setHighlightedSuggestionIndex((prev) => ({
+                ...prev,
+                [rowIndex]: Math.max(currentHighlight - 1, 0),
+            }));
+            return;
+        }
+
+        if (event.key === "Enter") {
+            event.preventDefault();
+            const safeIndex = currentHighlight >= 0 ? currentHighlight : 0;
+            const picked = rowSuggestions[safeIndex];
+            if (picked) {
+                applySuggestionToMedicine(rowIndex, picked);
+            }
+        }
     };
 
     const handleSave = async () => {
@@ -72,6 +387,7 @@ export default function PrescriptionPreview() {
                 disease_or_problem: diagnosis,
                 medicines: validMeds,
                 notes,
+                recommended_tests: recommendedTests,
             });
             setSaved(true);
         } catch (err) {
@@ -302,49 +618,169 @@ export default function PrescriptionPreview() {
 
                             <div className="space-y-3">
                                 <AnimatePresence>
-                                    {medicines.map((med, index) => (
-                                        <motion.div
-                                            key={index}
-                                            initial={{ opacity: 0, y: -8 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0, x: -20 }}
-                                            className="grid grid-cols-12 gap-3 items-center"
-                                        >
-                                            <input
-                                                className="col-span-4 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#127fec]/30 focus:border-[#127fec] transition"
-                                                placeholder="e.g. Paracetamol"
-                                                value={med.name}
-                                                onChange={(e) =>
-                                                    handleChange(index, "name", e.target.value)
-                                                }
-                                            />
-                                            <input
-                                                className="col-span-3 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#127fec]/30 focus:border-[#127fec] transition"
-                                                placeholder="e.g. 500mg twice daily"
-                                                value={med.dosage}
-                                                onChange={(e) =>
-                                                    handleChange(index, "dosage", e.target.value)
-                                                }
-                                            />
-                                            <input
-                                                className="col-span-4 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#127fec]/30 focus:border-[#127fec] transition"
-                                                placeholder="e.g. After meals"
-                                                value={med.instruction}
-                                                onChange={(e) =>
-                                                    handleChange(index, "instruction", e.target.value)
-                                                }
-                                            />
-                                            <button
-                                                onClick={() => removeMedicine(index)}
-                                                disabled={medicines.length === 1}
-                                                className="col-span-1 flex items-center justify-center w-9 h-9 rounded-xl bg-red-50 text-red-400 hover:bg-red-100 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                                    {medicines.map((med, index) => {
+                                        const rowSuggestions = medicineSuggestions[index] || [];
+                                        const activeSuggestion = highlightedSuggestionIndex[index] ?? -1;
+                                        const showSuggestions =
+                                            focusedMedicineIndex === index &&
+                                            (
+                                                medicineLoading[index] ||
+                                                rowSuggestions.length > 0 ||
+                                                med.name.trim().length >= 2
+                                            );
+
+                                        return (
+                                            <motion.div
+                                                key={index}
+                                                initial={{ opacity: 0, y: -8 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, x: -20 }}
+                                                className="grid grid-cols-12 gap-3 items-start"
                                             >
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </motion.div>
-                                    ))}
+                                                <div className="col-span-4 relative">
+                                                    <input
+                                                        className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#127fec]/30 focus:border-[#127fec] transition"
+                                                        placeholder="e.g. Paracetamol"
+                                                        value={med.name}
+                                                        onFocus={() => {
+                                                            setFocusedMedicineIndex(index);
+                                                            fetchMedicineSuggestions(index, med.name);
+                                                        }}
+                                                        onBlur={() => {
+                                                            setTimeout(() => {
+                                                                setFocusedMedicineIndex((prev) =>
+                                                                    prev === index ? null : prev,
+                                                                );
+                                                            }, 120);
+                                                        }}
+                                                        onChange={(e) =>
+                                                            handleMedicineNameChange(index, e.target.value)
+                                                        }
+                                                        onKeyDown={(event) =>
+                                                            handleMedicineNameKeyDown(event, index)
+                                                        }
+                                                        autoComplete="off"
+                                                    />
+
+                                                    <AnimatePresence>
+                                                        {showSuggestions && (
+                                                            <motion.div
+                                                                initial={{ opacity: 0, y: -4 }}
+                                                                animate={{ opacity: 1, y: 0 }}
+                                                                exit={{ opacity: 0, y: -4 }}
+                                                                className="absolute z-30 left-0 right-0 top-[calc(100%+0.35rem)] bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden"
+                                                            >
+                                                                {medicineLoading[index] ? (
+                                                                    <div className="px-3 py-2 text-xs text-slate-500 inline-flex items-center gap-2">
+                                                                        <Loader2 size={13} className="animate-spin" />
+                                                                        Fetching suggestions...
+                                                                    </div>
+                                                                ) : rowSuggestions.length > 0 ? (
+                                                                    <div className="max-h-56 overflow-y-auto py-1">
+                                                                        {rowSuggestions.map((suggestion, suggestionIndex) => {
+                                                                            const isActive =
+                                                                                activeSuggestion === suggestionIndex;
+
+                                                                            return (
+                                                                                <button
+                                                                                    key={`${suggestion.display || suggestion.name}-${suggestionIndex}`}
+                                                                                    type="button"
+                                                                                    onMouseDown={(e) => e.preventDefault()}
+                                                                                    onClick={() =>
+                                                                                        applySuggestionToMedicine(index, suggestion)
+                                                                                    }
+                                                                                    className={`w-full text-left px-3 py-2 transition ${
+                                                                                        isActive
+                                                                                            ? "bg-blue-50"
+                                                                                            : "hover:bg-slate-50"
+                                                                                    }`}
+                                                                                >
+                                                                                    <div className="flex items-center justify-between gap-2">
+                                                                                        <p className="text-sm font-semibold text-slate-700">
+                                                                                            {highlightSuggestionText(
+                                                                                                suggestion.display || suggestion.name,
+                                                                                                med.name,
+                                                                                            )}
+                                                                                        </p>
+                                                                                        {suggestion.source === "recent" && (
+                                                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-[10px] font-semibold tracking-wide text-slate-500 uppercase">
+                                                                                                Recent
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    {(suggestion.form || suggestion.strength) && (
+                                                                                        <p className="text-[11px] text-slate-500 mt-0.5">
+                                                                                            {[suggestion.form, suggestion.strength]
+                                                                                                .filter(Boolean)
+                                                                                                .join(" • ")}
+                                                                                        </p>
+                                                                                    )}
+                                                                                </button>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="px-3 py-2 text-xs text-slate-500">
+                                                                        No matches found. Continue typing or enter manually.
+                                                                    </div>
+                                                                )}
+
+                                                                <div className="px-3 py-1.5 border-t border-slate-100 bg-slate-50/80">
+                                                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                                                                        Powered by MedEx
+                                                                    </p>
+                                                                </div>
+                                                            </motion.div>
+                                                        )}
+                                                    </AnimatePresence>
+                                                </div>
+
+                                                <input
+                                                    className="col-span-3 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#127fec]/30 focus:border-[#127fec] transition"
+                                                    placeholder="e.g. 500mg twice daily"
+                                                    value={med.dosage}
+                                                    onChange={(e) =>
+                                                        handleChange(index, "dosage", e.target.value)
+                                                    }
+                                                />
+                                                <input
+                                                    className="col-span-4 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#127fec]/30 focus:border-[#127fec] transition"
+                                                    placeholder="e.g. After meals"
+                                                    value={med.instruction}
+                                                    onChange={(e) =>
+                                                        handleChange(index, "instruction", e.target.value)
+                                                    }
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeMedicine(index)}
+                                                    disabled={medicines.length === 1}
+                                                    className="col-span-1 flex items-center justify-center w-9 h-9 rounded-xl bg-red-50 text-red-400 hover:bg-red-100 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </motion.div>
+                                        );
+                                    })}
                                 </AnimatePresence>
                             </div>
+                        </div>
+
+                        {/* Recommended Tests */}
+                        <div>
+                            <h3 className="font-semibold text-slate-800 mb-3">
+                                Recommended Tests / Reports
+                            </h3>
+                            <textarea
+                                className="w-full border border-slate-200 rounded-2xl px-4 py-3 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#127fec]/30 focus:border-[#127fec] transition resize-none"
+                                rows={3}
+                                value={recommendedTests}
+                                onChange={(e) => setRecommendedTests(e.target.value)}
+                                placeholder="Examples: CBC, Blood sugar, X-ray chest"
+                            />
+                            <p className="text-xs text-slate-400 mt-2">
+                                Add one test per line if multiple reports are needed.
+                            </p>
                         </div>
 
                         {/* Notes */}

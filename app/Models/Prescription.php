@@ -16,6 +16,7 @@ class Prescription extends Model
         'disease_or_problem',
         'medication',
         'instructions',
+        'recommended_tests',
     ];
 
     public function appointment()

@@ -12,6 +12,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PrescriptionController;
 use App\Http\Controllers\RoomAdmissionController;
 use App\Http\Controllers\AdmissionPortalController;
+use App\Http\Controllers\MedicineSuggestionController;
 
 // ── Auth routes ───────────────────────────────────────────────
 Route::prefix('auth')->group(function () {
@@ -57,6 +58,7 @@ Route::middleware('auth:api')->group(function () {
     Route::prefix('doctor')->group(function () {
         Route::get('appointments',                        [AppointmentController::class, 'doctorIndex']);
         Route::get('room-admissions',                     [AdmissionPortalController::class, 'doctorAdmissions']);
+        Route::get('medicines/suggestions',               [MedicineSuggestionController::class, 'index']);
         Route::patch('appointments/{id}/status',          [AppointmentController::class, 'updateStatus']);
         Route::post('appointments/{id}/prescription',     [PrescriptionController::class, 'store']);
         Route::get('appointments/{id}/prescription/pdf',  [PrescriptionController::class, 'doctorPdf']);
@@ -73,6 +75,7 @@ Route::middleware('auth:api')->group(function () {
 
     // Patient prescription
     Route::get('patient/appointments/{id}/prescription', [PrescriptionController::class, 'show']);
+    Route::get('patient/appointments/{id}/prescription/pdf', [PrescriptionController::class, 'patientPdf']);
 
     // Admin routes — role:admin enforced inside AdminController constructor
     Route::prefix('admin')->group(function () {

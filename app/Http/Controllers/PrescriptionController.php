@@ -49,6 +49,7 @@ class PrescriptionController extends Controller
             'medicines.*.instruction' => 'nullable|string|max:500',
             'disease_or_problem' => 'nullable|string|max:500',
             'notes'              => 'nullable|string|max:2000',
+            'recommended_tests'  => 'nullable|string|max:2000',
         ]);
 
         // Store prescription (medication as JSON)
@@ -57,6 +58,7 @@ class PrescriptionController extends Controller
             'disease_or_problem' => $request->input('disease_or_problem'),
             'medication'         => json_encode($request->input('medicines')),
             'instructions'       => $request->input('notes'),
+            'recommended_tests'  => $request->input('recommended_tests'),
         ]);
 
         // Mark appointment completed
@@ -140,6 +142,45 @@ class PrescriptionController extends Controller
     }
 
     /**
+     * GET /api/patient/appointments/{id}/prescription/pdf
+     * Patient downloads prescription PDF for their own appointment.
+     */
+    public function patientPdf($id)
+    {
+        $patient = auth()->user()->patient;
+
+        if (!$patient) {
+            return response()->json(['status' => 'error', 'message' => 'Patient profile not found.'], 404);
+        }
+
+        $appointment = Appointment::where('id', $id)
+            ->where('patient_id', $patient->id)
+            ->with(['doctor.user', 'patient.user', 'prescriptions'])
+            ->first();
+
+        if (!$appointment) {
+            return response()->json(['status' => 'error', 'message' => 'Appointment not found.'], 404);
+        }
+
+        $prescription = $appointment->prescriptions->sortByDesc('id')->first();
+
+        if (!$prescription) {
+            return response()->json(['status' => 'error', 'message' => 'No prescription found for this appointment.'], 404);
+        }
+
+        $pdfData = $this->buildPdfData($appointment, $prescription);
+        $pdf = Pdf::loadView('emails.patients.prescription', ['prescription' => $pdfData]);
+        $fileName = "prescription-{$appointment->id}.pdf";
+
+        return response($pdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => "attachment; filename=\"{$fileName}\"",
+            'Cache-Control' => 'no-store, no-cache, must-revalidate',
+            'Pragma' => 'no-cache',
+        ]);
+    }
+
+    /**
      * GET /api/patient/appointments/{id}/prescription
      * Patient retrieves the prescription for one of their appointments.
      */
@@ -176,6 +217,7 @@ class PrescriptionController extends Controller
                 'disease_or_problem' => $prescription->disease_or_problem,
                 'medicines'          => $medicines,
                 'notes'              => $prescription->instructions,
+                'recommended_tests'  => $prescription->recommended_tests,
                 'created_at'         => $prescription->created_at,
                 'doctor_name'        => $appointment->doctor->user->name ?? 'Unknown',
                 'doctor_specialization' => $appointment->doctor->specialization ?? '',
@@ -200,6 +242,7 @@ class PrescriptionController extends Controller
             'disease_or_problem'    => $prescription->disease_or_problem,
             'medicines'             => $medicines,
             'notes'                 => $prescription->instructions,
+            'recommended_tests'     => $prescription->recommended_tests,
             'appointment_date'      => $appointment->appointment_date,
             'appointment_time'      => $appointment->appointment_time,
         ];

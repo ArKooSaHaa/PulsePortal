@@ -153,6 +153,23 @@
             font-size: 14px;
         }
 
+        /* Recommended Tests Section */
+        .tests-box {
+            background-color: #eff6ff; /* blue-50 */
+            border: 1px solid #dbeafe; /* blue-100 */
+            padding: 20px;
+            color: #334155; /* slate-700 */
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        .tests-title {
+            font-weight: bold;
+            color: #1e293b;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
         /* Footer */
         .footer {
             border-top: 1px solid #f1f5f9;
@@ -236,6 +253,13 @@
                 <div class="notes-box">
                     <div class="notes-title">Doctor's Notes</div>
                     {!! nl2br(e($prescription->notes)) !!}
+                </div>
+            @endif
+
+            @if($prescription->recommended_tests)
+                <div class="tests-box">
+                    <div class="tests-title">Recommended Tests / Reports</div>
+                    {!! nl2br(e($prescription->recommended_tests)) !!}
                 </div>
             @endif
 

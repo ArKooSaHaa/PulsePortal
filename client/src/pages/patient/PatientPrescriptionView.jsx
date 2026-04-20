@@ -6,6 +6,7 @@ import {
     FileText,
     User,
     Pill,
+    Download,
     CalendarDays,
     Loader2,
     Stethoscope,
@@ -17,6 +18,8 @@ import {
 import appointmentService from "../../api/appointmentService";
 import aiService from "../../api/aiService";
 import MarkdownRenderer from "../../components/MarkdownRenderer";
+
+const Motion = motion;
 
 function formatTime(timeStr) {
     if (!timeStr) return "—";
@@ -40,10 +43,17 @@ export default function PatientPrescriptionView() {
     const [prescription, setPrescription] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [downloading, setDownloading] = useState(false);
+    const [downloadError, setDownloadError] = useState("");
 
     // AI Summary State
     const [summaryLoading, setSummaryLoading] = useState(false);
     const [summaryText, setSummaryText] = useState("");
+
+    const recommendedTests = String(prescription?.recommended_tests || "")
+        .split(/\r?\n/)
+        .map((item) => item.trim())
+        .filter(Boolean);
 
     useEffect(() => {
         appointmentService
@@ -63,6 +73,34 @@ export default function PatientPrescriptionView() {
             setSummaryText("⚠️ Failed to generate summary. " + (err?.response?.data?.message || "AI service may be temporarily unavailable. Please try again later."));
         } finally {
             setSummaryLoading(false);
+        }
+    };
+
+    const handleDownloadReport = async () => {
+        setDownloadError("");
+        setDownloading(true);
+
+        try {
+            const pdfBlob = await appointmentService.getPatientPrescriptionPdf(id);
+            const fileUrl = URL.createObjectURL(pdfBlob);
+
+            const safeDate = String(prescription?.appointment_date || "").slice(0, 10) || "report";
+            const link = document.createElement("a");
+            link.href = fileUrl;
+            link.download = `prescription-${id}-${safeDate}.pdf`;
+
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+
+            setTimeout(() => URL.revokeObjectURL(fileUrl), 1000);
+        } catch (err) {
+            setDownloadError(
+                err?.response?.data?.message ||
+                    "Failed to download report. Please try again.",
+            );
+        } finally {
+            setDownloading(false);
         }
     };
 
@@ -248,6 +286,32 @@ export default function PatientPrescriptionView() {
                             </div>
                         )}
 
+                        {/* Recommended Tests */}
+                        {recommendedTests.length > 0 && (
+                            <div>
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="w-7 h-7 bg-blue-50 rounded-lg flex items-center justify-center">
+                                        <ClipboardList size={14} className="text-[#127fec]" />
+                                    </div>
+                                    <h3 className="font-semibold text-slate-800">
+                                        Recommended Tests / Reports
+                                    </h3>
+                                </div>
+                                <div className="bg-blue-50 border border-blue-100 rounded-2xl px-5 py-4">
+                                    <ul className="space-y-2">
+                                        {recommendedTests.map((item, index) => (
+                                            <li
+                                                key={`${item}-${index}`}
+                                                className="text-sm text-slate-700 leading-relaxed list-disc ml-5"
+                                            >
+                                                {item}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Footer */}
                         <div className="flex items-center justify-between pt-4 border-t border-slate-100">
                             <div className="flex items-center gap-2">
@@ -256,13 +320,37 @@ export default function PatientPrescriptionView() {
                                     Issued on {formatDate(prescription.appointment_date)}
                                 </span>
                             </div>
-                            <button
-                                onClick={() => navigate(-1)}
-                                className="px-6 py-2.5 rounded-full bg-slate-100 text-slate-600 text-sm font-semibold hover:bg-slate-200 transition"
-                            >
-                                Close
-                            </button>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={handleDownloadReport}
+                                    disabled={downloading}
+                                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
+                                >
+                                    {downloading ? (
+                                        <>
+                                            <Loader2 size={14} className="animate-spin" />
+                                            Downloading...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Download size={14} />
+                                            Download Report
+                                        </>
+                                    )}
+                                </button>
+                                <button
+                                    onClick={() => navigate(-1)}
+                                    className="px-6 py-2.5 rounded-full bg-slate-100 text-slate-600 text-sm font-semibold hover:bg-slate-200 transition"
+                                >
+                                    Close
+                                </button>
+                            </div>
                         </div>
+                        {downloadError && (
+                            <p className="text-xs text-red-500 text-right -mt-4">
+                                {downloadError}
+                            </p>
+                        )}
                     </div>
                 </motion.div>
 
