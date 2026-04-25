@@ -39,31 +39,44 @@ class AiController extends Controller
 
         $message = trim((string) $validated['message']);
         $history = $this->normalizeHistory($validated['history'] ?? []);
-        $specialization = $this->triageService->mapSpecialist($message);
-        $recommendedDoctors = $this->fetchDoctorsBySpecialization($specialization);
+        $patientNarrative = $this->triageService->buildPatientNarrative($message, $history);
+        $specialization = $this->triageService->mapSpecialist($patientNarrative !== '' ? $patientNarrative : $message);
 
-        $emergencyMessage = $this->triageService->checkEmergency($message);
+        $emergencyMessage = $this->triageService->checkEmergency($patientNarrative !== '' ? $patientNarrative : $message);
         if ($emergencyMessage !== null) {
             return response()->json([
                 'message' => $emergencyMessage,
+                'stage' => 'emergency',
                 'specialization' => $specialization,
-                'doctors' => $recommendedDoctors,
+                'doctors' => [],
                 'disclaimer' => TriageService::DISCLAIMER,
                 'emergency' => true,
+                'symptom_summary' => $patientNarrative,
             ]);
         }
 
         try {
-            $prompt = $this->triageService->buildPrompt($message, $history, $specialization);
-            $response = $this->llmService->askLlm($prompt);
-            $safeResponse = $this->triageService->ensureStructuredResponse($response);
+            $chatReply = $this->triageService->buildChatReply(
+                $message,
+                $history,
+                fn (string $prompt): string => $this->llmService->askLlm($prompt)
+            );
+
+            $resolvedSpecialization = (string) ($chatReply['specialization'] ?? $specialization);
+            $stage = (string) ($chatReply['stage'] ?? 'collect');
+            $showDoctors = (bool) ($chatReply['show_doctors'] ?? false);
+            $recommendedDoctors = $showDoctors
+                ? $this->fetchDoctorsBySpecialization($resolvedSpecialization)
+                : [];
 
             return response()->json([
-                'message' => $safeResponse,
-                'specialization' => $specialization,
+                'message' => (string) ($chatReply['message'] ?? ''),
+                'stage' => $stage,
+                'specialization' => $resolvedSpecialization,
                 'doctors' => $recommendedDoctors,
                 'disclaimer' => TriageService::DISCLAIMER,
                 'emergency' => false,
+                'symptom_summary' => (string) ($chatReply['symptom_summary'] ?? $patientNarrative),
             ]);
         } catch (\Exception $e) {
             $errorMsg = $this->getUserFriendlyError($e->getMessage());

@@ -27,19 +27,51 @@ class TriageServiceTest extends TestCase
         $this->assertSame('Gastroenterologist', $service->mapSpecialist('Stomach pain after meals'));
     }
 
-    public function test_prompt_includes_recent_memory_and_required_format(): void
+    public function test_chat_reply_starts_with_collection_when_details_are_missing(): void
     {
         $service = new TriageService();
 
-        $prompt = $service->buildPrompt('I still have fever.', [
-            ['role' => 'user', 'content' => 'I feel weak.'],
-            ['role' => 'assistant', 'content' => 'Possible causes: * Viral illness'],
-        ]);
+        $reply = $service->buildChatReply(
+            'I have headache.',
+            [],
+            fn (string $prompt): string => $prompt,
+        );
 
-        $this->assertStringContainsString('User: I feel weak.', $prompt);
-        $this->assertStringContainsString('Assistant: Possible causes: * Viral illness', $prompt);
-        $this->assertStringContainsString('Possible causes:', $prompt);
-        $this->assertStringContainsString('Advice:', $prompt);
-        $this->assertStringContainsString('Follow-up question:', $prompt);
+        $this->assertSame('collect', $reply['stage']);
+        $this->assertFalse($reply['show_doctors']);
+        $this->assertStringContainsString('missing details', strtolower($reply['message']));
+    }
+
+    public function test_chat_reply_requires_confirmation_after_complete_symptom_snapshot(): void
+    {
+        $service = new TriageService();
+
+        $reply = $service->buildChatReply(
+            'Headache and fever for 2 days, pain 6/10, no other symptoms.',
+            [],
+            fn (string $prompt): string => $prompt,
+        );
+
+        $this->assertSame('confirm', $reply['stage']);
+        $this->assertFalse($reply['show_doctors']);
+        $this->assertStringContainsString('Reply with "confirm"', $reply['message']);
+    }
+
+    public function test_chat_reply_returns_advice_after_user_confirms(): void
+    {
+        $service = new TriageService();
+
+        $reply = $service->buildChatReply(
+            'confirm',
+            [
+                ['role' => 'user', 'content' => 'Headache and fever for 2 days, pain 6/10, no other symptoms.'],
+                ['role' => 'assistant', 'content' => 'Reply with "confirm" to continue.'],
+            ],
+            fn (string $prompt): string => "Likely possibilities:\n- Viral illness\n\nCare plan:\n- Rest\n\nMedicine options (OTC only):\n- Paracetamol\n\nWhen to seek urgent care:\n- Breathing difficulty\n\nRecommended specialist:\n- General Physician",
+        );
+
+        $this->assertSame('advice', $reply['stage']);
+        $this->assertTrue($reply['show_doctors']);
+        $this->assertStringContainsString('Medicine options (OTC only):', $reply['message']);
     }
 }
