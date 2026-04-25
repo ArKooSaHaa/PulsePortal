@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import appointmentService from "../../api/appointmentService";
 import aiService from "../../api/aiService";
@@ -387,6 +388,7 @@ function formatDate(year, month, day) {
 
 
 export default function BookAppointment() {
+    const location = useLocation();
     const [search, setSearch] = useState("");
     const [dept, setDept] = useState("All");
     const [selectedDoctor, setSelectedDoctor] = useState(null);
@@ -414,6 +416,7 @@ export default function BookAppointment() {
     const [aiResult, setAiResult] = useState(null); // { specializations, explanation }
     const [aiError, setAiError] = useState("");
     const searchInputRef = useRef(null);
+    const prefillFromChatRef = useRef(false);
 
     useEffect(() => {
         appointmentService
@@ -563,6 +566,40 @@ export default function BookAppointment() {
         const matchDept = dept === "All" || d.department === dept;
         return matchSearch && matchDept;
     });
+
+    useEffect(() => {
+        if (prefillFromChatRef.current || loadingDoctors) return;
+
+        const state = location.state || {};
+        const hasPrefill =
+            state.doctorId || state.specialization || state.symptoms;
+
+        if (!hasPrefill) return;
+
+        if (state.symptoms) {
+            setSymptoms(String(state.symptoms));
+        }
+
+        if (state.specialization) {
+            setAiResult({
+                specializations: [String(state.specialization)],
+                explanation: "Recommended from your triage chat.",
+            });
+            setIsAiSearchActive(false);
+        }
+
+        if (state.doctorId) {
+            const matchedDoctor = mappedDoctors.find(
+                (doctor) => String(doctor.id) === String(state.doctorId),
+            );
+
+            if (matchedDoctor) {
+                setSelectedDoctor(matchedDoctor);
+            }
+        }
+
+        prefillFromChatRef.current = true;
+    }, [loadingDoctors, location.state, mappedDoctors]);
 
     // ── AI Doctor Suggestion handlers ──
     useEffect(() => {

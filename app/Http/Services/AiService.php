@@ -9,12 +9,12 @@ use Illuminate\Support\Facades\Log;
  * Provider-agnostic AI service.
  *
  * Supported providers (set AI_PROVIDER in .env):
- *   openai, gemini, anthropic, xai, mistral, ollama
+ *   openai, groq, gemini, anthropic, xai, mistral, ollama
  *
  * Required .env keys:
- *   AI_PROVIDER=gemini
- *   AI_API_KEY=your-key-here
- *   AI_MODEL=gemini-2.0-flash        (optional — sensible defaults per provider)
+ *   GROQ_API_KEY=your-key-here
+ *   AI_PROVIDER=groq                 (optional — defaults to Groq when GROQ_API_KEY exists)
+ *   AI_MODEL=llama-3.1-8b-instant    (optional — sensible defaults per provider)
  */
 class AiService
 {
@@ -25,6 +25,7 @@ class AiService
     // ── Default models per provider ──────────────────────────────
     private const DEFAULT_MODELS = [
         'openai'    => 'gpt-4o-mini',
+        'groq'      => 'llama-3.1-8b-instant',
         'gemini'    => 'gemini-2.0-flash',
         'anthropic' => 'claude-haiku-4-5-20251001',
         'xai'       => 'grok-3-mini',
@@ -35,6 +36,7 @@ class AiService
     // ── API base URLs ────────────────────────────────────────────
     private const BASE_URLS = [
         'openai'    => 'https://api.openai.com/v1',
+        'groq'      => 'https://api.groq.com/openai/v1',
         'gemini'    => 'https://generativelanguage.googleapis.com/v1beta',
         'anthropic' => 'https://api.anthropic.com/v1',
         'xai'       => 'https://api.x.ai/v1',
@@ -44,9 +46,11 @@ class AiService
 
     public function __construct()
     {
-        $this->provider = strtolower(config('app.ai_provider', env('AI_PROVIDER', 'gemini')));
-        $this->apiKey   = config('app.ai_api_key', env('AI_API_KEY', ''));
-        $this->model    = config('app.ai_model', env('AI_MODEL', self::DEFAULT_MODELS[$this->provider] ?? 'gpt-4o-mini'));
+        $defaultProvider = config('services.groq.key') ? 'groq' : 'gemini';
+
+        $this->provider = strtolower(config('app.ai_provider', env('AI_PROVIDER', $defaultProvider)));
+        $this->apiKey   = $this->resolveApiKey($this->provider);
+        $this->model    = config('app.ai_model', env('AI_MODEL', $this->resolveDefaultModel($this->provider)));
     }
 
     // ─── Public API ──────────────────────────────────────────────
@@ -84,7 +88,7 @@ class AiService
     {
         try {
             return match ($this->provider) {
-                'openai', 'xai', 'mistral' => $this->sendOpenAiCompatible($systemPrompt, $userMessage, $conversationHistory),
+                'openai', 'groq', 'xai', 'mistral' => $this->sendOpenAiCompatible($systemPrompt, $userMessage, $conversationHistory),
                 'gemini'                    => $this->sendGemini($systemPrompt, $userMessage, $conversationHistory),
                 'anthropic'                 => $this->sendAnthropic($systemPrompt, $userMessage, $conversationHistory),
                 'ollama'                    => $this->sendOllama($systemPrompt, $userMessage, $conversationHistory),
@@ -103,6 +107,10 @@ class AiService
 
     private function sendOpenAiCompatible(string $systemPrompt, string $userMessage, array $history): string
     {
+        if (trim($this->apiKey) === '') {
+            throw new \RuntimeException("Missing API key for AI provider: {$this->provider}");
+        }
+
         $messages   = [['role' => 'system', 'content' => $systemPrompt]];
         $messages   = array_merge($messages, $this->formatOpenAiHistory($history));
         $messages[] = ['role' => 'user', 'content' => $userMessage];
@@ -130,6 +138,10 @@ class AiService
 
     private function sendGemini(string $systemPrompt, string $userMessage, array $history): string
     {
+        if (trim($this->apiKey) === '') {
+            throw new \RuntimeException('Missing API key for AI provider: gemini');
+        }
+
         $contents = [];
 
         // Add conversation history
@@ -173,6 +185,10 @@ class AiService
 
     private function sendAnthropic(string $systemPrompt, string $userMessage, array $history): string
     {
+        if (trim($this->apiKey) === '') {
+            throw new \RuntimeException('Missing API key for AI provider: anthropic');
+        }
+
         $messages   = $this->formatOpenAiHistory($history);
         $messages[] = ['role' => 'user', 'content' => $userMessage];
 
@@ -227,6 +243,24 @@ class AiService
             'role'    => $msg['role'] ?? 'user',
             'content' => $msg['content'] ?? '',
         ], $history);
+    }
+
+    private function resolveApiKey(string $provider): string
+    {
+        if ($provider === 'groq') {
+            return (string) config('services.groq.key', env('GROQ_API_KEY', ''));
+        }
+
+        return (string) config('app.ai_api_key', env('AI_API_KEY', ''));
+    }
+
+    private function resolveDefaultModel(string $provider): string
+    {
+        if ($provider === 'groq') {
+            return (string) config('services.groq.model', self::DEFAULT_MODELS['groq']);
+        }
+
+        return self::DEFAULT_MODELS[$provider] ?? 'gpt-4o-mini';
     }
 
     /**

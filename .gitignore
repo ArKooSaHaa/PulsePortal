@@ -19,3 +19,11 @@ yarn-error.log
 /.vscode
 PROJECT_BACKEND_MASTER_ROADMAP.md
 context.md
+
+# Local development artifacts
+.codex
+.codex/
+venv/
+.venv/
+__pycache__/
+*.py[cod]

@@ -5,7 +5,10 @@ import {
     Send,
     Bot,
     AlertTriangle,
+    CalendarPlus,
+    Stethoscope,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import aiService from "../api/aiService";
 
 const CHIPS = [
@@ -74,7 +77,53 @@ function TypingIndicator() {
     );
 }
 
+function DoctorRecommendations({ doctors, symptoms, onBook }) {
+    if (!Array.isArray(doctors) || doctors.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className="mt-3 pt-3 border-t border-blue-100/70 flex flex-col gap-2">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#127fec]">
+                <Stethoscope size={12} />
+                Recommended Doctors
+            </div>
+            {doctors.slice(0, 4).map((doctor) => (
+                <div
+                    key={doctor.id}
+                    className="rounded-xl border border-slate-100 bg-white/70 px-3 py-2"
+                >
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                            <p className="text-sm font-semibold text-slate-800 truncate">
+                                {doctor.name}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                                {doctor.specialization}
+                                {doctor.fee ? ` · ৳${doctor.fee}` : ""}
+                            </p>
+                            {doctor.service_hours_label && (
+                                <p className="text-[11px] text-slate-400 mt-0.5">
+                                    {doctor.service_hours_label}
+                                </p>
+                            )}
+                        </div>
+                        <button
+                            onClick={() => onBook(doctor, symptoms)}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-[#127fec] px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-sm hover:bg-[#0a5bbf] transition-colors flex-shrink-0"
+                        >
+                            <CalendarPlus size={12} />
+                            Book Appointment
+                        </button>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
 export default function AIChatPanel({ onClose }) {
+    const navigate = useNavigate();
     const [messages, setMessages] = useState([
         {
             id: 0,
@@ -119,13 +168,19 @@ export default function AIChatPanel({ onClose }) {
         try {
             const history = buildHistory();
             const aiResponse = await aiService.chatWithAssistant(trimmed, history);
+            const responseText = aiResponse.message || String(aiResponse || "");
 
             setMessages((prev) => [
                 ...prev,
                 {
                     id: Date.now() + 1,
                     from: "ai",
-                    text: aiResponse,
+                    text: responseText,
+                    doctors: aiResponse.doctors || [],
+                    specialization: aiResponse.specialization || "",
+                    disclaimer: aiResponse.disclaimer || "",
+                    emergency: Boolean(aiResponse.emergency),
+                    symptoms: trimmed,
                 },
             ]);
         } catch (err) {
@@ -151,7 +206,7 @@ export default function AIChatPanel({ onClose }) {
      */
     function renderMessageText(text) {
         // Split by double newlines for paragraphs, then handle bullets
-        const lines = text.split('\n');
+        const lines = String(text || "").split('\n');
         const elements = [];
         let currentList = [];
 
@@ -205,6 +260,17 @@ export default function AIChatPanel({ onClose }) {
             }
             return part;
         });
+    }
+
+    function bookDoctor(doctor, symptoms) {
+        navigate("/patient/book-appointment", {
+            state: {
+                doctorId: doctor.id,
+                specialization: doctor.specialization,
+                symptoms,
+            },
+        });
+        onClose?.();
     }
 
     return (
@@ -346,7 +412,23 @@ export default function AIChatPanel({ onClose }) {
                                         : {}
                                 }
                             >
-                                {msg.from === "ai" ? renderMessageText(msg.text) : msg.text}
+                                {msg.from === "ai" ? (
+                                    <>
+                                        {renderMessageText(msg.text)}
+                                        {!msg.emergency && (
+                                            <DoctorRecommendations
+                                                doctors={msg.doctors}
+                                                symptoms={msg.symptoms}
+                                                onBook={bookDoctor}
+                                            />
+                                        )}
+                                        {msg.disclaimer && (
+                                            <p className="mt-3 pt-2 border-t border-slate-100 text-[11px] leading-relaxed text-slate-400">
+                                                {msg.disclaimer}
+                                            </p>
+                                        )}
+                                    </>
+                                ) : msg.text}
                             </div>
                         </motion.div>
                     ))}

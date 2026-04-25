@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Http\Services\AiService;
+use App\Http\Services\LlmService;
+use App\Http\Services\TriageService;
 use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Appointment;
@@ -11,11 +13,15 @@ use App\Models\Appointment;
 class AiController extends Controller
 {
     protected AiService $aiService;
+    protected LlmService $llmService;
+    protected TriageService $triageService;
 
-    public function __construct(AiService $aiService)
+    public function __construct(AiService $aiService, LlmService $llmService, TriageService $triageService)
     {
         $this->middleware('auth:api');
         $this->aiService = $aiService;
+        $this->llmService = $llmService;
+        $this->triageService = $triageService;
     }
 
     /**
@@ -24,63 +30,40 @@ class AiController extends Controller
      */
     public function chat(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'message' => 'required|string|max:2000',
             'history' => 'nullable|array',
+            'history.*.role' => 'nullable|string|in:user,assistant',
+            'history.*.content' => 'nullable|string|max:2000',
         ]);
 
-        $user    = auth()->user();
-        $message = $request->input('message');
-        $history = $request->input('history', []);
+        $message = trim((string) $validated['message']);
+        $history = $this->normalizeHistory($validated['history'] ?? []);
+        $specialization = $this->triageService->mapSpecialist($message);
+        $recommendedDoctors = $this->fetchDoctorsBySpecialization($specialization);
 
-        // Gather database context
-        $specializations = Doctor::where('is_available', true)
-            ->distinct()
-            ->pluck('specialization')
-            ->toArray();
-
-        $doctors = Doctor::with('user')
-            ->where('is_available', true)
-            ->get()
-            ->map(fn($d) => "{$d->user->name} ({$d->specialization})")
-            ->toArray();
-
-        $systemPrompt = <<<PROMPT
-You are a helpful AI Health Assistant for PulsePortal Hospital Management System.
-
-Your role:
-- Provide general health guidance based on symptoms described by the patient.
-- Suggest what to do and what NOT to do for common symptoms.
-- Recommend basic home treatments where appropriate.
-- If symptoms sound serious or life-threatening, clearly advise the patient to seek IMMEDIATE medical attention at a hospital.
-- Suggest which medical specialization the patient should visit.
-- Be warm, empathetic, and clear in your responses.
-- Keep responses concise (2-4 paragraphs max).
-
-Available specializations at our hospital: {implSpecializations}
-Available doctors: {implDoctors}
-
-IMPORTANT RULES:
-- You are NOT a doctor. You cannot diagnose or prescribe medication.
-- Always recommend consulting a professional doctor for proper diagnosis.
-- For emergencies (chest pain, difficulty breathing, severe bleeding, loss of consciousness), always advise calling emergency services or visiting the ER immediately.
-- Only suggest doctors and specializations from the lists above.
-PROMPT;
-
-        $systemPrompt = str_replace(
-            ['{implSpecializations}', '{implDoctors}'],
-            [implode(', ', $specializations), implode(', ', $doctors)],
-            $systemPrompt
-        );
+        $emergencyMessage = $this->triageService->checkEmergency($message);
+        if ($emergencyMessage !== null) {
+            return response()->json([
+                'message' => $emergencyMessage,
+                'specialization' => $specialization,
+                'doctors' => $recommendedDoctors,
+                'disclaimer' => TriageService::DISCLAIMER,
+                'emergency' => true,
+            ]);
+        }
 
         try {
-            $response = $this->aiService->chat($systemPrompt, $message, $history);
+            $prompt = $this->triageService->buildPrompt($message, $history, $specialization);
+            $response = $this->llmService->askLlm($prompt);
+            $safeResponse = $this->triageService->ensureStructuredResponse($response);
 
             return response()->json([
-                'status'  => 'success',
-                'data'    => [
-                    'message' => $response,
-                ],
+                'message' => $safeResponse,
+                'specialization' => $specialization,
+                'doctors' => $recommendedDoctors,
+                'disclaimer' => TriageService::DISCLAIMER,
+                'emergency' => false,
             ]);
         } catch (\Exception $e) {
             $errorMsg = $this->getUserFriendlyError($e->getMessage());
@@ -90,6 +73,120 @@ PROMPT;
                 'message' => $errorMsg,
             ], 503);
         }
+    }
+
+    private function normalizeHistory(array $history): array
+    {
+        return collect($history)
+            ->filter(fn ($message) => is_array($message))
+            ->map(function (array $message) {
+                $role = strtolower((string) ($message['role'] ?? 'user'));
+                $normalizedRole = in_array($role, ['user', 'assistant'], true) ? $role : 'user';
+                $content = trim((string) ($message['content'] ?? ''));
+
+                return [
+                    'role' => $normalizedRole,
+                    'content' => mb_substr($content, 0, 2000),
+                ];
+            })
+            ->filter(fn (array $message) => $message['content'] !== '')
+            ->values()
+            ->slice(-5)
+            ->values()
+            ->toArray();
+    }
+
+    private function fetchDoctorsBySpecialization(string $specialization): array
+    {
+        $terms = $this->triageService->databaseSpecializationTerms($specialization);
+
+        $doctors = Doctor::with('user')
+            ->where('is_available', true)
+            ->where(function ($query) use ($terms) {
+                foreach ($terms as $term) {
+                    $query->orWhere('specialization', $term)
+                        ->orWhere('specialization', 'like', '%' . $term . '%');
+                }
+            })
+            ->limit(8)
+            ->get();
+
+        if ($doctors->isEmpty()) {
+            $doctors = Doctor::with('user')
+                ->where('is_available', true)
+                ->limit(8)
+                ->get();
+        }
+
+        return $doctors
+            ->map(function (Doctor $doctor) {
+                $name = (string) ($doctor->user->name ?? '');
+                if ($name === '') {
+                    return null;
+                }
+
+                return [
+                    'id' => $doctor->id,
+                    'name' => $name,
+                    'specialization' => (string) $doctor->specialization,
+                    'department' => (string) ($doctor->department ?? ''),
+                    'fee' => $doctor->consultation_fee,
+                    'service_hours_label' => $this->formatServiceHoursLabel($doctor->availability),
+                ];
+            })
+            ->filter()
+            ->values()
+            ->toArray();
+    }
+
+    private function formatServiceHoursLabel(?array $availability): ?string
+    {
+        $serviceHours = $this->resolveServiceHours($availability);
+        if (!$serviceHours) {
+            return null;
+        }
+
+        $start = date('h:i A', strtotime($serviceHours['start']));
+        $end = date('h:i A', strtotime($serviceHours['end']));
+
+        return "{$start} - {$end}";
+    }
+
+    private function resolveServiceHours(?array $availability): ?array
+    {
+        if (!is_array($availability)) {
+            return null;
+        }
+
+        if (
+            isset($availability['service_hours']) &&
+            is_array($availability['service_hours']) &&
+            !empty($availability['service_hours']['start']) &&
+            !empty($availability['service_hours']['end'])
+        ) {
+            return [
+                'start' => (string) $availability['service_hours']['start'],
+                'end' => (string) $availability['service_hours']['end'],
+            ];
+        }
+
+        $dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+        $ranges = collect($dayKeys)
+            ->map(fn ($day) => $availability[$day] ?? null)
+            ->filter(fn ($range) => is_array($range) && count($range) === 2)
+            ->values();
+
+        if ($ranges->isEmpty()) {
+            return null;
+        }
+
+        $starts = $ranges->map(fn ($range) => (string) $range[0])->sort()->values();
+        $ends = $ranges->map(fn ($range) => (string) $range[1])->sort()->values();
+
+        return [
+            'start' => $starts->first(),
+            'end' => $ends->last(),
+        ];
     }
 
     /**
@@ -342,11 +439,14 @@ PROMPT;
      */
     private function getUserFriendlyError(string $rawError): string
     {
+        if (stripos($rawError, 'decommissioned') !== false || stripos($rawError, 'model_decommissioned') !== false) {
+            return 'The configured AI model is unavailable. Please update GROQ_MODEL and try again.';
+        }
         if (stripos($rawError, 'quota') !== false || stripos($rawError, 'rate') !== false) {
             return 'AI API quota exceeded. Your API key has reached its usage limit. Please check your plan/billing or try again later.';
         }
         if (stripos($rawError, 'invalid') !== false && stripos($rawError, 'key') !== false) {
-            return 'Invalid AI API key. Please check your AI_API_KEY in the .env file.';
+            return 'Invalid AI API key. Please check your GROQ_API_KEY in the .env file.';
         }
         if (stripos($rawError, 'unauthorized') !== false || stripos($rawError, '401') !== false) {
             return 'AI API authentication failed. Please verify your API key.';

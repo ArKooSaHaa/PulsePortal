@@ -5,14 +5,14 @@ const aiService = {
      * Chat with the AI Health Assistant.
      * @param {string} message - User's message
      * @param {Array} history - Conversation history [{role: 'user'|'assistant', content: '...'}]
-     * @returns {Promise<string>} AI response message
+     * @returns {Promise<object>} AI triage response payload
      */
     chatWithAssistant: async (message, history = []) => {
         const response = await api.post("/patient/ai/chat", {
             message,
             history,
         });
-        return response.data.data.message;
+        return response.data.data || response.data;
     },
 
     /**
